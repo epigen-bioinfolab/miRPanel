@@ -63,7 +63,8 @@ def find_sites(
     region: str = "3UTR",
 ) -> list[dict]:
     """Scan a target for seed sites; return one standardized record per site."""
-    target = clean_sequence(target)
+    mirna = validate_sequence(mirna)
+    target = validate_sequence(target)
     site = get_6mer_site(mirna)
     records = []
     for pos in find_all(site, target):
