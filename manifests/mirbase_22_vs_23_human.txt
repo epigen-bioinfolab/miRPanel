@@ -1,0 +1,26 @@
+Human miRNAs: miRBase Release 22 vs Release 23
+================================================
+in Release 22 only            2656
+in Release 23 only            2789
+present in both               2594
+removed in 23                   62
+new in 23                      195
+------------------------------------------------
+renamed (same accession)       802
+sequence changed               493
+SEED changed                   243   <- the ones that matter
+================================================
+
+Examples of renaming:
+  MIMAT0000104  hsa-miR-107          -> hsa-miR-107-3p
+  MIMAT0000228  hsa-miR-198          -> hsa-miR-198-5p
+  MIMAT0000251  hsa-miR-147a         -> hsa-miR-147a-3p
+  MIMAT0000416  hsa-miR-1-3p         -> hsa-miR-1-2-3p
+  MIMAT0000439  hsa-miR-153-3p       -> hsa-miR-153-1-3p
+
+Examples of seed change:
+  MIMAT0000099  hsa-miR-101-3p       ACAGTAC -> TACAGTA
+  MIMAT0000433  hsa-miR-142-5p       ATAAAGT -> CCATAAA
+  MIMAT0000436  hsa-miR-144-3p       ACAGTAT -> CTACAGT
+  MIMAT0000755  hsa-miR-323a-3p      ACATTAC -> CACATTA
+  MIMAT0001636  hsa-miR-452-3p       TCATCTG -> CAGTCTC
