@@ -80,3 +80,19 @@ def find_sites(
             "low_confidence": site_type == "6mer",
         })
     return records
+
+
+VALID_BASES = set("ATGCN")
+
+
+def validate_sequence(seq: str) -> str:
+    """Strip a FASTA header if present, clean, and reject anything that is not DNA/RNA."""
+    if seq.lstrip().startswith(">"):
+        seq = "\n".join(seq.split("\n")[1:])
+    seq = clean_sequence(seq)
+    if not seq:
+        raise ValueError("empty sequence")
+    bad = sorted(set(seq) - VALID_BASES)
+    if bad:
+        raise ValueError(f"invalid characters in sequence: {', '.join(bad)}")
+    return seq
