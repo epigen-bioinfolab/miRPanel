@@ -63,3 +63,27 @@ CREATE INDEX IF NOT EXISTS ix_tx_ens       ON transcripts(ensembl_base);
 CREATE INDEX IF NOT EXISTS ix_tx_entrez    ON transcripts(entrez);
 CREATE INDEX IF NOT EXISTS ix_tx_symbol    ON transcripts(symbol);
 CREATE INDEX IF NOT EXISTS ix_alias        ON gene_aliases(alias);
+
+-- One row per mature miRNA, keyed by miRBase accession (stable across releases).
+CREATE TABLE IF NOT EXISTS mirnas (
+    accession     TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    sequence      TEXT NOT NULL,
+    seed          TEXT NOT NULL,
+    species       TEXT NOT NULL,
+    release       TEXT NOT NULL,
+    seed_changed  INTEGER NOT NULL DEFAULT 0
+);
+
+-- Every name a miRNA has ever had, pointing at its accession.
+CREATE TABLE IF NOT EXISTS mirna_aliases (
+    alias         TEXT NOT NULL,
+    accession     TEXT NOT NULL,
+    source        TEXT NOT NULL,
+    PRIMARY KEY (alias, accession)
+);
+
+CREATE INDEX IF NOT EXISTS ix_mir_name    ON mirnas(name);
+CREATE INDEX IF NOT EXISTS ix_mir_seed    ON mirnas(seed);
+CREATE INDEX IF NOT EXISTS ix_mir_species ON mirnas(species);
+CREATE INDEX IF NOT EXISTS ix_mir_alias   ON mirna_aliases(alias);
