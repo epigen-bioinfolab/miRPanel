@@ -87,3 +87,45 @@ CREATE INDEX IF NOT EXISTS ix_mir_name    ON mirnas(name);
 CREATE INDEX IF NOT EXISTS ix_mir_seed    ON mirnas(seed);
 CREATE INDEX IF NOT EXISTS ix_mir_species ON mirnas(species);
 CREATE INDEX IF NOT EXISTS ix_mir_alias   ON mirna_aliases(alias);
+
+CREATE TABLE IF NOT EXISTS targetscan_mirnas (
+    accession    TEXT PRIMARY KEY,
+    ts_name      TEXT NOT NULL,
+    family       TEXT NOT NULL,
+    seed         TEXT NOT NULL,
+    conservation INTEGER NOT NULL,
+    species      TEXT NOT NULL);
+
+CREATE INDEX IF NOT EXISTS idx_tsmir_seed ON targetscan_mirnas(seed);
+
+CREATE TABLE IF NOT EXISTS targetscan_genes (
+    entrez        TEXT PRIMARY KEY,
+    ts_transcript TEXT NOT NULL,
+    ensembl_base  TEXT NOT NULL,
+    ts_symbol     TEXT NOT NULL,
+    is_mane       INTEGER NOT NULL);
+
+CREATE INDEX IF NOT EXISTS idx_tsgene_tx ON targetscan_genes(ts_transcript);
+
+CREATE TABLE IF NOT EXISTS targetscan (
+    seed                  TEXT NOT NULL,
+    entrez                TEXT NOT NULL,
+    sites_conserved       INTEGER NOT NULL,
+    sites_8mer_c          INTEGER NOT NULL,
+    sites_7mer_m8_c       INTEGER NOT NULL,
+    sites_7mer_a1_c       INTEGER NOT NULL,
+    sites_nonconserved    INTEGER NOT NULL,
+    sites_8mer_n          INTEGER NOT NULL,
+    sites_7mer_m8_n       INTEGER NOT NULL,
+    sites_7mer_a1_n       INTEGER NOT NULL,
+    sites_6mer            INTEGER NOT NULL,
+    context_score         REAL,
+    cumulative_score      REAL,
+    aggregate_pct         REAL,
+    occupancy_low         REAL,
+    occupancy_high        REAL,
+    occupancy_transfected REAL,
+    in_default            INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (seed, entrez));
+
+CREATE INDEX IF NOT EXISTS idx_targetscan_entrez ON targetscan(entrez);
