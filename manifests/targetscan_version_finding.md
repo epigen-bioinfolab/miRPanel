@@ -50,3 +50,39 @@ prediction for those was computed against a different seed than the one
 our own seed analyser uses, so the two tools are answering slightly
 different questions. The results table marks them rather than hiding
 the discrepancy.
+
+## Gene identifier bridge (TargetScan Gene_info -> MANE)
+
+TargetScan Gene_info lists 28352 human transcripts across 19474 genes,
+using versioned Ensembl identifiers (ENST/ENSG). Version suffixes are
+stripped before joining.
+
+Join key comparison (distinct TargetScan entries finding a MANE match):
+
+| key | matches |
+|---|---|
+| Ensembl transcript | 12875 |
+| Ensembl gene | 18187 |
+| gene symbol | 17212 |
+
+Resolver cascade, Ensembl gene -> symbol -> alias:
+
+- 18187 on Ensembl gene
+- 285 more on gene symbol
+- 121 more on gene alias
+- 881 unresolved
+- 18593 / 19474 (95.5%) resolved
+
+## Transcript choice
+
+TargetScan predicts on its own representative transcript per gene,
+chosen by 3P-seq support. For resolved genes:
+
+- 11372 (61.2%) TargetScan's representative is the MANE transcript
+- 7189 (38.7%) it is a different transcript
+- 32 no representative flagged
+
+Consequence: TargetScan results are joined and displayed at gene level,
+never transcript level, and no TargetScan site position is shown. For
+the 38.7% the underlying 3' UTR sequence differs from the one our own
+tools scan, so positions would not be comparable.
