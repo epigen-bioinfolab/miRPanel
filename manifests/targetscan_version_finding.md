@@ -86,3 +86,36 @@ Consequence: TargetScan results are joined and displayed at gene level,
 never transcript level, and no TargetScan site position is shown. For
 the 38.7% the underlying 3' UTR sequence differs from the one our own
 tools scan, so positions would not be comparable.
+
+## Load result (2026-09-07)
+
+Human rows in Summary_Counts.all_predictions: 7765065
+
+| outcome | rows |
+|---|---|
+| loaded | 7501712 |
+| dropped, gene not in MANE | 226824 |
+| dropped, duplicate Ensembl gene for one Entrez | 36529 |
+
+Every input row is accounted for; the three figures sum to 7765065.
+
+Tables:
+
+- targetscan_mirnas 2580 rows (26 TargetScan 5' isoform entries skipped:
+  they carry no miRBase accession, so they cannot be bridged)
+- targetscan_genes 18357 rows, 11320 (61.7%) on the MANE transcript
+- targetscan 7501712 rows, 2064 distinct seeds, 107790 flagged in_default
+
+110 Entrez ids received more than one Ensembl gene id. Where that happened
+the Ensembl gene whose representative transcript is the MANE transcript was
+kept; ties broken by sorted Ensembl id, so the load is reproducible.
+
+## End-to-end check
+
+hsa-miR-21-5p -> MIMAT0000076 -> seed AGCTTAT -> 2598 target genes.
+PDCD4: 1 conserved site, context++ -0.503, PCT 0.846, in TargetScan's
+default set. Our own seed analyser independently finds an 8mer site in
+the PDCD4 3' UTR at position 1806.
+
+hsa-miR-107 (a retired name) resolves through the alias bridge to
+MIMAT0000104 and returns 4338 target genes, DICER1 first.
