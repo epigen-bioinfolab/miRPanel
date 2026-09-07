@@ -22,7 +22,7 @@ def sha256(path):
 
 def species_of(name):
     prefix = name.split("-")[0]
-    return NAMES.get(prefix, prefix)
+    return prefix
 
 
 def read_fasta(path):
@@ -93,9 +93,9 @@ def q(sql):
 
 print()
 print("mirnas total       ", q("SELECT COUNT(*) FROM mirnas"))
-print("  human            ", q("SELECT COUNT(*) FROM mirnas WHERE species='human'"))
-print("  mouse            ", q("SELECT COUNT(*) FROM mirnas WHERE species='mouse'"))
-print("  rat              ", q("SELECT COUNT(*) FROM mirnas WHERE species='rat'"))
+print("  human            ", q("SELECT COUNT(*) FROM mirnas WHERE species='hsa'"))
+print("  mouse            ", q("SELECT COUNT(*) FROM mirnas WHERE species='mmu'"))
+print("  rat              ", q("SELECT COUNT(*) FROM mirnas WHERE species='rno'"))
 print("  seed changed     ", q("SELECT COUNT(*) FROM mirnas WHERE seed_changed=1"))
 print("aliases total      ", q("SELECT COUNT(*) FROM mirna_aliases"))
 print("  pointing nowhere ", q("SELECT COUNT(*) FROM mirna_aliases a LEFT JOIN mirnas m ON a.accession=m.accession WHERE m.accession IS NULL"), "(removed in 23 - expected)")
