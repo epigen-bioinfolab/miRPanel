@@ -70,18 +70,21 @@ cur.executemany("INSERT OR IGNORE INTO mirna_aliases VALUES (?,?,?)", a_rows)
 con.commit()
 print("Release 23 read:", n23, " loaded:", len(m_rows), " skipped:", skipped)
 
-a22 = []
-n22 = 0
-for name, acc, seq in read_fasta(R22):
-    n22 += 1
-    if acc:
-        a22.append((name, acc, "miRBase 22"))
-cur.executemany("INSERT OR IGNORE INTO mirna_aliases VALUES (?,?,?)", a22)
-con.commit()
-print("Release 22 read:", n22, " alias rows offered:", len(a22))
+OLDER = [("22", R22), ("21", "data/raw/mature_r21.fa"), ("20", "data/raw/mature_r20.fa")]
+for ver, path in OLDER:
+    arows, nread = [], 0
+    for name, acc, seq in read_fasta(path):
+        nread += 1
+        if acc:
+            arows.append((name, acc, "miRBase " + ver))
+    cur.executemany("INSERT OR IGNORE INTO mirna_aliases VALUES (?,?,?)", arows)
+    con.commit()
+    print("Release", ver, "read:", nread, " alias rows offered:", len(arows))
 
 
-for label, path, ver in [("miRBase_mature_23", R23, "23"), ("miRBase_mature_22", R22, "22")]:
+for label, path, ver in [("miRBase_mature_23", R23, "23"), ("miRBase_mature_22", R22, "22"),
+                         ("miRBase_mature_21", "data/raw/mature_r21.fa", "21"),
+                         ("miRBase_mature_20", "data/raw/mature_r20.fa", "20")]:
     cur.execute("INSERT OR REPLACE INTO data_sources VALUES (?,?,?,?,?,?,?)", (
         label, ver, "https://www.mirbase.org/download/",
         date.today().isoformat(), Path(path).stat().st_size, sha256(path),
@@ -98,6 +101,7 @@ print("  mouse            ", q("SELECT COUNT(*) FROM mirnas WHERE species='mmu'"
 print("  rat              ", q("SELECT COUNT(*) FROM mirnas WHERE species='rno'"))
 print("  seed changed     ", q("SELECT COUNT(*) FROM mirnas WHERE seed_changed=1"))
 print("aliases total      ", q("SELECT COUNT(*) FROM mirna_aliases"))
+print("  ambiguous alias  ", q("SELECT COUNT(*) FROM (SELECT alias FROM mirna_aliases GROUP BY alias HAVING COUNT(DISTINCT accession) > 1)"))
 print("  pointing nowhere ", q("SELECT COUNT(*) FROM mirna_aliases a LEFT JOIN mirnas m ON a.accession=m.accession WHERE m.accession IS NULL"), "(removed in 23 - expected)")
 print()
 print("BRIDGE TEST - both names must give the same accession:")
