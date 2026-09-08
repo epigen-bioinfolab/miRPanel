@@ -100,3 +100,21 @@ def job_status(con, job_id):
             "error": j[5], "params": json.loads(j[6]),
             "tools": [{"tool": r[0], "status": r[1], "n_results": r[2],
                        "seconds": r[3], "message": r[4]} for r in runs]}
+
+def next_queued(con):
+    """Atomically claim the oldest queued job. Returns job_id, or None."""
+    row = con.execute("SELECT job_id FROM jobs WHERE status='queued' "
+                      "ORDER BY created_at LIMIT 1").fetchone()
+    if row is None:
+        return None
+    cur = con.execute("UPDATE jobs SET status='running', started_at=? "
+                      "WHERE job_id=? AND status='queued'", (now(), row[0]))
+    con.commit()
+    return row[0] if cur.rowcount else None
+
+def requeue_stale(con):
+    """Put jobs left 'running' by a crashed worker back in the queue."""
+    cur = con.execute("UPDATE jobs SET status='queued', started_at=NULL "
+                      "WHERE status='running'")
+    con.commit()
+    return cur.rowcount

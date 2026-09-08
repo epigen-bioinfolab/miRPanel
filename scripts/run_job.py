@@ -11,6 +11,9 @@ if "--tools" in args:
     i = args.index("--tools")
     tools = args[i + 1].split(",")
     del args[i:i + 2]
+queue_only = "--queue" in args
+if queue_only:
+    args.remove("--queue")
 mir = args[0] if args else "hsa-miR-21-5p"
 gene_args = args[1:]
 
@@ -29,6 +32,9 @@ def show(done, total, tool):
 
 job = O.create_job(con, mir, tools=tools, genes=genes)
 print("job", job)
+if queue_only:
+    print("queued; start scripts/worker.py to execute it")
+    sys.exit(0)
 O.run_job(con, job, progress=show)
 st = O.job_status(con, job)
 print("miRNA :", st["params"]["mirna_name"], st["params"]["mirna_acc"],
