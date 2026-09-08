@@ -129,3 +129,44 @@ CREATE TABLE IF NOT EXISTS targetscan (
     PRIMARY KEY (seed, entrez));
 
 CREATE INDEX IF NOT EXISTS idx_targetscan_entrez ON targetscan(entrez);
+
+CREATE TABLE IF NOT EXISTS mirtarbase_evidence (
+    row_id      INTEGER PRIMARY KEY,
+    mtb_id      TEXT NOT NULL,
+    mirna_name  TEXT NOT NULL,
+    accession   TEXT,
+    entrez      TEXT,
+    symbol      TEXT NOT NULL,
+    functional  INTEGER NOT NULL,
+    strong      INTEGER NOT NULL,
+    experiments TEXT NOT NULL,
+    pmid        TEXT,
+    species     TEXT NOT NULL);
+
+CREATE INDEX IF NOT EXISTS idx_mtbev_pair ON mirtarbase_evidence(accession, entrez);
+CREATE INDEX IF NOT EXISTS idx_mtbev_gene ON mirtarbase_evidence(entrez);
+CREATE INDEX IF NOT EXISTS idx_mtbev_id   ON mirtarbase_evidence(mtb_id);
+
+CREATE TABLE IF NOT EXISTS mirtarbase_sites (
+    mtb_id      TEXT NOT NULL,
+    accession   TEXT,
+    entrez      TEXT,
+    target_site TEXT NOT NULL,
+    functional  INTEGER NOT NULL,
+    strong      INTEGER NOT NULL,
+    pmid        TEXT);
+
+CREATE INDEX IF NOT EXISTS idx_mtbsite_pair ON mirtarbase_sites(accession, entrez);
+
+CREATE TABLE IF NOT EXISTS mirtarbase (
+    accession        TEXT NOT NULL,
+    entrez           TEXT NOT NULL,
+    n_strong_func    INTEGER NOT NULL,
+    n_weak_func      INTEGER NOT NULL,
+    n_strong_nonfunc INTEGER NOT NULL,
+    n_weak_nonfunc   INTEGER NOT NULL,
+    n_sites          INTEGER NOT NULL,
+    pmids            TEXT,
+    PRIMARY KEY (accession, entrez));
+
+CREATE INDEX IF NOT EXISTS idx_mtb_gene ON mirtarbase(entrez);
