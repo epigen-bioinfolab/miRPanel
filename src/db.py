@@ -11,6 +11,7 @@ def connect(path=DB_PATH):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(path)
     con.execute("PRAGMA journal_mode = WAL")
+    con.execute("PRAGMA busy_timeout = 15000")
     con.execute("PRAGMA synchronous = NORMAL")
     con.execute("PRAGMA cache_size = -64000")
     con.executescript(SCHEMA.read_text())

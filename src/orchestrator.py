@@ -32,11 +32,27 @@ def create_job(con, mirna_query, tools=None, genes=None, batch_id=None, opts=Non
         raise ValueError("miRNA not found: %r" % mirna_query)
     if "accession" not in m:
         raise ValueError("miRNA is ambiguous: %r -> %r" % (mirna_query, m))
+    if genes:
+        resolved, bad = [], []
+        for g in genes:
+            r = resolve.resolve_gene(con, str(g))
+            (resolved.append(r["entrez"]) if r and "entrez" in r else bad.append(g))
+        if bad:
+            raise ValueError("genes not found: %s" % bad)
+        have = {t["entrez"] for t in T.targets_for(con, resolved)}
+        missing = [g for g, e in zip(genes, resolved) if e not in have]
+        if missing:
+            raise ValueError("no MANE Select transcript for: %s" % missing)
+        genes = resolved
+    every = registry.load()
+    unknown = [n for n in (tools or []) if n not in every]
+    if unknown:
+        raise ValueError("unknown tools: %s" % unknown)
     job_id = "job_" + uuid.uuid4().hex[:12]
     params = {"mirna_query": mirna_query, "mirna_acc": m["accession"],
               "mirna_name": m["name"], "matched_by": m["matched_by"],
               "tools": list(tools) if tools else sorted(
-                  n for n, mod in registry.load().items() if not mod.META["slow"]),
+                  n for n, mod in every.items() if not mod.META["slow"]),
               "genes": list(genes) if genes else None, "opts": opts or {}}
     con.execute("INSERT INTO jobs (job_id, batch_id, created_at, status, params) "
                 "VALUES (?,?,?,?,?)", (job_id, batch_id, now(), "queued",
@@ -58,6 +74,8 @@ def run_job(con, job_id, progress=None):
     try:
         m = resolve.resolve_mirna(con, p["mirna_query"])
         tgts = T.targets_for(con, p["genes"]) if p.get("genes") else T.all_targets(con)
+        if not tgts:
+            raise ValueError("no target transcripts for job " + job_id)
         total = 0
         for name, mod in _tools(p["tools"]).items():
             t0 = time.time()
