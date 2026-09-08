@@ -170,3 +170,47 @@ CREATE TABLE IF NOT EXISTS mirtarbase (
     PRIMARY KEY (accession, entrez));
 
 CREATE INDEX IF NOT EXISTS idx_mtb_gene ON mirtarbase(entrez);
+
+CREATE TABLE IF NOT EXISTS jobs (
+    job_id      TEXT PRIMARY KEY,
+    batch_id    TEXT,
+    created_at  TEXT NOT NULL,
+    started_at  TEXT,
+    finished_at TEXT,
+    status      TEXT NOT NULL,
+    params      TEXT NOT NULL,
+    n_results   INTEGER NOT NULL DEFAULT 0,
+    error       TEXT);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_batch ON jobs(batch_id);
+
+CREATE TABLE IF NOT EXISTS tool_runs (
+    job_id     TEXT NOT NULL,
+    tool       TEXT NOT NULL,
+    status     TEXT NOT NULL,
+    n_results  INTEGER NOT NULL DEFAULT 0,
+    seconds    REAL,
+    provenance TEXT,
+    message    TEXT,
+    PRIMARY KEY (job_id, tool));
+
+CREATE TABLE IF NOT EXISTS results (
+    job_id         TEXT NOT NULL,
+    mirna_acc      TEXT NOT NULL,
+    mirna_name     TEXT NOT NULL,
+    entrez         TEXT NOT NULL,
+    symbol         TEXT NOT NULL,
+    refseq         TEXT,
+    region         TEXT,
+    tool           TEXT NOT NULL,
+    site_type      TEXT,
+    pos_start      INTEGER,
+    pos_end        INTEGER,
+    score          REAL,
+    score_type     TEXT,
+    low_confidence INTEGER NOT NULL DEFAULT 0,
+    extra          TEXT);
+
+CREATE INDEX IF NOT EXISTS idx_results_job  ON results(job_id);
+CREATE INDEX IF NOT EXISTS idx_results_pair ON results(job_id, entrez);
+CREATE INDEX IF NOT EXISTS idx_results_tool ON results(job_id, tool);

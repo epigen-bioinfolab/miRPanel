@@ -4,8 +4,8 @@ Loaders, the orchestrator and the API all resolve through this module, so
 they can never disagree about what a name means.
 """
 
-COLS = "accession, name, seed, species"
-MCOLS = "m.accession, m.name, m.seed, m.species"
+COLS = "accession, name, seed, species, sequence"
+MCOLS = "m.accession, m.name, m.seed, m.species, m.sequence"
 
 def _clean(text):
     """Trim and collapse internal whitespace."""
@@ -55,9 +55,9 @@ def resolve_mirna(con, text, species="hsa"):
             if len(rows) > 1:
                 return {"input": text, "matched_by": "ambiguous",
                         "candidates": sorted(r[0] for r in rows)}
-            a, n, s, sp = rows[0]
+            a, n, s, sp, q = rows[0]
             return {"input": text, "matched_by": how, "accession": a,
-                    "name": n, "seed": s, "species": sp}
+                    "name": n, "seed": s, "species": sp, "sequence": q}
     return None
 
 GENE_STEPS = (
