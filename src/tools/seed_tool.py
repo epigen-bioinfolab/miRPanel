@@ -5,6 +5,7 @@ from tools.seed import find_sites
 
 META = {"name": "seed", "version": "1.0", "kind": "prediction",
         "score_type": "site_type", "better": None,
+        "categories": ["8mer", "7mer-m8", "7mer-A1", "6mer"],
         "gives_position": True, "needs_sequence": True, "slow": False}
 
 SITE_LEN = {"6mer": 6, "7mer-A1": 7, "7mer-m8": 7, "8mer": 8}

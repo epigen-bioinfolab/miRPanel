@@ -26,6 +26,12 @@ def check_meta(meta):
         raise ValueError("kind must be prediction or evidence: %r" % meta["kind"])
     if meta["better"] not in ("lower", "higher", None):
         raise ValueError("better must be lower/higher/None: %r" % meta["better"])
+    if meta["better"] is None:
+        cats = meta.get("categories")
+        if not isinstance(cats, (list, tuple)) or len(cats) < 2:
+            raise ValueError(
+                "a categorical tool must publish 'categories', best first: %r"
+                % meta["name"])
     return meta
 
 def load(names=DEFAULT_TOOLS):
