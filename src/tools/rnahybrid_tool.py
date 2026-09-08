@@ -47,7 +47,7 @@ def _parse(text, mirna, by_refseq, seqs, regs):
                           region=T.region_of(regs.get(refseq, []), pos),
                           pos_start=pos, pos_end=pos + span - 1,
                           score=mfe, score_type=META["score_type"],
-                          low_confidence=(mfe > -20.0),
+                          low_confidence=(mfe > -25.0),
                           extra=json.dumps({"target_unpaired": f[7],
                                             "target_paired": f[8],
                                             "mirna_paired": f[9],

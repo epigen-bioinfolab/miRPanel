@@ -62,3 +62,46 @@ and idempotent.
   adding it later costs one re-run.
 - TargetScan aggregate_pct 0.000 means no conservation evidence and must
   render as "n/a", never as a probability of zero.
+
+## Transcriptome-wide run, hsa-miR-21-5p (2026-09-08)
+
+19363 MANE Select transcripts, four tools, 58954 results.
+
+| tool | rows | genes reached | seconds |
+|---|---|---|---|
+| seed | 10254 | 6673 | 0.84 |
+| targetscan | 2598 | 2598 | 0.03 |
+| mirtarbase | 1068 | 1068 | 0.01 |
+| rnahybrid | 45034 | 17671 | 803.6 |
+
+Total wall clock 13m24s. RNAhybrid is 99.9% of it, which is why it is
+marked slow and left out of the default tool set. The three fast tools
+together complete a transcriptome-wide job in about one second.
+
+## Position verification
+
+All 45034 RNAhybrid records were checked by rebuilding the target strand
+from the alignment rows and comparing it against
+transcript[pos_start-1 : pos_end]. Zero mismatches. 50 positions carry an
+N placeholder in RNAhybrid's alignment output, which matches any base.
+
+## RNAhybrid energy threshold, chosen from the distribution
+
+Genes reached at each MFE cutoff, hsa-miR-21-5p:
+
+| cutoff kcal/mol | genes | share of transcriptome |
+|---|---|---|
+| -15 | 17643 | 91% |
+| -20 | 11741 | 61% |
+| -25 | 1696 | 8.8% |
+| -30 | 65 | 0.3% |
+
+At -15 RNAhybrid reports a site in 91% of human genes, which is not a
+prediction. low_confidence is therefore set at -25, where the gene count
+(1696) is comparable to TargetScan (2598) and the seed analyser (6673).
+Weaker sites are still stored and still shown when asked for.
+
+Caveat: a fixed energy threshold favours long transcripts, which have more
+opportunities to contain a low-energy duplex. This is the same composition
+confound measured for seed matches in Phase 4, and it has not yet been
+quantified for MFE.
