@@ -35,7 +35,8 @@ def create_job(con, mirna_query, tools=None, genes=None, batch_id=None, opts=Non
     job_id = "job_" + uuid.uuid4().hex[:12]
     params = {"mirna_query": mirna_query, "mirna_acc": m["accession"],
               "mirna_name": m["name"], "matched_by": m["matched_by"],
-              "tools": list(tools) if tools else sorted(registry.load()),
+              "tools": list(tools) if tools else sorted(
+                  n for n, mod in registry.load().items() if not mod.META["slow"]),
               "genes": list(genes) if genes else None, "opts": opts or {}}
     con.execute("INSERT INTO jobs (job_id, batch_id, created_at, status, params) "
                 "VALUES (?,?,?,?,?)", (job_id, batch_id, now(), "queued",

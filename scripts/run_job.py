@@ -5,8 +5,14 @@ import orchestrator as O
 import resolve
 
 DB = "data/processed/mirna.db"
-mir = sys.argv[1] if len(sys.argv) > 1 else "hsa-miR-21-5p"
-gene_args = sys.argv[2:]
+args = sys.argv[1:]
+tools = None
+if "--tools" in args:
+    i = args.index("--tools")
+    tools = args[i + 1].split(",")
+    del args[i:i + 2]
+mir = args[0] if args else "hsa-miR-21-5p"
+gene_args = args[1:]
 
 con = sqlite3.connect(DB)
 genes = None
@@ -21,7 +27,7 @@ if gene_args:
 def show(done, total, tool):
     print("   %s %d/%d" % (tool, done, total))
 
-job = O.create_job(con, mir, genes=genes)
+job = O.create_job(con, mir, tools=tools, genes=genes)
 print("job", job)
 O.run_job(con, job, progress=show)
 st = O.job_status(con, job)
