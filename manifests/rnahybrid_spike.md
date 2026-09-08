@@ -63,3 +63,28 @@ transcript 1805-1812, the 8mer for hsa-miR-21-5p.
   stdout-only reader
 - treat mfe 0.0 with position 0 as no hit
 - store MFE, not p-value
+
+## Wobble pairing (found when wrapping RNAhybrid as a tool)
+
+-f 2,7 forces a helix over query positions 2-7 but permits G:U wobble
+pairs inside it. RNAhybrid therefore reports seed-anchored sites that an
+exact Watson-Crick matcher rejects. This is a feature - non-canonical
+sites are part of why RNAhybrid is included - but it changes what
+"no seed site" means when RNAhybrid is enabled: a gene may carry an
+RNAhybrid hit and no seed hit, and that combination is informative
+rather than contradictory.
+
+Worked example, hsa-miR-21-5p:
+
+    PDCD4  3'UTR 1790-1813  -18.5  target AUAAGCUA / miRNA UAUUCGAU
+                                   all Watson-Crick, the canonical 8mer
+    GAPDH  CDS    724-749   -20.6  target UGAGCUG  / miRNA AUUCGAU
+                                   two G:U wobbles in the seed helix
+
+The wobble-paired site in GAPDH scores lower (stronger) than the
+validated canonical site in PDCD4. Folding energy alone would rank a
+housekeeping gene's coding region above the textbook miR-21 target.
+
+This is the concrete justification for per-tool columns and no unified
+score: MFE, seed type, conservation and experimental evidence disagree
+here, and only showing them separately lets a user see why.
