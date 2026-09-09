@@ -7,6 +7,8 @@ URL path - so renaming is this one line plus the README and manifests.
 
 TOOL_NAME = "miRPanel"
 TOOL_VERSION = "0.1"
-TOOL_DESCRIPTION = ("Runs several miRNA target-prediction tools against one "
-                    "query and reports each on its own scale, without "
-                    "combining them into a single score.")
+TOOL_DESCRIPTION = ("miRPanel facilitates the user with seed site analysis, "
+                    "RNAhybrid folding energy, TargetScan scoring, published "
+                    "miRTarBase evidence, a trained machine learning model and "
+                    "downstream pathway and network analysis for any human miRNA.")
+TOOL_SUBTITLE = "One place to take a miRNA from binding site to biology."

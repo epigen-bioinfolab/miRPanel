@@ -163,6 +163,7 @@ def about(con=Depends(get_con)):
                        "FROM data_sources ORDER BY name").fetchall()
     return {"name": config.TOOL_NAME, "version": config.TOOL_VERSION,
             "description": config.TOOL_DESCRIPTION,
+            "subtitle": config.TOOL_SUBTITLE,
             "data_sources": [{"name": r[0], "version": r[1], "url": r[2],
                               "downloaded_on": r[3], "notes": r[4]}
                              for r in rows]}

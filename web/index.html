@@ -236,6 +236,8 @@
   .pager{display:flex;align-items:center;gap:10px;margin-left:auto}
   .pager span{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:11px;color:var(--muted)}
   .runwait td{color:var(--faint)}
+  .sub2line{margin:-2px 0 0;font-size:14.5px;font-weight:500;color:var(--accent)}
+  .sources{margin:6px 0 0;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -243,13 +245,14 @@
 <div class="wrap">
 
   <header class="masthead">
-    <div class="kicker" id="kicker">loading…</div>
+    <div class="kicker" id="kicker"></div>
     <h1 id="title">&nbsp;</h1>
     <p class="sub" id="tagline"></p>
+    <p class="sub2line" id="subtitle"></p>
   </header>
 
   <section class="panel" id="querybox">
-    <h2>New search<em>one miRNA at a time</em></h2>
+    <h2>New search<em></em></h2>
     <div class="panel-body">
       <form class="qform" id="qform">
         <label class="f"><span>miRNA</span>
@@ -368,6 +371,8 @@
   </div>
 
   </div>
+
+  <p class="sources" id="sources"></p>
 
 </div>
 
@@ -945,11 +950,18 @@
       document.title = about.name;
       el("title").textContent = about.name;
       el("tagline").textContent = about.description;
-      el("kicker").textContent = "version " + about.version + " · " +
-        about.data_sources
-          .filter(function(s){ return !/^miRBase_mature_(20|21|22)$/.test(s.name); })
-          .map(function(s){ return s.name.replace(/_/g, " ") + " " + s.version; })
-          .join("  ·  ");
+      el("subtitle").textContent = about.subtitle || "";
+      var seen = {}, parts = [];
+      (about.data_sources || []).forEach(function(s){
+        if (/^miRBase_mature_(20|21|22)$/.test(s.name)) return;
+        var label = /^miRBase/i.test(s.name) ? "miRBase " + s.version
+                  : /^targetscan/i.test(s.name) ? "TargetScan " + s.version
+                  : /^mirtarbase/i.test(s.name) ? "miRTarBase " + s.version
+                  : s.name + " " + s.version;
+        if (!seen[label]) { seen[label] = 1; parts.push(label); }
+      });
+      parts.push(about.name + " " + about.version);
+      el("sources").textContent = "data " + parts.join("  ·  ");
       tools.forEach(function(t){ TOOLMETA[t.name] = t; });
 
       el("f_tools").innerHTML = '<span>Tools</span>' + tools.map(function(t){
