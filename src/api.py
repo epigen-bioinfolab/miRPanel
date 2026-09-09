@@ -1,16 +1,20 @@
 """HTTP API over the orchestrator. Read-only, except for creating jobs."""
 import json
+import os
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+import config
 import db
 import orchestrator
 import resolve
+import targets as T
 from tools import registry
 
-app = FastAPI(title="miRNA target tool", version="0.1")
+app = FastAPI(title=config.TOOL_NAME, version=config.TOOL_VERSION)
 
 
 def get_con():
@@ -68,6 +72,11 @@ def read_job(job_id: str, con=Depends(get_con)):
     st = orchestrator.job_status(con, job_id)
     if st is None:
         raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    genes = {t: n for t, n in con.execute(
+        "SELECT tool, COUNT(DISTINCT entrez) FROM results WHERE job_id=? "
+        "GROUP BY tool", (job_id,))}
+    for t in st["tools"]:
+        t["n_genes"] = genes.get(t["tool"])
     return st
 
 
@@ -143,3 +152,127 @@ def read_results(job_id: str,
         out.append(d)
     return {"job_id": job_id, "total": total, "limit": limit,
             "offset": offset, "sort": sort, "results": out}
+
+
+@app.get("/about")
+def about(con=Depends(get_con)):
+    """Who this tool is, and which release of every source produced the
+    numbers. The frontend renders its title and its provenance line from
+    here, so neither is hard-coded in the page."""
+    rows = con.execute("SELECT name, version, url, downloaded_on, notes "
+                       "FROM data_sources ORDER BY name").fetchall()
+    return {"name": config.TOOL_NAME, "version": config.TOOL_VERSION,
+            "description": config.TOOL_DESCRIPTION,
+            "data_sources": [{"name": r[0], "version": r[1], "url": r[2],
+                              "downloaded_on": r[3], "notes": r[4]}
+                             for r in rows]}
+
+
+@app.get("/genes/{gene}")
+def read_gene(gene: str, con=Depends(get_con)):
+    """The MANE Select transcript for one gene: its length and its region
+    boundaries. The binding map draws itself from this."""
+    g = resolve.resolve_gene(con, gene)
+    if not g or "entrez" not in g:
+        raise HTTPException(404, {"error": "gene_not_found", "query": gene})
+    hits = T.targets_for(con, [g["entrez"]])
+    if not hits:
+        raise HTTPException(404, {"error": "no_mane_transcript", "query": gene,
+                                  "entrez": g["entrez"]})
+    t = hits[0]
+    regs = T.regions(con, [t["refseq"]]).get(t["refseq"], [])
+    return {"entrez": t["entrez"], "symbol": t["symbol"], "refseq": t["refseq"],
+            "length": t["length"],
+            "regions": [{"region": r, "start": a, "end": b}
+                        for r, a, b in sorted(regs, key=lambda x: x[1])]}
+
+
+@app.get("/mirnas/{query}")
+def read_mirna(query: str, con=Depends(get_con)):
+    """Resolve one miRNA and return what the query panel shows: accession,
+    mature sequence, seed, and its TargetScan family if it has one."""
+    m = resolve.resolve_mirna(con, query)
+    if not m:
+        raise HTTPException(404, {"error": "mirna_not_found", "query": query})
+    if "accession" not in m:
+        raise HTTPException(409, {"error": "mirna_ambiguous", "query": query,
+                                  "candidates": m.get("candidates", [])})
+    ts = con.execute("SELECT family, conservation, seed FROM targetscan_mirnas "
+                     "WHERE accession=?", (m["accession"],)).fetchone()
+    out = dict(m)
+    out["targetscan"] = None if ts is None else {
+        "family": ts[0], "conservation": ts[1], "seed": ts[2],
+        "seed_matches_mirbase": ts[2] == m["seed"]}
+    return out
+
+
+def _gene_order(sort):
+    """How to rank genes. Direction always comes from the tool's META."""
+    metas = {m.META["name"]: m.META for m in registry.load().values()}
+    if sort == "gene":
+        return "symbol", []
+    if sort == "seed":
+        cats = metas["seed"]["categories"]
+        case = " ".join("WHEN ? THEN %d" % (len(cats) - i)
+                        for i in range(len(cats)))
+        return ("MAX(CASE WHEN tool='seed' THEN (CASE site_type " + case +
+                " ELSE 0 END) END) DESC, symbol"), list(cats)
+    meta = metas.get(sort)
+    if meta is None or meta["better"] is None:
+        raise HTTPException(422, {"error": "bad_sort", "sort": sort,
+            "message": "sort must be 'gene', 'seed', or a tool with a "
+                       "numeric score"})
+    agg = "MIN" if meta["better"] == "lower" else "MAX"
+    expr = "%s(CASE WHEN tool=? THEN score END)" % agg
+    direction = "ASC" if meta["better"] == "lower" else "DESC"
+    return "%s IS NULL, %s %s, symbol" % (expr, expr, direction), [sort, sort]
+
+
+@app.get("/jobs/{job_id}/genes")
+def read_genes(job_id: str,
+               sort: str = Query("gene", pattern="^[a-z_]+$"),
+               limit: int = Query(25, ge=1, le=200),
+               offset: int = Query(0, ge=0),
+               con=Depends(get_con)):
+    """One page of genes, with every record for those genes and the
+    transcript geometry the binding map needs. The table is gene-level, so
+    the API pages by gene rather than by row."""
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    order, oargs = _gene_order(sort)
+    total = con.execute("SELECT COUNT(DISTINCT symbol) FROM results "
+                        "WHERE job_id=?", (job_id,)).fetchone()[0]
+    syms = [r[0] for r in con.execute(
+        "SELECT symbol FROM results WHERE job_id=? GROUP BY symbol "
+        "ORDER BY " + order + " LIMIT ? OFFSET ?",
+        [job_id] + oargs + [limit, offset])]
+    if not syms:
+        return {"job_id": job_id, "total_genes": total, "limit": limit,
+                "offset": offset, "sort": sort, "genes": [], "results": []}
+    qs = ",".join("?" * len(syms))
+    rows = con.execute("SELECT " + ", ".join(RESULT_COLS) + " FROM results "
+                       "WHERE job_id=? AND symbol IN (" + qs + ") "
+                       "ORDER BY symbol, tool, pos_start",
+                       [job_id] + syms).fetchall()
+    out = []
+    for r in rows:
+        d = dict(zip(RESULT_COLS, r))
+        d["extra"] = json.loads(d["extra"]) if d["extra"] else None
+        out.append(d)
+    geom = con.execute("SELECT entrez, symbol, refseq, length FROM transcripts "
+                       "WHERE symbol IN (" + qs + ") AND mane_status='MANE Select'",
+                       syms).fetchall()
+    regs = T.regions(con, [g[2] for g in geom])
+    order_index = {s: i for i, s in enumerate(syms)}
+    genes = [{"entrez": g[0], "symbol": g[1], "refseq": g[2], "length": g[3],
+              "regions": [{"region": x[0], "start": x[1], "end": x[2]}
+                          for x in sorted(regs.get(g[2], []), key=lambda z: z[1])]}
+             for g in geom]
+    genes.sort(key=lambda g: order_index.get(g["symbol"], 1e9))
+    return {"job_id": job_id, "total_genes": total, "limit": limit,
+            "offset": offset, "sort": sort, "genes": genes, "results": out}
+
+
+# Mounted last: it claims "/", so every real endpoint must be declared above.
+WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
+app.mount("/", StaticFiles(directory=WEB, html=True), name="web")

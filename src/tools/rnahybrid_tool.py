@@ -55,6 +55,18 @@ def _parse(text, mirna, by_refseq, seqs, regs):
                                             "duplex_span": span})))
     return out
 
+def _deal(seqs, n):
+    """Split the targets into n groups of roughly equal total length, longest
+    first, so no worker is left folding a 100 kb transcript alone."""
+    groups = [[] for _ in range(n)]
+    load = [0] * n
+    for r in sorted(seqs, key=lambda r: -len(seqs[r])):
+        i = load.index(min(load))
+        groups[i].append(r)
+        load[i] += len(seqs[r])
+    return [g for g in groups if g]
+
+
 def run(con, mirna, tgts, opts=None, progress=None):
     """Fold this miRNA against every target transcript."""
     opts = opts or {}
@@ -70,22 +82,54 @@ def run(con, mirna, tgts, opts=None, progress=None):
     maxlen = max(len(s) for s in seqs.values()) + 10
     prov["params"] = {"f": "2,7", "s": "3utr_human", "e": cutoff,
                       "b": per_target, "m": maxlen}
+    # One RNAhybrid process is single-threaded, so the targets are dealt across
+    # several processes. Every process gets identical parameters (including the
+    # global -m), and folding one transcript never depends on another, so the
+    # combined output is the same as one process would have produced.
+    workers = int(opts.get("workers") or os.cpu_count() or 1)
+    workers = max(1, min(workers, len(seqs)))
+    prov["params"]["workers"] = workers
+
     work = tempfile.mkdtemp(prefix="rnahybrid_")
     try:
-        tf, qf = os.path.join(work, "t.fa"), os.path.join(work, "q.fa")
-        with open(tf, "w") as fh:
-            for r, s in seqs.items():
-                fh.write(">%s\n%s\n" % (r, _wrap(s)))
+        qf = os.path.join(work, "q.fa")
         with open(qf, "w") as fh:
             fh.write(">%s\n%s\n" % (mirna["name"], mirna["sequence"]))
-        p = subprocess.run([BIN, "-t", tf, "-q", qf, "-s", "3utr_human",
-                            "-f", "2,7", "-c", "-b", str(per_target),
-                            "-e", str(cutoff), "-m", str(maxlen)],
-                           capture_output=True, text=True)
-        if p.returncode != 0 and not p.stdout.strip():
-            raise RuntimeError("RNAhybrid failed: %s" % p.stderr.strip()[:300])
-        out = _parse(p.stdout, mirna, by_refseq, seqs, regs)
-        warn = [p.stderr.strip()[:300]] if p.stderr.strip() else []
+
+        procs = []
+        for i, group in enumerate(_deal(seqs, workers)):
+            tf = os.path.join(work, "t%d.fa" % i)
+            with open(tf, "w") as fh:
+                for r in group:
+                    fh.write(">%s\n%s\n" % (r, _wrap(seqs[r])))
+            # Each worker writes to its own file, never to a pipe. A pipe
+            # holds only ~64 kB: once full, RNAhybrid blocks until someone
+            # reads it, so eleven workers sat frozen while we drained the
+            # first one. That made "parallel" runs almost serial.
+            op = os.path.join(work, "out%d.txt" % i)
+            ep = os.path.join(work, "err%d.txt" % i)
+            oh, eh = open(op, "w"), open(ep, "w")
+            procs.append((subprocess.Popen(
+                [BIN, "-t", tf, "-q", qf, "-s", "3utr_human", "-f", "2,7",
+                 "-c", "-b", str(per_target), "-e", str(cutoff),
+                 "-m", str(maxlen)], stdout=oh, stderr=eh), oh, eh, op, ep))
+
+        stdout, warn = [], []
+        for proc, oh, eh, op, ep in procs:
+            proc.wait()
+            oh.close()
+            eh.close()
+            with open(op) as fh:
+                o = fh.read()
+            with open(ep) as fh:
+                e = fh.read()
+            if proc.returncode != 0 and not o.strip():
+                raise RuntimeError("RNAhybrid failed: %s" % e.strip()[:300])
+            stdout.append(o)
+            if e.strip():
+                warn.append(e.strip()[:300])
+        out = _parse("".join(stdout), mirna, by_refseq, seqs, regs)
+        warn = sorted(set(warn))
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return {"records": out, "provenance": prov, "warnings": warn}
