@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 import config
 import db
+import geneset
 import orchestrator
 import resolve
 import targets as T
@@ -272,6 +273,33 @@ def read_genes(job_id: str,
     genes.sort(key=lambda g: order_index.get(g["symbol"], 1e9))
     return {"job_id": job_id, "total_genes": total, "limit": limit,
             "offset": offset, "sort": sort, "genes": genes, "results": out}
+
+
+@app.get("/jobs/{job_id}/geneset")
+def read_geneset(job_id: str,
+                 seed: Optional[str] = None,
+                 targetscan: Optional[str] = None,
+                 rnahybrid: Optional[str] = None,
+                 mirtarbase: Optional[str] = None,
+                 regions: Optional[str] = None,
+                 match: str = Query("all", pattern="^(all|any)$"),
+                 include_genes: bool = False,
+                 con=Depends(get_con)):
+    """How many genes the pathway-analysis tick boxes select, and the rule
+    in words. Cheap enough to call on every keystroke, so the count in the
+    panel can update live before anything is actually run."""
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    spec = {"seed": seed, "targetscan": targetscan, "rnahybrid": rnahybrid,
+            "mirtarbase": mirtarbase, "match": match,
+            "regions": regions.split(",") if regions else None}
+    try:
+        out = geneset.select(con, job_id, spec)
+    except ValueError as e:
+        raise HTTPException(422, {"error": "bad_filter", "message": str(e)})
+    if not include_genes:
+        out.pop("genes")
+    return out
 
 
 # Mounted last: it claims "/", so every real endpoint must be declared above.

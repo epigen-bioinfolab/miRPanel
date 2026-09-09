@@ -236,6 +236,20 @@
   .pager{display:flex;align-items:center;gap:10px;margin-left:auto}
   .pager span{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:11px;color:var(--muted)}
   .runwait td{color:var(--faint)}
+  .gsgrid{display:flex;flex-direction:column;gap:9px}
+  .gsrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+  .gsrow>label.tick{display:inline-flex;align-items:center;gap:6px;min-width:176px;cursor:pointer}
+  .gsrow input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+  .gsrow select,.gsrow input[type=number]{font:inherit;font-size:12.5px;padding:4px 7px;border:1px solid var(--line);border-radius:4px;background:var(--paper);color:var(--ink)}
+  .gsrow input[type=number]{width:82px;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace}
+  .gsrow[data-off="1"]{opacity:.45}
+  .gsnote{font-size:11px;color:var(--faint)}
+  .gsbar{display:flex;flex-direction:column;gap:7px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-soft)}
+  .gsfoot{display:flex;align-items:center;gap:14px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line-soft)}
+  .gsfoot .say{max-width:none;margin:0;flex:1}
+  #gscount{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;text-transform:none;letter-spacing:0}
+  #gscount.ok{color:var(--ok)}
+  #gscount.warn{color:var(--warn)}
   .sub2line{margin:0;font-size:16px;font-weight:600;color:var(--accent);letter-spacing:-.005em}
   .sources{margin:6px 0 0;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em}
 </style>
@@ -353,6 +367,30 @@
       <tbody id="rows"></tbody>
     </table>
   </div>
+
+  <section class="panel" id="enrich">
+    <h2>Pathway analysis<em id="gscount">nothing selected</em></h2>
+    <div class="panel-body">
+      <div class="gsgrid" id="gsboxes"></div>
+      <div class="gsbar">
+        <div class="fgroup" id="gsregions">
+          <span>Regions</span>
+          <label><input type="checkbox" value="5UTR" checked> 5′UTR</label>
+          <label><input type="checkbox" value="CDS" checked> CDS</label>
+          <label><input type="checkbox" value="3UTR" checked> 3′UTR</label>
+        </div>
+        <div class="fgroup" id="gsmatch" hidden>
+          <span>Match</span>
+          <label><input type="radio" name="gsm" value="all" checked> AND — a gene must pass every ticked box</label>
+          <label><input type="radio" name="gsm" value="any"> OR — a gene passing any one box counts</label>
+        </div>
+      </div>
+      <div class="gsfoot">
+        <span class="say" id="gssentence"></span>
+        <button class="go" id="gsrun" type="button" disabled>Run GO and KEGG</button>
+      </div>
+    </div>
+  </section>
 
   <div class="notes">
     <h3>How to read this page</h3>
@@ -870,6 +908,7 @@
         el("runbox").hidden = true;
         render();
         pager();
+        gsBoxes();
       }).catch(showErr);
   }
 
@@ -940,6 +979,102 @@
     });
     el("nextpg").addEventListener("click", function(){
       PAGE.offset += PAGE.limit; loadPage();
+    });
+  }
+
+  /* ---------- pathway analysis ---------- */
+  var GSTIMER = null;
+
+  function gsBoxes(){
+    var rows = [];
+    if (ran("seed")){
+      var cats = (TOOLMETA["seed"] && TOOLMETA["seed"].categories) || ["8mer"];
+      rows.push('<div class="gsrow" data-tool="seed"><label class="tick">' +
+        '<input type="checkbox" id="gs_seed" checked> Seed site</label>' +
+        '<select id="gs_seed_v">' + cats.map(function(c, i){
+          return '<option value="' + c + '"' + (i === 0 ? " selected" : "") + ">" +
+                 c + (i ? " or better" : "") + "</option>";
+        }).join("") + '<option value="any">any site</option></select>' +
+        '<span class="gsnote">ranking comes from the tool itself</span></div>');
+    }
+    if (ran("targetscan"))
+      rows.push('<div class="gsrow" data-tool="targetscan"><label class="tick">' +
+        '<input type="checkbox" id="gs_ts"> TargetScan</label>' +
+        '<select id="gs_ts_v"><option value="conserved">conserved site</option>' +
+        '<option value="any">any score</option>' +
+        '<option value="cut">context++ at most</option></select>' +
+        '<input type="number" id="gs_ts_c" value="-0.30" step="0.05" hidden>' +
+        '<span class="gsnote" id="gs_ts_n">TargetScan publishes no cutoff, so a ' +
+        'number here is yours</span></div>');
+    if (ran("rnahybrid"))
+      rows.push('<div class="gsrow" data-tool="rnahybrid"><label class="tick">' +
+        '<input type="checkbox" id="gs_rh"> RNAhybrid</label>' +
+        "<span>\u0394G at most</span>" +
+        '<input type="number" id="gs_rh_c" value="-25" step="1">' +
+        '<span class="gsnote">kcal/mol \u00b7 measured from this run, editable</span></div>');
+    if (ran("mirtarbase"))
+      rows.push('<div class="gsrow" data-tool="mirtarbase"><label class="tick">' +
+        '<input type="checkbox" id="gs_mt"> miRTarBase</label>' +
+        '<span class="gsnote">genes with strong experimental support</span></div>');
+    el("gsboxes").innerHTML = rows.join("");
+    el("gsrun").title = "GO and KEGG enrichment is not installed yet";
+    document.querySelectorAll("#enrich input, #enrich select").forEach(function(x){
+      x.addEventListener("change", gsChanged);
+      if (x.type === "number") x.addEventListener("input", gsChanged);
+    });
+    gsChanged();
+  }
+
+  function gsSpec(){
+    var q = [], boxes = 0;
+    if (el("gs_seed") && el("gs_seed").checked){
+      q.push("seed=" + encodeURIComponent(el("gs_seed_v").value)); boxes++;
+    }
+    if (el("gs_ts") && el("gs_ts").checked){
+      var v = el("gs_ts_v").value;
+      q.push("targetscan=" + (v === "cut" ? el("gs_ts_c").value : v)); boxes++;
+    }
+    if (el("gs_rh") && el("gs_rh").checked){
+      q.push("rnahybrid=" + el("gs_rh_c").value); boxes++;
+    }
+    if (el("gs_mt") && el("gs_mt").checked){ q.push("mirtarbase=strong"); boxes++; }
+    var regs = [].slice.call(document.querySelectorAll("#gsregions input:checked"))
+                 .map(function(c){ return c.value; });
+    if (regs.length && regs.length < 3) q.push("regions=" + regs.join(","));
+    var m = document.querySelector("#gsmatch input:checked");
+    q.push("match=" + (m ? m.value : "all"));
+    return {query: q.join("&"), boxes: boxes};
+  }
+
+  function gsChanged(){
+    if (el("gs_ts")) el("gs_ts_c").hidden = el("gs_ts_v").value !== "cut";
+    document.querySelectorAll("#enrich .gsrow").forEach(function(r){
+      var cb = r.querySelector("input[type=checkbox]");
+      r.dataset.off = (cb && cb.checked) ? "0" : "1";
+    });
+    var spec = gsSpec();
+    el("gsmatch").hidden = spec.boxes < 2;
+    clearTimeout(GSTIMER);
+    GSTIMER = setTimeout(function(){ gsCount(spec.query); }, 250);
+  }
+
+  function gsCount(query){
+    if (!JOBID) return;
+    api("/jobs/" + JOBID + "/geneset?" + query).then(function(r){
+      var c = el("gscount");
+      c.textContent = r.count.toLocaleString() + " genes selected";
+      c.className = (r.count >= 200 && r.count <= 1500) ? "ok" : "warn";
+      el("gssentence").textContent = r.count === 0
+        ? "Tick at least one box."
+        : r.sentence + (r.count < 200
+            ? " \u2014 too few genes for enrichment to reach significance."
+            : (r.count > 1500
+               ? " \u2014 a list this large makes almost anything look enriched."
+               : ""));
+    }).catch(function(e){
+      el("gscount").textContent = "\u2014";
+      el("gscount").className = "warn";
+      el("gssentence").textContent = (e && e.message) || "the filter was refused";
     });
   }
 
