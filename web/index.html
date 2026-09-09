@@ -987,10 +987,16 @@
 
   function gsBoxes(){
     var rows = [];
+    // TargetScan's conserved sites are the default list: measured on this
+    // project's own data, an 8mer list gave no enrichment at all and adding
+    // it to the conserved list was no better than a random subset of the
+    // same size (manifests/pathway_design.md).
+    var tsFirst = ran("targetscan");
     if (ran("seed")){
       var cats = (TOOLMETA["seed"] && TOOLMETA["seed"].categories) || ["8mer"];
       rows.push('<div class="gsrow" data-tool="seed"><label class="tick">' +
-        '<input type="checkbox" id="gs_seed" checked> Seed site</label>' +
+        '<input type="checkbox" id="gs_seed"' + (tsFirst ? "" : " checked") +
+        '> Seed site</label>' +
         '<select id="gs_seed_v">' + cats.map(function(c, i){
           return '<option value="' + c + '"' + (i === 0 ? " selected" : "") + ">" +
                  c + (i ? " or better" : "") + "</option>";
@@ -999,7 +1005,7 @@
     }
     if (ran("targetscan"))
       rows.push('<div class="gsrow" data-tool="targetscan"><label class="tick">' +
-        '<input type="checkbox" id="gs_ts"> TargetScan</label>' +
+        '<input type="checkbox" id="gs_ts" checked> TargetScan</label>' +
         '<select id="gs_ts_v"><option value="conserved">conserved site</option>' +
         '<option value="any">any score</option>' +
         '<option value="cut">context++ at most</option></select>' +
