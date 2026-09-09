@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>miRNA target tool</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
   :root{
     --paper:#eef2f2; --surface:#fff; --surface-2:#e4eaea; --surface-3:#f6f9f9;
@@ -47,12 +47,12 @@
   }
 
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.5}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5}
   .wrap{max-width:1280px;margin:0 auto;padding:28px 16px 90px;display:flex;flex-direction:column;gap:16px}
 
   .masthead{display:flex;flex-direction:column;gap:7px}
   .kicker{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
-  h1{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(25px,3.2vw,32px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+  h1{font-family:'Inter',system-ui,sans-serif;font-weight:600;font-size:clamp(25px,3.2vw,32px);margin:0;letter-spacing:-.01em;text-wrap:balance}
   .sub{color:var(--muted);max-width:74ch;margin:0}
   .notice{display:inline-flex;align-self:flex-start;background:var(--ok-wash);border:1px solid var(--ok);border-radius:4px;padding:5px 11px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ok)}
 
@@ -216,7 +216,7 @@
 
 
   .notes{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 6px 6px 0;padding:16px 20px}
-  .notes h3{margin:0 0 10px;font-family:'Fraunces',Georgia,serif;font-size:17px;font-weight:600}
+  .notes h3{margin:0 0 10px;font-family:'Inter',system-ui,sans-serif;font-size:17px;font-weight:600}
   .notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:13px}
   .notes b{color:var(--ink);font-weight:600}
   .notes code{font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:var(--surface-2);padding:1px 5px;border-radius:3px;color:var(--ink)}
@@ -224,7 +224,7 @@
   [hidden]{display:none!important}
   .qform{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end}
   .qform label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
-  .qform label.f span{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .qform label.f span{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
   .qform input[type=text]{font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--line);border-radius:4px;background:var(--paper);color:var(--ink);min-width:230px}
   .qform input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px}
   .qform .slow{font-style:normal;color:var(--warn);font-size:11px}
@@ -234,7 +234,7 @@
   .linkbtn{appearance:none;background:none;border:none;padding:0;font:inherit;font-size:11.5px;color:var(--accent);border-bottom:1px dotted var(--accent);cursor:pointer}
   .linkbtn[disabled]{color:var(--faint);border-bottom-color:transparent;cursor:default}
   .pager{display:flex;align-items:center;gap:10px;margin-left:auto}
-  .pager span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+  .pager span{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:11px;color:var(--muted)}
   .runwait td{color:var(--faint)}
 </style>
 </head>
@@ -356,8 +356,8 @@
     <ul>
       <li><b>Four different questions.</b> Seed asks <i>is there a canonical match</i>. RNAhybrid asks <i>could the duplex physically form</i>. TargetScan asks <i>how much repression, given the surroundings</i>, and separately <i>has evolution kept the site</i>. miRTarBase asks <i>did anyone test it</i>. No single number can carry four answers.</li>
       <li><b>Scores are never combined.</b> Every column keeps its own units and its own arrow. −0.503 context++ and −18.5 kcal/mol are not comparable quantities, and averaging them would invent a number that means nothing.</li>
-      <li><b>Look at GAPDH.</b> RNAhybrid gives it a stronger duplex (−20.6) than the textbook miR-21 target PDCD4 (−18.5) — but its seed pairing uses G:U wobbles, TargetScan has nothing, and no one has ever reported it. Energy alone would rank a housekeeping gene above the real target. That is the whole argument for keeping the columns apart.</li>
-      <li><b>Look at ABHD12B.</b> The strongest context++ on this page (−0.693) with no conservation support at all, and no experimental record. A confident prediction from one tool and silence from the rest.</li>
+      <li><b>A tight duplex is not evidence.</b> RNAhybrid regularly gives a housekeeping gene a stronger ΔG than a validated target, because folding energy is all it measures and G:U wobbles count. Ranking by energy alone would put such a gene above the real one. That is the whole argument for keeping the columns apart.</li>
+      <li><b>Watch for one loud tool.</b> A strong context++ with no conservation and no published test is a confident prediction from one method and silence from the other three — worth a second look, not a conclusion.</li>
       <li><b>Four kinds of blank, never confused.</b> <code>—</code> the tool ran and found nothing · <code>not covered</code> the tool cannot assess this — GAPDH's only sites are in the CDS and TargetScan reads 3′UTRs, so its silence there means nothing at all · <code>not run</code> the tool was not selected · <code>not built</code> it does not exist yet.</li>
       <li><b>Positions come only from tools that measure them on your transcript.</b> Seed and RNAhybrid read the MANE Select sequence directly. TargetScan scores a transcript it chose itself — different for 38.7% of genes — so its positions are not shown at all.</li>
       <li><b>Region filters move the positional columns only.</b> Switching off CDS hides seed sites and duplexes in the CDS — it does not change TargetScan or miRTarBase, which are gene-level and have no position to filter. Per-column filter popovers (score cut-offs, site-type sets, evidence tiers) stay in the Phase 7 specification; this toolbar is the minimum needed to read the page.</li>
@@ -955,7 +955,7 @@
       el("f_tools").innerHTML = '<span>Tools</span>' + tools.map(function(t){
         return '<label><input type="checkbox" value="' + t.name + '"' +
           (t.slow ? "" : " checked") + "> " + t.name +
-          (t.slow ? ' <i class="slow">slow — adds ~13 min</i>' : "") + "</label>";
+          "</label>";
       }).join("");
 
       var map = {"Seed analyser": "seed", "RNAhybrid": "rnahybrid",
