@@ -156,7 +156,7 @@ def _gene_rows(con, job_id, spec):
     return syms, by_gene, total
 
 
-def _summarise(rows):
+def summarise(rows):
     """One gene's stored rows reduced to what the table shows.
 
     Every tool keeps its own cell. Nothing here combines two tools' numbers
@@ -250,7 +250,7 @@ def _gene_table(syms, by_gene):
             "<th>miRTarBase</th></tr></thead><tbody>")
     out = [head]
     for s in syms:
-        g = _summarise(by_gene[s])
+        g = summarise(by_gene[s])
         seed = g["seed"]
         rh, ts, mt = g["rh"], g["ts"], g["mt"]
         regions = "".join('<span class="tag">%s</span>' % REGION_LABEL.get(r, r)

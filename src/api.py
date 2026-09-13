@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 import config
 import db
 import enrichment
+import flatten
 import geneset
 import orchestrator
 import provenance
@@ -18,6 +19,7 @@ import ranking
 import report as R
 import resolve
 import targets as T
+import xlsx_export
 from tools import registry
 
 app = FastAPI(title=config.TOOL_NAME, version=config.TOOL_VERSION)
@@ -489,9 +491,19 @@ def export_results(job_id: str,
                                       "allowed": sorted(REGIONS)})
     where, args = _where(job_id, tool, region, site_type, gene,
                          regions=regs, include_6mer=include_6mer, q=q)
-    cur = con.execute("SELECT " + ", ".join(RESULT_COLS) + " FROM results "
-                      "WHERE " + where + " ORDER BY symbol, tool, pos_start",
-                      args)
+    # Read the rows and spread `extra` into named columns. No TSV this tool
+    # produces contains JSON: a reader should reach aggregate_pct by naming a
+    # column, not by parsing an object out of a cell.
+    rows = []
+    for r in con.execute("SELECT " + ", ".join(RESULT_COLS) + " FROM results "
+                         "WHERE " + where + " ORDER BY symbol, tool, pos_start",
+                         args):
+        d = dict(zip(RESULT_COLS, r))
+        d["extra"] = json.loads(d["extra"]) if d["extra"] else None
+        rows.append(d)
+    base = [c for c in RESULT_COLS if c != "extra"]
+    cols = flatten.columns(base, rows)
+    cells = flatten.rows_as_cells(rows, cols, base)
     name = "%s_%s_results.tsv" % (st["params"]["mirna_name"].replace("/", "-"),
                                   job_id)
     head = provenance.results(
@@ -502,7 +514,67 @@ def export_results(job_id: str,
                             ("none ticked" if regs == [] else None),
                  "6mer_sites": None if include_6mer else "excluded"},
         order="symbol, tool, pos_start")
-    return _tsv(cur.fetchall(), RESULT_COLS, name, head)
+    return _tsv(cells, cols, name, head)
+
+
+@app.get("/jobs/{job_id}/results.xlsx")
+def export_results_xlsx(job_id: str,
+                        tool: Optional[str] = None,
+                        region: Optional[str] = None,
+                        site_type: Optional[str] = None,
+                        gene: Optional[str] = None,
+                        regions: Optional[str] = None,
+                        include_6mer: bool = True,
+                        q: Optional[str] = Query(None, max_length=60),
+                        con=Depends(get_con)):
+    """The same rows as results.tsv, arranged for a spreadsheet.
+
+    A separate format rather than a replacement: the TSV keeps its '#'
+    provenance and its JSON `extra` because R and pandas read both correctly,
+    and this file flattens `extra` into columns and puts provenance on its
+    own sheet because a spreadsheet reads neither.
+    """
+    st = orchestrator.job_status(con, job_id)
+    if st is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    regs = None
+    if regions is not None:
+        regs = [r.strip() for r in regions.split(",") if r.strip()]
+        bad = [r for r in regs if r not in REGIONS]
+        if bad:
+            raise HTTPException(422, {"error": "bad_region", "regions": bad,
+                                      "allowed": sorted(REGIONS)})
+    where, args = _where(job_id, tool, region, site_type, gene,
+                         regions=regs, include_6mer=include_6mer, q=q)
+    cur = con.execute("SELECT " + ", ".join(RESULT_COLS) + " FROM results "
+                      "WHERE " + where + " ORDER BY symbol, tool, pos_start",
+                      args)
+    rows = []
+    for r in cur.fetchall():
+        d = dict(zip(RESULT_COLS, r))
+        d["extra"] = json.loads(d["extra"]) if d["extra"] else None
+        rows.append(d)
+    prov = provenance.results(
+        con, st,
+        filters={"tool": tool, "region": region, "site_type": site_type,
+                 "gene": gene, "gene_search": q,
+                 "regions": ",".join(regs) if regs else
+                            ("none ticked" if regs == [] else None),
+                 "6mer_sites": None if include_6mer else "excluded"},
+        order="symbol, tool, pos_start")
+    try:
+        blob = xlsx_export.build(rows, prov_lines=prov,
+                                 tool_runs=st["tools"])
+    except RuntimeError as e:
+        raise HTTPException(501, {"error": "xlsx_unavailable",
+                                  "message": str(e)})
+    name = "%s_%s_results.xlsx" % (
+        st["params"]["mirna_name"].replace("/", "-"), job_id)
+    return StreamingResponse(
+        iter([blob]),
+        media_type="application/vnd.openxmlformats-officedocument."
+                   "spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="%s"' % name})
 
 
 ENR_COLS = ("source", "term_id", "description", "k_in_term_and_list",
@@ -520,7 +592,49 @@ def export_enrichment(run_id: str, source: Optional[str] = None,
         raise HTTPException(404, {"error": "run_not_found", "run_id": run_id})
     rows = enrichment.terms(con, run_id, source, None, 0, q)
     head = provenance.enrichment(con, r, source, q)
-    return _tsv(rows, list(ENR_COLS), "%s_enrichment.tsv" % run_id, head)
+    # 7.15781004119207e-06 is float repr noise, not precision anyone reports.
+    # Six significant figures is far beyond what a p-value is quoted to, and
+    # nothing is lost: the exact value is recomputable from the four k/n
+    # integers in the same row, which is why they are stored.
+    out = []
+    for t in rows:
+        d = dict(t)
+        for c in ("p_value", "p_adjust", "q_value"):
+            if isinstance(d.get(c), float):
+                d[c] = "%.6g" % d[c]
+        # slash-separated in the database; commas read as a list to a person
+        # and split as one in any language
+        if d.get("genes"):
+            d["genes"] = d["genes"].replace("/", ", ")
+        out.append(d)
+    return _tsv(out, list(ENR_COLS), "%s_enrichment.tsv" % run_id, head)
+
+
+@app.get("/enrichment/{run_id}/terms.xlsx")
+def export_enrichment_xlsx(run_id: str, source: Optional[str] = None,
+                           q: Optional[str] = None, con=Depends(get_con)):
+    """The same terms as terms.tsv, one sheet per ontology.
+
+    Split by ontology rather than tabbed on a source column, because two
+    ontologies are tested against different annotated backgrounds and have
+    never belonged in one ranking.
+    """
+    r = enrichment.get_run(con, run_id)
+    if r is None:
+        raise HTTPException(404, {"error": "run_not_found", "run_id": run_id})
+    rows = enrichment.terms(con, run_id, source, None, 0, q)
+    head = provenance.enrichment(con, r, source, q)
+    try:
+        blob = xlsx_export.build_enrichment(rows, head)
+    except RuntimeError as e:
+        raise HTTPException(501, {"error": "xlsx_unavailable",
+                                  "message": str(e)})
+    return StreamingResponse(
+        iter([blob]),
+        media_type="application/vnd.openxmlformats-officedocument."
+                   "spreadsheetml.sheet",
+        headers={"Content-Disposition":
+                 'attachment; filename="%s_enrichment.xlsx"' % run_id})
 
 
 @app.get("/enrichment/{run_id}/genes.txt")

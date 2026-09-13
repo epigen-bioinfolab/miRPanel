@@ -101,7 +101,8 @@ keep = keep[:_notes] + """<section class="panel" id="enrich">
       <div class="termfoot">
         <span id="termcount"></span>
         <button class="linkbtn" id="termmore" type="button" hidden></button>
-        <button class="linkbtn expright" id="enrexp" type="button" hidden>Export terms ↓</button>
+        <button class="linkbtn expright" id="enrexp" type="button" hidden>Export terms (TSV) ↓</button>
+        <button class="linkbtn" id="enrexpx" type="button" hidden>Excel ↓</button>
       </div>
     </div>
   </section>
@@ -628,24 +629,58 @@ REDESIGN_CSS = """
 # other controls that decide what the table shows - because that is exactly
 # what it exports.
 EXPORT_CSS = """
-  .exp{position:relative}
-  .expbtn{white-space:nowrap}
-  .expmenu{position:absolute;right:0;top:calc(100% + 7px);z-index:30;
-    min-width:212px;padding:6px;background:var(--card,#fff);
-    border:1px solid var(--line);border-radius:8px;
-    box-shadow:0 6px 22px rgba(0,0,0,.13)}
-  .expmenu>button{display:block;width:100%;text-align:left;padding:7px 9px;
-    border:0;border-radius:6px;background:none;cursor:pointer;
-    font:inherit;font-size:12.5px;color:inherit}
-  .expmenu>button:hover{background:var(--hover,rgba(0,0,0,.05))}
-  .expnote{margin:5px 9px 3px;font-size:11px;line-height:1.45;color:var(--muted)}
-  .expright{margin-left:auto}
-  .expsep{margin-top:5px;padding-top:6px;border-top:1px solid var(--line)}
+  /* Export is an action, not a footnote, so it is a real button in the same
+     type scale as the rest of the toolbar - not the .linkbtn hint style. It
+     sits with the other controls rather than after the row count, which on a
+     wrapping flex toolbar dropped it to a second line. #rowcount keeps its
+     own margin-left:auto, so it stays pinned right exactly as designed. */
+  .exp{position:relative;display:flex;align-items:center}
+  .expbtn{appearance:none;font:inherit;font-size:13.5px;font-weight:600;
+    padding:7px 17px;border:1px solid var(--accent);border-radius:4px;
+    background:var(--surface);color:var(--accent);cursor:pointer;
+    white-space:nowrap;line-height:1.25}
+  .expbtn:hover{background:var(--accent);color:var(--accent-ink)}
+  .expbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .expmenu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;
+    min-width:258px;padding:7px;background:var(--surface);
+    border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 8px 26px rgba(0,0,0,.16)}
+  .expnote{margin:7px 10px 4px;font-size:12px;line-height:1.5;
+    color:var(--muted)}
+
+  .exprow{display:flex;align-items:center;gap:6px;padding:4px 6px 4px 10px}
+  .exprow>span{flex:1;font-size:13px;color:var(--ink)}
+  .exprow>button{padding:5px 13px;border:1px solid var(--line);
+    border-radius:4px;background:var(--surface);cursor:pointer;font:inherit;
+    font-size:12.5px;font-weight:600;color:var(--accent)}
+  .exprow>button:hover{background:var(--accent);color:var(--accent-ink);
+    border-color:var(--accent)}
+
+  .expsep{margin-top:6px;padding-top:8px;border-top:1px solid var(--line)}
   .expctl{display:flex;align-items:center;justify-content:space-between;
-    gap:8px;padding:4px 9px;font-size:12px;color:var(--muted)}
-  .expctl select{font:inherit;font-size:12px;padding:2px 4px}
-  .expstat{margin-right:9px;font-size:11.5px;color:var(--muted)}
-  .expstat a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+    gap:10px;padding:2px 10px 8px;font-size:13px;color:var(--ink)}
+  .expctl select{font:inherit;font-size:13px;padding:4px 7px;
+    border:1px solid var(--line);border-radius:3px;background:var(--surface);
+    color:var(--ink)}
+  .expsep>button{display:block;width:calc(100% - 20px);margin:0 10px;
+    padding:7px 12px;border:1px solid var(--accent);border-radius:4px;
+    background:var(--accent);color:var(--accent-ink);cursor:pointer;
+    font:inherit;font-size:13px;font-weight:600}
+
+  .expstat{margin-right:11px;font-size:13px;color:var(--muted);
+    white-space:nowrap}
+  .expstat a{color:var(--accent);font-weight:600;text-decoration:underline;
+    text-underline-offset:2px}
+
+  /* the enrichment panel's own exports, matched to the same scale */
+  #enrexp, #enrexpx{font-size:12.5px;font-weight:600;padding:5px 13px;
+    border:1px solid var(--line);border-radius:4px;background:var(--surface);
+    color:var(--accent)}
+  #enrexp:hover, #enrexpx:hover{background:var(--accent);
+    color:var(--accent-ink);border-color:var(--accent)}
+  .expright{margin-left:auto}
+  #enrexpx{margin-left:7px}
 """
 
 HEAD = """<!doctype html>
@@ -903,8 +938,8 @@ TAIL_JS = r"""
     return ["5UTR", "CDS", "3UTR"].filter(function(r){ return regOn[r]; });
   }
 
-  function exportURL(scope){
-    var u = "/jobs/" + JOBID + "/results.tsv";
+  function exportURL(scope, fmt){
+    var u = "/jobs/" + JOBID + "/results." + (fmt === "xlsx" ? "xlsx" : "tsv");
     if (scope === "all") return u;
     var p = [], regs = exportRegions();
     // sent even when empty: 'no regions ticked' is a real state, and an
@@ -1112,8 +1147,14 @@ TAIL_JS = r"""
       '<button class="linkbtn expbtn" id="expbtn" type="button" ' +
       'aria-haspopup="true" aria-expanded="false">Export ↓</button>' +
       '<div class="expmenu" id="expmenu" hidden>' +
-      '<button type="button" data-scope="view">This view (TSV)</button>' +
-      '<button type="button" data-scope="all">Whole job (TSV)</button>' +
+      '<div class="exprow"><span>This view</span>' +
+      '<button type="button" data-scope="view" data-fmt="tsv">TSV</button>' +
+      '<button type="button" data-scope="view" data-fmt="xlsx">Excel</button>' +
+      '</div>' +
+      '<div class="exprow"><span>Whole job</span>' +
+      '<button type="button" data-scope="all" data-fmt="tsv">TSV</button>' +
+      '<button type="button" data-scope="all" data-fmt="xlsx">Excel</button>' +
+      '</div>' +
       '<div class="expsep"><label class="expctl">Report genes ' +
       '<select id="repn">' +
       '<option value="25">top 25</option>' +
@@ -1123,7 +1164,11 @@ TAIL_JS = r"""
       '<button type="button" data-scope="report">Build report (HTML)</button>' +
       '</div>' +
       '<p class="expnote" id="expnote"></p></div>';
-    bar.appendChild(ex);
+    // before the row count, not after it: appended last it wrapped onto a
+    // second line of the flex toolbar and sat below everything else
+    var rc = el("rowcount");
+    if (rc && rc.parentNode === bar) bar.insertBefore(ex, rc);
+    else bar.appendChild(ex);
 
     el("expbtn").addEventListener("click", function(e){
       e.stopPropagation();
@@ -1141,7 +1186,7 @@ TAIL_JS = r"""
       el("expbtn").setAttribute("aria-expanded", "false");
       if (b.dataset.scope === "report") return buildReport();
       // Content-Disposition makes this a download, not a navigation
-      window.location = exportURL(b.dataset.scope);
+      window.location = exportURL(b.dataset.scope, b.dataset.fmt);
     });
     document.addEventListener("click", function(e){
       var m = el("expmenu");
@@ -1151,15 +1196,17 @@ TAIL_JS = r"""
       }
     });
 
-    el("enrexp").addEventListener("click", function(){
+    function enrExport(ext){
       if (!ENR || !ENR.run) return;
       var p = [];
       // the open tab and the search box are what the reader is looking at
       if (ENRSRC) p.push("source=" + encodeURIComponent(ENRSRC));
       if (ENRQ) p.push("q=" + encodeURIComponent(ENRQ));
-      window.location = "/enrichment/" + ENR.run.run_id + "/terms.tsv" +
+      window.location = "/enrichment/" + ENR.run.run_id + "/terms." + ext +
                         (p.length ? "?" + p.join("&") : "");
-    });
+    }
+    el("enrexp").addEventListener("click", function(){ enrExport("tsv"); });
+    el("enrexpx").addEventListener("click", function(){ enrExport("xlsx"); });
 
     var d = document.createElement("div");
     d.className = "pager";
@@ -1543,7 +1590,7 @@ TAIL_JS = r"""
          : ("Showing " + shown + " of " + inSrc + " terms"));
     // exportable as soon as there are terms; the search box and the open tab
     // narrow the file the same way they narrow the panel
-    el("enrexp").hidden = !(run.status === "done" && inSrc);
+    el("enrexp").hidden = el("enrexpx").hidden = !(run.status === "done" && inSrc);
     el("termmore").hidden = !!ENRQ || shown >= total;
     el("termmore").textContent = "show all " + total + " \u2192";
     el("termmore").onclick = function(){
