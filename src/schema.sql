@@ -289,3 +289,29 @@ CREATE TABLE IF NOT EXISTS enrichment_terms (
 CREATE INDEX IF NOT EXISTS idx_enr_terms_run ON enrichment_terms(run_id, p_adjust);
 CREATE INDEX IF NOT EXISTS idx_enr_runs_job  ON enrichment_runs(job_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_enr_runs_hash ON enrichment_runs(job_id, spec_hash);
+
+-- One standing HTML report per row. The rendered document is stored rather
+-- than regenerated on demand, for the same reason enrichment runs are kept:
+-- a report is a scientific artefact with a date on it, and re-rendering it
+-- later against a re-run job would quietly change what it says. Nothing here
+-- is ever deleted.
+CREATE TABLE IF NOT EXISTS reports (
+    report_id       TEXT PRIMARY KEY,
+    job_id          TEXT NOT NULL,
+    job_finished_at TEXT,              -- jobs.finished_at when this was asked for
+    created_at      TEXT NOT NULL,
+    started_at      TEXT,
+    finished_at     TEXT,
+    status          TEXT NOT NULL,     -- queued | running | done | failed
+    error           TEXT,
+
+    spec_json       TEXT NOT NULL,     -- sort and top_n, fixed at request time
+    enrichment_run  TEXT,              -- the run included, chosen at request time
+    n_genes         INTEGER,           -- how many genes the report actually shows
+    html            TEXT,              -- the rendered document
+    bytes           INTEGER,
+    seconds         REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_job    ON reports(job_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);

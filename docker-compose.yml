@@ -1,0 +1,23 @@
+services:
+  web:
+    build: .
+    container_name: mirna-web
+    working_dir: /app
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - mirna-data:/app/data
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: mirna-worker
+    working_dir: /app
+    command: python scripts/worker.py
+    volumes:
+      - mirna-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  mirna-data:

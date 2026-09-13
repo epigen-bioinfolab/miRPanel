@@ -4,6 +4,7 @@ import os
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,9 @@ import db
 import enrichment
 import geneset
 import orchestrator
+import provenance
+import ranking
+import report as R
 import resolve
 import targets as T
 from tools import registry
@@ -86,9 +90,20 @@ RESULT_COLS = ("mirna_acc", "mirna_name", "entrez", "symbol", "refseq",
                "region", "tool", "site_type", "pos_start", "pos_end",
                "score", "score_type", "low_confidence", "extra")
 
+# The regions a transcript is divided into. An export that asked for a region
+# outside this set is a mistake on the caller's side, not an empty result.
+REGIONS = {"5UTR", "CDS", "3UTR"}
 
-def _where(job_id, tool, region, site_type, gene):
-    """Build the WHERE clause from whatever filters were supplied."""
+
+def _where(job_id, tool, region, site_type, gene, regions=None,
+           include_6mer=True, q=None):
+    """Build the WHERE clause from whatever filters were supplied.
+
+    `regions`, `include_6mer` and `q` exist so that an export can reproduce
+    what the table is showing: those three are applied in the browser, and a
+    file that ignored them would contain rows the screen was hiding without
+    saying so anywhere.
+    """
     parts, args = ["job_id = ?"], [job_id]
     for col, val in (("tool", tool), ("region", region), ("site_type", site_type)):
         if val:
@@ -97,6 +112,26 @@ def _where(job_id, tool, region, site_type, gene):
     if gene:
         parts.append("(symbol = ? COLLATE NOCASE OR entrez = ?)")
         args += [gene, gene]
+    if q:
+        pat = "%" + q.replace("\\", "\\\\").replace("%", "\\%") \
+                     .replace("_", "\\_") + "%"
+        parts.append("(symbol LIKE ? ESCAPE '\\' COLLATE NOCASE "
+                     "OR entrez LIKE ? ESCAPE '\\')")
+        args += [pat, pat]
+    if regions is not None:
+        # A row with no region of its own is never hidden by a region box.
+        # miRTarBase evidence is about the gene, not a place inside it, so
+        # unticking 5'UTR must not make published evidence disappear - the
+        # page's own region filter touches only seed and RNAhybrid rows.
+        clause = "region IS NULL OR region = ''"
+        if regions:
+            clause += " OR region IN (" + ",".join("?" * len(regions)) + ")"
+            args += list(regions)
+        parts.append("(" + clause + ")")
+    if not include_6mer:
+        # 'Include 6mer sites' is a statement about the seed analyser's own
+        # categories, so it must not reach into another tool's rows.
+        parts.append("NOT (tool = 'seed' AND site_type = '6mer')")
     return " AND ".join(parts), args
 
 
@@ -210,32 +245,24 @@ def read_mirna(query: str, con=Depends(get_con)):
 
 
 def _gene_order(sort):
-    """How to rank genes. Direction always comes from the tool's META."""
-    metas = {m.META["name"]: m.META for m in registry.load().values()}
-    if sort == "gene":
-        return "symbol", []
-    if sort == "seed":
-        cats = metas["seed"]["categories"]
-        case = " ".join("WHEN ? THEN %d" % (len(cats) - i)
-                        for i in range(len(cats)))
-        return ("MAX(CASE WHEN tool='seed' THEN (CASE site_type " + case +
-                " ELSE 0 END) END) DESC, symbol"), list(cats)
-    meta = metas.get(sort)
-    if meta is None or meta["better"] is None:
+    """How to rank genes.
+
+    The rule itself lives in ranking.py because the report ranks genes the
+    same way; this is only the HTTP translation of a bad request.
+    """
+    try:
+        return ranking.gene_order(sort)
+    except ranking.BadSort as e:
         raise HTTPException(422, {"error": "bad_sort", "sort": sort,
-            "message": "sort must be 'gene', 'seed', or a tool with a "
-                       "numeric score"})
-    agg = "MIN" if meta["better"] == "lower" else "MAX"
-    expr = "%s(CASE WHEN tool=? THEN score END)" % agg
-    direction = "ASC" if meta["better"] == "lower" else "DESC"
-    return "%s IS NULL, %s %s, symbol" % (expr, expr, direction), [sort, sort]
+                                  "message": str(e)})
 
 
 @app.get("/jobs/{job_id}/genes")
 def read_genes(job_id: str,
                sort: str = Query("gene", pattern="^[a-z_]+$"),
                gene: Optional[str] = None,
-               limit: int = Query(25, ge=1, le=200),
+               q: Optional[str] = Query(None, max_length=60),
+               limit: int = Query(10, ge=1, le=200),
                offset: int = Query(0, ge=0),
                con=Depends(get_con)):
     """One page of genes, with every record for those genes and the
@@ -250,6 +277,14 @@ def read_genes(job_id: str,
     if gene:
         gclause = " AND (symbol = ? COLLATE NOCASE OR entrez = ?)"
         gargs = [gene, gene]
+    elif q:
+        # ?q= searches every gene in the job, not the page on screen. Searching
+        # the loaded page would silently miss a gene sitting at rank 300.
+        pat = "%" + q.replace("\\", "\\\\").replace("%", "\\%") \
+                     .replace("_", "\\_") + "%"
+        gclause = (" AND (symbol LIKE ? ESCAPE '\\' COLLATE NOCASE "
+                   "OR entrez LIKE ? ESCAPE '\\')")
+        gargs = [pat, pat]
     total = con.execute("SELECT COUNT(DISTINCT symbol) FROM results "
                         "WHERE job_id=?" + gclause, [job_id] + gargs).fetchone()[0]
     syms = [r[0] for r in con.execute(
@@ -393,6 +428,182 @@ def read_enrichment(run_id: str,
             "in_source": by_source.get(source, sum(by_source.values())),
             "limit": limit, "offset": offset, "source": source, "q": q,
             "terms": enrichment.terms(con, run_id, source, limit, offset, q)}
+
+
+# ------------------------------------------------------------------ export
+# Tab-separated, not comma: gene descriptions and GO term names contain commas
+# and would need quoting, which spreadsheets and R read inconsistently. A TSV
+# opens correctly in Excel, LibreOffice, pandas and read.delim with no options.
+
+def _tsv(rows, cols, filename, header=None):
+    def cell(v):
+        if v is None:
+            return ""
+        # a stray tab or newline would shift every later column silently
+        return str(v).replace("\t", " ").replace("\r", " ").replace("\n", " ")
+
+    def gen():
+        # '#' lines first, then exactly one header row, then the data. A
+        # reader that skips comments sees a plain TSV; one that doesn't
+        # still has every version and filter in front of it.
+        for line in (header or []):
+            yield line + "\n"
+        yield "\t".join(cols) + "\n"
+        for r in rows:
+            yield "\t".join(cell(r[c] if isinstance(r, dict) else r[i])
+                            for i, c in enumerate(cols)) + "\n"
+
+    return StreamingResponse(
+        gen(), media_type="text/tab-separated-values; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
+
+
+@app.get("/jobs/{job_id}/results.tsv")
+def export_results(job_id: str,
+                   tool: Optional[str] = None,
+                   region: Optional[str] = None,
+                   site_type: Optional[str] = None,
+                   gene: Optional[str] = None,
+                   regions: Optional[str] = None,
+                   include_6mer: bool = True,
+                   q: Optional[str] = Query(None, max_length=60),
+                   con=Depends(get_con)):
+    """Every row of a job, unpaginated, exactly as stored.
+
+    No limit: an export that silently stopped at 100 rows would be worse than
+    no export. Scores stay in their own columns and are never combined.
+
+    `regions` is a comma-separated list and is deliberately distinguishable
+    from absent: omitted means no region filter, empty means every region box
+    was unticked. Those are different questions and must give different files.
+    """
+    st = orchestrator.job_status(con, job_id)
+    if st is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    regs = None
+    if regions is not None:
+        regs = [r.strip() for r in regions.split(",") if r.strip()]
+        bad = [r for r in regs if r not in REGIONS]
+        if bad:
+            raise HTTPException(422, {"error": "bad_region", "regions": bad,
+                                      "allowed": sorted(REGIONS)})
+    where, args = _where(job_id, tool, region, site_type, gene,
+                         regions=regs, include_6mer=include_6mer, q=q)
+    cur = con.execute("SELECT " + ", ".join(RESULT_COLS) + " FROM results "
+                      "WHERE " + where + " ORDER BY symbol, tool, pos_start",
+                      args)
+    name = "%s_%s_results.tsv" % (st["params"]["mirna_name"].replace("/", "-"),
+                                  job_id)
+    head = provenance.results(
+        con, st,
+        filters={"tool": tool, "region": region, "site_type": site_type,
+                 "gene": gene, "gene_search": q,
+                 "regions": ",".join(regs) if regs else
+                            ("none ticked" if regs == [] else None),
+                 "6mer_sites": None if include_6mer else "excluded"},
+        order="symbol, tool, pos_start")
+    return _tsv(cur.fetchall(), RESULT_COLS, name, head)
+
+
+ENR_COLS = ("source", "term_id", "description", "k_in_term_and_list",
+            "n_in_list", "k_in_term_and_background", "n_in_background",
+            "p_value", "p_adjust", "q_value", "genes")
+
+
+@app.get("/enrichment/{run_id}/terms.tsv")
+def export_enrichment(run_id: str, source: Optional[str] = None,
+                      q: Optional[str] = None, con=Depends(get_con)):
+    """Every enriched term with the four integers behind its p-value, so the
+    statistics can be redone from the file alone."""
+    r = enrichment.get_run(con, run_id)
+    if r is None:
+        raise HTTPException(404, {"error": "run_not_found", "run_id": run_id})
+    rows = enrichment.terms(con, run_id, source, None, 0, q)
+    head = provenance.enrichment(con, r, source, q)
+    return _tsv(rows, list(ENR_COLS), "%s_enrichment.tsv" % run_id, head)
+
+
+@app.get("/enrichment/{run_id}/genes.txt")
+def export_enrichment_genes(run_id: str, con=Depends(get_con)):
+    """The gene ids this run actually tested - the list behind every p-value."""
+    r = enrichment.get_run(con, run_id)
+    if r is None:
+        raise HTTPException(404, {"error": "run_not_found", "run_id": run_id})
+    body = "\n".join(r["genes"]) + "\n"
+    return StreamingResponse(
+        iter([body]), media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition":
+                 'attachment; filename="%s_genes.txt"' % run_id})
+
+
+# ------------------------------------------------------------------ reports
+
+class ReportRequest(BaseModel):
+    """What to put in a report. Both fields are fixed at request time."""
+    sort: str = Field("gene", description="the gene ranking to take the top N by")
+    top_n: int = Field(50, ge=1, le=2000)
+    terms_per_source: int = Field(
+        20, ge=0, le=2000,
+        description="enriched terms per ontology; 0 means every term")
+
+
+@app.post("/jobs/{job_id}/reports", status_code=202)
+def post_report(job_id: str, req: ReportRequest, con=Depends(get_con)):
+    """Queue an HTML report for one job. Poll GET /reports/{report_id}.
+
+    Never reused the way an enrichment run is: a report is cheap to redo and
+    its point is to be a dated document, so asking twice should give two.
+    """
+    try:
+        report_id = R.create(con, job_id, req.model_dump())
+    except ValueError as e:
+        raise HTTPException(422, {"error": "bad_request", "message": str(e)})
+    return {"report_id": report_id, "status": "queued"}
+
+
+@app.get("/jobs/{job_id}/reports")
+def list_reports(job_id: str, con=Depends(get_con)):
+    """Every report ever built for this job, newest first."""
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    return {"job_id": job_id, "reports": R.list_reports(con, job_id)}
+
+
+# Declared before /reports/{report_id}: routes match in declaration order, and
+# a bare {report_id} happily swallows "rep_abc.html" as a report id. The more
+# specific path has to come first or the document is unreachable.
+@app.get("/reports/{report_id}.html")
+def read_report_html(report_id: str, download: bool = False,
+                     con=Depends(get_con)):
+    """The report itself.
+
+    Served inline by default so it opens in the browser and prints straight
+    to PDF - which is how this tool produces a PDF without a PDF toolchain.
+    ?download=1 saves it instead.
+    """
+    r = R.get(con, report_id, include_html=True)
+    if r is None:
+        raise HTTPException(404, {"error": "report_not_found",
+                                  "report_id": report_id})
+    if r["status"] != "done":
+        raise HTTPException(409, {"error": "report_not_ready",
+                                  "status": r["status"], "error_": r["error"]})
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = \
+            'attachment; filename="%s_report.html"' % report_id
+    return StreamingResponse(iter([r["html"]]), media_type="text/html; charset=utf-8",
+                             headers=headers)
+
+
+@app.get("/reports/{report_id}")
+def read_report(report_id: str, con=Depends(get_con)):
+    """Status and metadata. The document itself is at /reports/{id}.html."""
+    r = R.get(con, report_id)
+    if r is None:
+        raise HTTPException(404, {"error": "report_not_found",
+                                  "report_id": report_id})
+    return r
 
 
 # Mounted last: it claims "/", so every real endpoint must be declared above.

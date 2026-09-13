@@ -45,6 +45,10 @@ NOTE_SUBS = [
  ("<b>Look at ABHD12B.</b> The strongest context++ on this page (−0.693) with no conservation support at all, and no experimental record. A confident prediction from one tool and silence from the rest.",
   "<b>Watch for one loud tool.</b> A strong context++ with no conservation and no published test is a confident prediction from one method and silence from the other three — worth a second look, not a conclusion."),
 ]
+NOTE_SUBS.append((
+ "The ΔG and context++ columns show the number and a bar on a stated scale, nothing else",
+ "The ΔG and context++ columns show the number and nothing else"))
+
 for _a, _b in NOTE_SUBS:
     assert keep.count(_a) == 1, _a[:40]
     keep = keep.replace(_a, _b)
@@ -90,16 +94,94 @@ keep = keep[:_notes] + """<section class="panel" id="enrich">
         </div>
       </div>
       <table class="terms"><thead><tr>
-        <th></th><th>Term</th><th>Genes</th><th>Adjusted p</th>
+        <th></th><th>Term</th>
+        <th class="sortable" data-sort="genes">Genes<span class="arrow"></span></th>
+        <th class="sortable" data-sort="p">Adjusted p<span class="arrow"></span></th>
       </tr></thead><tbody id="termbody"></tbody></table>
       <div class="termfoot">
         <span id="termcount"></span>
         <button class="linkbtn" id="termmore" type="button" hidden></button>
+        <button class="linkbtn expright" id="enrexp" type="button" hidden>Export terms ↓</button>
       </div>
     </div>
   </section>
 
   """ + keep[_notes:]
+
+# The binding map draws whichever gene is selected in the table, so it belongs
+# after the table rather than before it: meet the data, then the picture of one
+# row of it.
+_b0 = keep.index('<section class="panel browser">')
+_b1 = keep.index("</section>", _b0) + len("</section>")
+_map = keep[_b0:_b1]
+keep = keep[:_b0] + keep[_b1:]
+_tbl = keep.index('<div class="toolbar">')
+keep = (keep[:_tbl] + _map +
+        '\n\n  <h2 class="sectitle">The result table</h2>\n  ' + keep[_tbl:])
+
+# The tool key is reference material, not a step in the workflow, so it moves
+# down beside the notes that explain how to read the page.
+_t0 = keep.index('<section class="toolkey">')
+_t1 = keep.index("</section>", _t0) + len("</section>")
+_tk = keep[_t0:_t1]
+keep = keep[:_t0] + keep[_t1:]
+_n = keep.index('<div class="notes">')
+keep = keep[:_n] + _tk + "\n\n  " + keep[_n:]
+
+# miRanda was dropped from the project, so its column comes out rather than
+# standing there permanently reading "not built". An empty column for a tool
+# that will never exist is worse than no column.
+for _a, _b in [
+    ('<th colspan="1" class="gsep">Not yet built</th>',
+     '<th colspan="1" class="gsep">Not yet built</th>'),
+    ('<span class="hn">ML model \u00b7 miRanda</span><span class="hu">later phases</span>',
+     '<span class="hn">ML model</span><span class="hu">Phase 9</span>'),
+    ('<span class="hu">kcal/mol \u00b7 bar 0 to \u221235</span>',
+     '<span class="hu">kcal/mol</span>'),
+    ('<span class="hu">bar 0 to \u22121</span>',
+     '<span class="hu">site context score</span>'),
+    ('<th colspan="2" class="gsep">Seed analyser \u2014 ours</th>',
+     '<th colspan="2" class="gsep">Seed analyser</th>'),
+    ]:
+    assert keep.count(_a) == 1, _a[:50]
+    keep = keep.replace(_a, _b)
+
+a = '''    ["miRanda","not integrated",
+     "A second, independent alignment-and-energy opinion",
+     "an alignment score","Higher = better alignment. Useful mainly as a cross-check on the other two predictors.",
+     "whole transcript",true]
+  ];'''
+assert script.count(a) == 1, "miRanda tool-key row"
+script = script.replace(a, "  ];")
+
+# The binding map lane captions and the detail-row paragraph explained the data
+# model at length. The reader at that moment wants to know what the rows are,
+# not how the tool is built.
+for _a, _b in [
+    ('<div class="lanecap">Seed sites <em>Watson\u2013Crick only</em></div>', ""),
+    ('<div class="lanecap">RNAhybrid duplexes <em>span shown to scale \u00b7 '
+     'G:U wobbles allowed</em></div>', "")]:
+    assert script.count(_a) == 1, _a[:45]
+    script = script.replace(_a, _b)
+
+a = """    return '<div class="dethead">'+rows.length+" record"+(rows.length===1?"":"s")+" for "+g+
+      ", one row each, exactly as stored \u2014 from the two tools that measure position."+
+      (nAgree?" The Agreement column marks where both tools point at the same nucleotides.":"")+
+      " TargetScan and miRTarBase report one value for the whole gene, so they have no row here.</div>"+"""
+assert script.count(a) == 1, "dethead"
+script = script.replace(a, """    return '<div class="dethead">miRNA binding sites identified in ' + g +
+      "</div>"+""")
+
+# The counts strip repeated what the table and the provenance line already say.
+a = """    document.getElementById("rowcount").textContent =
+      GENES.length+" genes · "+nSites+" seed sites · "+nDup+" duplexes"+
+      (show6?"":" · 6mer sites hidden")+
+      (off.length?" · "+off.join(" and ")+" hidden":"");"""
+assert script.count(a) == 1, "rowcount"
+# only the hidden-region note survives: it changes what the table shows.
+script = script.replace(a, """    document.getElementById("rowcount").textContent =
+      (off.length ? off.join(" and ") + " hidden" : "") +
+      (show6 ? "" : (off.length ? " · " : "") + "6mer sites hidden");""")
 
 # ---- script surgery --------------------------------------------------------
 a = "  var MIR = {name:"
@@ -151,7 +233,7 @@ script = script[:script.index(a)] + '''  function ran(t){ return RAN[t] === true
       : seedEmpty) + "</td>");
     cells.push('<td class="colsep">' + (s
       ? '<span class="site ' + SITE_CLASS[s[2]] + '">' + s[2] + "</span>" +
-        (nSeed > 1 ? '<span class="sub2">' + nSeed + " sites total</span>" : "")
+        ""
       : seedEmpty) + "</td>");
     cells.push('<td class="num">' + (s
       ? s[3].toLocaleString() + "–" + s[4].toLocaleString() +
@@ -292,6 +374,280 @@ EXTRA_CSS = """
   .sources{margin:6px 0 0;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em}
 """
 
+# ---------------------------------------------------------------------------
+# Redesign layer. Appended last so it wins on specificity ties.
+#
+# The approved layout was a set of cards on a tinted ground. This strips the
+# card chrome and rebuilds the hierarchy out of type and space instead, which
+# is how scientific software reads: section title, field label, column header,
+# data - each one plainly a level below the last.
+#
+# Two colours survive because they carry information rather than decoration:
+# the 5'UTR / CDS / 3'UTR region colours the binding map depends on, and the
+# site-type banding that distinguishes an 8mer from a 6mer. Everything else
+# goes to neutral ink on white.
+REDESIGN_CSS = """
+  /* ---- palette: white ground, darker secondary text ---- */
+  :root, :root[data-theme="light"]{
+    --paper:#ffffff; --surface:#ffffff; --surface-2:#f4f5f6; --surface-3:#fafbfb;
+    --ink:#14181b; --muted:#454c52; --faint:#6a7278;
+    --line:#d6dade; --line-soft:#e8eaec;
+    --accent:#12507e; --accent-ink:#fff; --accent-wash:#eaf1f7;
+    --blue:#12507e; --blue-wash:#eaf1f7;
+    --ok:#1d6b48; --warn:#8a5a12; --sel:#a8410f; --sel-wash:#fbeee7;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#0e1113; --surface:#0e1113; --surface-2:#191d20; --surface-3:#14181a;
+    --ink:#eef1f2; --muted:#b3bbc0; --faint:#8b959b;
+    --line:#2c3236; --line-soft:#23282c;
+    --accent:#68a8dd; --accent-ink:#0e1113; --accent-wash:#15242f;
+    --blue:#68a8dd; --blue-wash:#15242f;
+  }}
+  body{font-family:'Inter','Source Sans 3',system-ui,-apple-system,
+       BlinkMacSystemFont,sans-serif;font-size:14.5px;line-height:1.55;
+       background:var(--paper)}
+
+  /* ---- sections are headings and space, not boxes ---- */
+  .wrap{max-width:1340px;padding:34px 26px 110px;gap:0}
+  .panel, .toolkey, .toolbar, .notes, .panel.browser{
+    background:none;border:0;border-radius:0;box-shadow:none;overflow:visible}
+  .panel, .context, .toolkey, .notes, #results{margin:0 0 46px}
+  .panel>h2, .browser>header h2, .notes h3{
+    margin:0 0 4px;padding:0;background:none;border:0;
+    font-family:inherit;font-size:20px;font-weight:700;letter-spacing:-.012em;
+    text-transform:none;color:var(--ink);line-height:1.25}
+  .panel>h2{display:flex;align-items:baseline;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:9px;margin-bottom:18px}
+  .panel>h2 em{font-style:normal;font-size:13px;font-weight:400;
+    color:var(--muted);letter-spacing:0;text-transform:none}
+  .panel-body, .mapbody{padding:0}
+  .browser>header{background:none;border:0;padding:0 0 9px;margin-bottom:18px;
+    border-bottom:1px solid var(--line);align-items:baseline}
+  .browser>header .hint{margin-left:auto;font-size:13px;color:var(--muted)}
+  .browser>footer{border-top:1px solid var(--line-soft);padding:9px 0 0;
+    font-size:12.5px;color:var(--muted)}
+  .context{gap:46px;grid-template-columns:minmax(320px,1fr) minmax(340px,1.1fr)}
+  @media (max-width:860px){.context{grid-template-columns:1fr;gap:0}}
+
+  /* ---- field labels: readable, not faded ---- */
+  .qform label.f span, .fgroup>span, .tsearch label, .gslabel,
+  table.runs th, table.sites th, table.tk th, .terms th,
+  table.results thead tr.grouprow th{
+    font-family:inherit;font-size:12.5px;font-weight:600;letter-spacing:0;
+    text-transform:none;color:var(--muted)}
+  .qform label.f span{font-size:13px;color:var(--ink)}
+
+  /* ---- tables: white, ruled, aligned ---- */
+  table.results thead th, table.tk th{background:none}
+  table.results thead tr.grouprow th{
+    padding:0 10px 4px;font-size:11.5px;color:var(--faint);
+    border-bottom:0;background:none}
+  table.results thead tr:last-child th, table.tk th, .terms th,
+  table.runs th, table.sites th{
+    font-size:13px;font-weight:600;color:var(--ink);
+    border-bottom:1px solid var(--line);padding-bottom:7px}
+  table.results tbody td, table.tk td{font-size:13.5px;padding:9px 10px}
+  table.runs td, table.sites td{font-size:13px}
+  table.results tbody tr:hover>td{background:var(--surface-3)}
+  .terms td{font-size:13.5px}
+
+  /* ---- no decorative score bars: the number is the datum ---- */
+  .meter{display:none!important}
+
+  /* ---- controls ---- */
+  .qform input[type=text], .tsbox input, .gsrow select,
+  .gsrow input[type=number]{font-size:14px;border-color:var(--line);
+    border-radius:3px;background:var(--surface)}
+  .go{border-radius:3px;font-size:14px;padding:9px 22px}
+  .gsrow>label.tick, .fgroup label{font-size:13.5px;color:var(--ink)}
+  .gsnote, .say{color:var(--muted)}
+  .tabs button{font-size:13.5px;padding:7px 14px}
+  .tabs button b{font-size:12px}
+  .notes ul{font-size:13.5px;color:var(--muted)}
+  .notes{border-left:0;padding:0}
+  .notes h3{border-bottom:1px solid var(--line);padding-bottom:9px;
+    margin-bottom:18px}
+
+  /* ---- numbered pagination ---- */
+  .pager{gap:4px}
+  .pgnum{appearance:none;background:none;border:1px solid transparent;
+    border-radius:3px;font:inherit;font-size:13px;color:var(--muted);
+    min-width:30px;padding:4px 7px;cursor:pointer;text-align:center}
+  .pgnum:hover{background:var(--surface-2);color:var(--ink)}
+  .pgnum[aria-current="true"]{border-color:var(--line);color:var(--ink);
+    font-weight:600;background:var(--surface-2)}
+  .pgnum[disabled]{color:var(--faint);cursor:default;background:none}
+  .pggap{color:var(--faint);padding:0 2px;font-size:13px}
+  .toolbar{padding:0;gap:12px 20px;margin-bottom:14px}
+  .toolpick{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:7px 20px;margin-top:6px}
+  label.tp{display:grid;grid-template-columns:auto 1fr;column-gap:8px;
+    align-items:baseline;cursor:pointer}
+  label.tp input{grid-row:1/3;align-self:center;accent-color:var(--accent);
+    width:16px;height:16px}
+  .tpn{font-size:14px;font-weight:600;color:var(--ink)}
+  .tps{grid-column:2;font-size:12.5px;color:var(--muted);line-height:1.4}
+  #f_tools{align-items:flex-start;flex-direction:column;gap:2px;flex:1 1 100%}
+  #toolhint{color:var(--warn)}
+  .gsearch{margin:0 0 10px}
+  .gsearch .tsbox{max-width:460px}
+  .terms dl.four dt i{color:var(--faint)}
+
+  /* ---- column headers: the real ones, not the group labels ---- */
+  .hcell{padding:7px 10px 8px;gap:2px}
+  .hn{font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:0;
+      text-transform:none;color:var(--ink)}
+  .hu{font-family:inherit;font-size:12px;color:var(--muted);max-width:22ch;
+      letter-spacing:0}
+  table.results thead tr.grouprow th{font-size:12px;font-weight:600;
+      color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+
+  /* ---- provenance strip: information, not a status badge ---- */
+  .notice{background:none;border:0;border-left:2px solid var(--line);
+      border-radius:0;padding:2px 0 2px 11px;color:var(--muted);
+      font-size:12.5px;margin-bottom:26px}
+  .notice.err{background:var(--sel-wash);border:1px solid var(--sel);
+      border-left-width:1px;border-radius:3px;padding:8px 12px;color:var(--sel)}
+
+  /* ---- masthead ---- */
+  .masthead{margin-bottom:46px}
+  #title{font-size:30px;letter-spacing:-.02em}
+  .sub2line{font-size:15.5px;color:var(--muted);font-weight:500}
+  #tagline{max-width:74ch;color:var(--muted);font-size:14px}
+  .sources{color:var(--faint)}
+
+  /* ================= second pass ================= */
+
+  /* ---- rules you can actually see ---- */
+  :root, :root[data-theme="light"]{--line:#b9c0c6; --line-soft:#d5dade}
+  table.results tbody td{border-bottom:1px solid var(--line-soft)}
+  table.results thead tr:last-child th{border-bottom:2px solid var(--ink)}
+  table.results thead th.colsep, table.results thead tr.grouprow th.gsep,
+  table.results tbody td.colsep{border-left:1px solid var(--line)}
+  table.runs th{border-bottom:2px solid var(--ink)}
+  table.runs td{border-top:1px solid var(--line-soft)}
+  .terms th{border-bottom:2px solid var(--ink)}
+  .terms td{border-bottom:1px solid var(--line-soft)}
+
+  /* ---- group headers: centred, real capitalisation, navy ---- */
+  table.results thead tr.grouprow th{
+    text-align:center;text-transform:none;letter-spacing:0;
+    font-size:14px;font-weight:700;color:var(--accent);
+    padding:9px 10px 7px}
+
+  /* ---- numeric and short-token columns line up under their header ---- */
+  table.results tbody td.num, table.results thead th.num{text-align:right}
+  table.runs td.n, table.runs th.n{text-align:right}
+  table.runs td, table.runs th{padding-right:22px}
+  table.runs td:first-child{font-family:inherit;font-weight:500}
+
+  /* ---- badges become text ---- */
+  .site, .region, .chip{
+    display:inline;background:none!important;border:0!important;
+    padding:0;border-radius:0;font-family:inherit;font-weight:600;
+    color:var(--ink);white-space:normal}
+  .site{font-size:13.5px}
+  .region{font-size:13px;margin-right:8px;font-weight:500}
+  .site.s6{color:var(--muted);font-weight:500}
+  .chip{font-weight:600}
+  .chip.cons{color:var(--ok)} .chip.noncons{color:var(--muted)}
+  .chip.val{color:var(--ok)} .chip.rep{color:var(--ink)}
+  .chip.noeff{color:var(--sel)}
+  .sub2{font-family:inherit;font-size:12px;color:var(--muted)}
+
+  /* ---- selected row: blue, and still readable ---- */
+  table.results tbody tr.generow.sel>td{
+    background:#12507e;color:#fff;box-shadow:none;
+    border-bottom-color:#12507e}
+  tr.generow.sel .gene, tr.generow.sel .site, tr.generow.sel .region,
+  tr.generow.sel .chip, tr.generow.sel .sub2, tr.generow.sel .txid,
+  tr.generow.sel .say, tr.generow.sel td{color:#fff!important}
+  tr.generow.sel .chip.cons, tr.generow.sel .chip.val{color:#bff0d4!important}
+  table.results tbody tr.generow:hover>td{background:var(--surface-2)}
+  table.results tbody tr.generow.sel:hover>td{background:#0f4470}
+
+  /* ---- the toolbar above the table ---- */
+  .toolbar{display:grid;grid-template-columns:1fr auto;gap:14px 26px;
+    align-items:end;padding:0 0 12px;margin-bottom:0;
+    border-bottom:1px solid var(--line)}
+  .toolbar>label, .toolbar>.fgroup{display:flex;align-items:center;gap:8px;
+    font-size:13.5px;color:var(--ink)}
+  .toolbar select{font:inherit;font-size:13.5px;padding:6px 9px;
+    border:1px solid var(--line);border-radius:3px;background:var(--surface);
+    color:var(--ink)}
+  #rowcount{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+  .tbopts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px}
+
+  /* ---- pagination ---- */
+  .pager{margin:16px 0 0;justify-content:space-between;width:100%;
+    align-items:center}
+  #pagelbl{font-family:inherit;font-size:13px;color:var(--muted)}
+  #pgnums{display:flex;gap:3px;align-items:center}
+  .pgnum{min-width:34px;padding:6px 9px;font-size:13.5px;
+    border:1px solid var(--line-soft)}
+  .pgnum[aria-current="true"]{background:var(--accent);color:#fff;
+    border-color:var(--accent);font-weight:600}
+  .pgnum[aria-current="true"]:hover{background:var(--accent);color:#fff}
+
+  /* ---- sortable enrichment table ---- */
+  .terms th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  .terms th.sortable:hover{color:var(--accent)}
+  .terms th .arrow{font-size:10px;color:var(--faint);margin-left:5px}
+  .terms th[aria-sort] .arrow{color:var(--accent)}
+  .terms th[aria-sort]{color:var(--accent)}
+
+  /* ---- nothing important is dimmed ---- */
+  .txid, .hu, .gsnote, .say, .sub2, #rowcount, .termfoot{font-size:12.5px}
+  .dethead{font-family:inherit;font-size:13.5px;font-weight:600;
+    color:var(--ink);text-transform:none;letter-spacing:0;padding:12px 0 8px}
+  .sectitle{margin:0 0 14px;font-size:20px;font-weight:700;
+    letter-spacing:-.012em;color:var(--ink);
+    border-bottom:1px solid var(--line);padding-bottom:9px}
+
+  /* ---- badge text must inherit ink, not the old white-on-fill ---- */
+  .site, .site.s8, .site.s7m8, .site.s7a1{color:var(--ink)!important}
+  .region, .region.utr5, .region.cds, .region.utr3{color:var(--muted)!important}
+  .empty{font-family:inherit;font-size:13px;color:var(--faint);font-style:normal}
+
+  /* ---- everything inside a selected row stays legible ---- */
+  tr.generow.sel td *, tr.generow.sel td{color:#fff!important}
+  tr.generow.sel .empty{color:#c3d6e6!important}
+  tr.generow.sel .chip.cons, tr.generow.sel .chip.val{color:#a9e7c4!important}
+  tr.generow.sel sub{color:#fff!important}
+
+  /* ---- the toolbar reads as one row of controls ---- */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 26px;
+    padding:0 0 12px;border-bottom:1px solid var(--line)}
+  .toolbar>label{white-space:nowrap}
+  #rowcount{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .gsearch{margin:0 0 14px}
+"""
+
+# Export control. It sits at the right end of the table toolbar, with the
+# other controls that decide what the table shows - because that is exactly
+# what it exports.
+EXPORT_CSS = """
+  .exp{position:relative}
+  .expbtn{white-space:nowrap}
+  .expmenu{position:absolute;right:0;top:calc(100% + 7px);z-index:30;
+    min-width:212px;padding:6px;background:var(--card,#fff);
+    border:1px solid var(--line);border-radius:8px;
+    box-shadow:0 6px 22px rgba(0,0,0,.13)}
+  .expmenu>button{display:block;width:100%;text-align:left;padding:7px 9px;
+    border:0;border-radius:6px;background:none;cursor:pointer;
+    font:inherit;font-size:12.5px;color:inherit}
+  .expmenu>button:hover{background:var(--hover,rgba(0,0,0,.05))}
+  .expnote{margin:5px 9px 3px;font-size:11px;line-height:1.45;color:var(--muted)}
+  .expright{margin-left:auto}
+  .expsep{margin-top:5px;padding-top:6px;border-top:1px solid var(--line)}
+  .expctl{display:flex;align-items:center;justify-content:space-between;
+    gap:8px;padding:4px 9px;font-size:12px;color:var(--muted)}
+  .expctl select{font:inherit;font-size:12px;padding:2px 4px}
+  .expstat{margin-right:9px;font-size:11.5px;color:var(--muted)}
+  .expstat a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+"""
+
 HEAD = """<!doctype html>
 <html lang="en">
 <head>
@@ -321,7 +677,8 @@ HEAD = """<!doctype html>
         <label class="f"><span>Genes (optional)</span>
           <input type="text" id="f_genes" placeholder="empty = whole transcriptome" autocomplete="off"></label>
         <div class="fgroup" id="f_tools"><span>Tools</span></div>
-        <button class="go" id="runbtn" type="submit">Run</button>
+        <button class="go" id="runbtn" type="submit" disabled>Run</button>
+        <span class="say" id="toolhint">Select at least one analysis method.</span>
       </form>
       <div class="notice err" id="qerr" hidden></div>
     </div>
@@ -335,7 +692,7 @@ HEAD = """<!doctype html>
   <div id="results" hidden>
 
     <div class="notice" id="prov"></div>
-""" % (style, EXTRA_CSS)
+""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS)
 
 TAIL_JS = r"""
   /* ================== live data ================== */
@@ -356,7 +713,8 @@ TAIL_JS = r"""
 
   var TOOLMETA = {}, MIRINFO = null, JOBID = null, JOBST = null, POLL = null;
   var RAN = {};
-  var PAGE = {limit: 25, offset: 0, sort: "seed", total: 0};
+  var PAGE = {limit: 10, offset: 0, sort: "seed", total: 0, q: ""};
+  var GTIMER = null;
   var SORTMAP = {seed: "seed", ts: "targetscan", rh: "rnahybrid", mt: "mirtarbase"};
 
   /* the server chose the gene order; do not re-sort the page */
@@ -407,20 +765,25 @@ TAIL_JS = r"""
   }
 
   /* ---------- panels ---------- */
+  var TOOLLABEL = {seed: "Seed analyser", rnahybrid: "RNAhybrid",
+                   targetscan: "TargetScan", mirtarbase: "miRTarBase",
+                   "ml model": "ML model"};
+  function toolLabel(t){ return TOOLLABEL[String(t).toLowerCase()] || t; }
+
   function runTable(){
     var by = {};
     (JOBST.tools || []).forEach(function(t){ by[t.tool] = t; });
     var rows = Object.keys(TOOLMETA).sort().map(function(n){
       var t = by[n], v = TOOLMETA[n].version;
       if (!t)
-        return '<tr class="pending"><td>' + n + "</td><td>" + v +
+        return '<tr class="pending"><td>' + toolLabel(n) + "</td><td>" + v +
                '</td><td class="n">not run</td><td class="n">—</td><td class="n">—</td></tr>';
-      return "<tr><td>" + n + "</td><td>" + v + '</td><td class="n">' +
+      return "<tr><td>" + toolLabel(n) + "</td><td>" + v + '</td><td class="n">' +
         t.n_results.toLocaleString() + '</td><td class="n">' +
         (t.n_genes == null ? "—" : t.n_genes.toLocaleString()) + '</td><td class="n">' +
         (t.seconds == null ? "—" : t.seconds.toFixed(2)) + "</td></tr>";
     });
-    rows.push('<tr class="pending"><td>ml model</td><td>not built</td>' +
+    rows.push('<tr class="pending"><td>ML model</td><td>not built</td>' +
               '<td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>');
     return '<table class="runs"><thead><tr><th>Tool</th><th>Version</th>' +
       '<th class="n">Records</th><th class="n">Genes</th><th class="n">Seconds</th>' +
@@ -430,8 +793,7 @@ TAIL_JS = r"""
   function fillPanels(){
     el("prov").textContent =
       RUN.job + " · " + RUN.date + " · " + RUN.results.toLocaleString() +
-      " records · " + PAGE.total.toLocaleString() + " genes with a result · showing " +
-      GENES.length;
+      " records · " + PAGE.total.toLocaleString() + " genes with a result";
 
     var scanned = (JOBST.params.genes && JOBST.params.genes.length)
       ? JOBST.params.genes.length + " gene" + (JOBST.params.genes.length === 1 ? "" : "s")
@@ -531,10 +893,90 @@ TAIL_JS = r"""
     }).catch(function(e){ clearInterval(POLL); POLL = null; showErr(e); });
   }
 
+  /* ---------- export ----------
+     The file has to equal the screen. Region and 6mer are filtered in the
+     browser, so the server is told about them explicitly here; if it were
+     not, a user who had hidden 5'UTR and 6mer rows would still get them in
+     the file, and would have no way to know. Anything still at its default
+     is omitted, which keeps the URL short and readable. */
+  function exportRegions(){
+    return ["5UTR", "CDS", "3UTR"].filter(function(r){ return regOn[r]; });
+  }
+
+  function exportURL(scope){
+    var u = "/jobs/" + JOBID + "/results.tsv";
+    if (scope === "all") return u;
+    var p = [], regs = exportRegions();
+    // sent even when empty: 'no regions ticked' is a real state, and an
+    // omitted parameter would mean 'no region filter' instead
+    if (regs.length < 3) p.push("regions=" + regs.join(","));
+    if (!show6) p.push("include_6mer=false");
+    if (PAGE.gene) p.push("gene=" + encodeURIComponent(PAGE.gene));
+    else if (PAGE.q) p.push("q=" + encodeURIComponent(PAGE.q));
+    return u + (p.length ? "?" + p.join("&") : "");
+  }
+
+  function viewNote(){
+    var bits = [], off = ["5UTR", "CDS", "3UTR"].filter(function(r){
+      return !regOn[r]; });
+    if (off.length)
+      bits.push(off.map(function(r){ return RL[r]; }).join(" and ") + " hidden");
+    if (!show6) bits.push("6mer sites hidden");
+    if (PAGE.gene) bits.push(PAGE.gene + " only");
+    else if (PAGE.q) bits.push("genes matching “" + PAGE.q + "”");
+    var s = bits.length
+      ? "This view: " + bits.join(", ") + ". Both files record which."
+      : "No filters are active, so the two give the same file.";
+    // the report ranks by the table's sort and ignores the row filters, so
+    // say so rather than let the two controls look like one
+    return s + " The report ranks by the table's current sort (" +
+           PAGE.sort + ") and carries the top 20 terms per ontology.";
+  }
+
+  /* A report is rendered by the same worker that runs jobs, so it is asked
+     for and then waited on. The finished report is offered as a link rather
+     than opened automatically: a window.open() from a timer is not a user
+     gesture, and every popup blocker would swallow it. */
+  var REPPOLL = null;
+
+  function expStat(html){ el("expstat").innerHTML = html || ""; }
+
+  function buildReport(){
+    if (REPPOLL || !JOBID) return;
+    // 'all' is bounded by what the job actually found, and by the server's
+    // own ceiling - a report is a document, not a dump
+    var pick = parseInt(el("repn").value, 10);
+    var n = pick || Math.min(PAGE.total || 50, 2000);
+    expStat("building report…");
+    // the ranking is the table's current sort, so the report and the screen
+    // agree about what "top" means
+    post("/jobs/" + JOBID + "/reports", {sort: PAGE.sort, top_n: n})
+      .then(function(r){ watchReport(r.report_id); })
+      .catch(function(e){ expStat(""); showErr(e); });
+  }
+
+  function watchReport(id){
+    REPPOLL = setInterval(function(){
+      api("/reports/" + id).then(function(r){
+        if (r.status === "queued" || r.status === "running") return;
+        clearInterval(REPPOLL); REPPOLL = null;
+        if (r.status === "done")
+          expStat('<a href="/reports/' + id + '.html" target="_blank" ' +
+                  'rel="noopener">report ready — open ↓</a>');
+        else
+          expStat("report failed");
+      }).catch(function(e){
+        clearInterval(REPPOLL); REPPOLL = null;
+        expStat(""); showErr(e);
+      });
+    }, 1500);
+  }
+
   function loadPage(){
     api("/jobs/" + JOBID + "/genes?sort=" + PAGE.sort + "&limit=" + PAGE.limit +
         "&offset=" + PAGE.offset +
-        (PAGE.gene ? "&gene=" + encodeURIComponent(PAGE.gene) : ""))
+        (PAGE.gene ? "&gene=" + encodeURIComponent(PAGE.gene) : "") +
+        (PAGE.q ? "&q=" + encodeURIComponent(PAGE.q) : ""))
       .then(function(p){
         PAGE.total = p.total_genes;
         applyData(p);
@@ -544,6 +986,15 @@ TAIL_JS = r"""
         pager();
         gsBoxes();
       }).catch(showErr);
+  }
+
+  function toolsChanged(){
+    var n = document.querySelectorAll("#f_tools input:checked").length;
+    var b = el("runbtn");
+    b.disabled = !n;
+    b.textContent = n ? ("Run " + n + " tool" + (n === 1 ? "" : "s")) : "Run";
+    var hint = el("toolhint");
+    if (hint) hint.textContent = n ? "" : "Select at least one analysis method.";
   }
 
   function submit(e){
@@ -579,19 +1030,64 @@ TAIL_JS = r"""
   function pager(){
     var lo = PAGE.offset + 1, hi = Math.min(PAGE.offset + PAGE.limit, PAGE.total);
     el("pagelbl").textContent = PAGE.gene
-      ? PAGE.gene + " only"
-      : (PAGE.total ? "genes " + lo + "–" + hi + " of " +
-                      PAGE.total.toLocaleString() : "no genes");
-    el("prevpg").disabled = PAGE.offset <= 0;
-    el("nextpg").disabled = hi >= PAGE.total;
+      ? (PAGE.gene + " only")
+      : (!PAGE.total ? (PAGE.q ? "no gene matches “" + PAGE.q + "”" : "no genes")
+         : (PAGE.q
+            ? ("genes " + lo + "–" + hi + " of " + PAGE.total.toLocaleString() +
+               " matching “" + PAGE.q + "”")
+            : ("genes " + lo + "–" + hi + " of " +
+               PAGE.total.toLocaleString())));
     // shown only while the table is filtered to one gene from a pathway term
     var back = el("ungene");
-    back.hidden = !PAGE.gene;
+    back.hidden = !(PAGE.gene || PAGE.q);
     back.textContent = "← all genes";
+    pageNumbers();
+  }
+
+  /* Numbered pages. With hundreds of genes a full run of numbers is
+     unreadable, so the first, the last, and a window around the current one
+     are shown, with gaps marked. */
+  function pageNumbers(){
+    var box = el("pgnums");
+    if (!box) return;
+    var per = PAGE.limit, n = Math.ceil(PAGE.total / per) || 0;
+    var cur = Math.floor(PAGE.offset / per) + 1;
+    if (n <= 1 || PAGE.gene){ box.innerHTML = ""; return; }
+
+    var want = {1: 1, 2: 1};
+    want[n] = 1; want[n - 1] = 1;
+    for (var d = -2; d <= 2; d++) want[cur + d] = 1;
+    var pages = Object.keys(want).map(Number)
+      .filter(function(x){ return x >= 1 && x <= n; })
+      .sort(function(a, b){ return a - b; });
+
+    var html = '<button class="pgnum" data-p="' + (cur - 1) + '"' +
+               (cur === 1 ? " disabled" : "") + ">‹</button>";
+    var last = 0;
+    pages.forEach(function(x){
+      if (last && x > last + 1) html += '<span class="pggap">…</span>';
+      html += '<button class="pgnum" data-p="' + x + '"' +
+              (x === cur ? ' aria-current="true"' : "") + ">" + x + "</button>";
+      last = x;
+    });
+    html += '<button class="pgnum" data-p="' + (cur + 1) + '"' +
+            (cur === n ? " disabled" : "") + ">›</button>";
+    box.innerHTML = html;
+    box.querySelectorAll(".pgnum").forEach(function(b){
+      b.addEventListener("click", function(){
+        var target = +b.dataset.p;
+        if (b.disabled || target < 1 || target > n) return;
+        PAGE.offset = (target - 1) * per;
+        loadPage();
+      });
+    });
   }
 
   function wire(){
     el("qform").addEventListener("submit", submit);
+    document.addEventListener("change", function(e){
+      if (e.target.closest && e.target.closest("#f_tools")) toolsChanged();
+    });
 
     el("show6").addEventListener("change", function(e){
       show6 = e.target.checked; selSite = null; render();
@@ -608,21 +1104,93 @@ TAIL_JS = r"""
     });
 
     var bar = document.querySelector(".toolbar");
+
+    var ex = document.createElement("div");
+    ex.className = "exp";
+    ex.innerHTML =
+      '<span class="expstat" id="expstat"></span>' +
+      '<button class="linkbtn expbtn" id="expbtn" type="button" ' +
+      'aria-haspopup="true" aria-expanded="false">Export ↓</button>' +
+      '<div class="expmenu" id="expmenu" hidden>' +
+      '<button type="button" data-scope="view">This view (TSV)</button>' +
+      '<button type="button" data-scope="all">Whole job (TSV)</button>' +
+      '<div class="expsep"><label class="expctl">Report genes ' +
+      '<select id="repn">' +
+      '<option value="25">top 25</option>' +
+      '<option value="50" selected>top 50</option>' +
+      '<option value="100">top 100</option>' +
+      '<option value="0">all</option></select></label>' +
+      '<button type="button" data-scope="report">Build report (HTML)</button>' +
+      '</div>' +
+      '<p class="expnote" id="expnote"></p></div>';
+    bar.appendChild(ex);
+
+    el("expbtn").addEventListener("click", function(e){
+      e.stopPropagation();
+      var m = el("expmenu");
+      m.hidden = !m.hidden;
+      el("expbtn").setAttribute("aria-expanded", String(!m.hidden));
+      // written when the menu opens, so it always describes the table as it
+      // is now rather than as it was when the page loaded
+      if (!m.hidden) el("expnote").textContent = viewNote();
+    });
+    el("expmenu").addEventListener("click", function(e){
+      var b = e.target.closest("button[data-scope]");
+      if (!b || !JOBID) return;
+      el("expmenu").hidden = true;
+      el("expbtn").setAttribute("aria-expanded", "false");
+      if (b.dataset.scope === "report") return buildReport();
+      // Content-Disposition makes this a download, not a navigation
+      window.location = exportURL(b.dataset.scope);
+    });
+    document.addEventListener("click", function(e){
+      var m = el("expmenu");
+      if (m && !m.hidden && !(e.target.closest && e.target.closest(".exp"))){
+        m.hidden = true;
+        el("expbtn").setAttribute("aria-expanded", "false");
+      }
+    });
+
+    el("enrexp").addEventListener("click", function(){
+      if (!ENR || !ENR.run) return;
+      var p = [];
+      // the open tab and the search box are what the reader is looking at
+      if (ENRSRC) p.push("source=" + encodeURIComponent(ENRSRC));
+      if (ENRQ) p.push("q=" + encodeURIComponent(ENRQ));
+      window.location = "/enrichment/" + ENR.run.run_id + "/terms.tsv" +
+                        (p.length ? "?" + p.join("&") : "");
+    });
+
     var d = document.createElement("div");
     d.className = "pager";
     d.innerHTML = '<button class="linkbtn" id="ungene" type="button" hidden></button>' +
-                  '<button class="linkbtn" id="prevpg" type="button">← previous</button>' +
-                  '<span id="pagelbl"></span>' +
-                  '<button class="linkbtn" id="nextpg" type="button">next →</button>';
+                  '<span id="pagelbl"></span><span id="pgnums"></span>';
     bar.appendChild(d);
     el("ungene").addEventListener("click", function(){
-      PAGE.gene = null; PAGE.offset = 0; loadPage();
+      PAGE.gene = null; PAGE.q = ""; el("geneq").value = "";
+      el("geneqx").hidden = true; PAGE.offset = 0; loadPage();
     });
-    el("prevpg").addEventListener("click", function(){
-      PAGE.offset = Math.max(0, PAGE.offset - PAGE.limit); loadPage();
+
+    var sb = document.createElement("div");
+    sb.className = "tsearch gsearch";
+    sb.innerHTML = '<label for="geneq">Search genes</label>' +
+      '<div class="tsbox"><input type="search" id="geneq" autocomplete="off" ' +
+      'placeholder="gene symbol or Entrez id — searches every result, not this page">' +
+      '<button type="button" id="geneqx" hidden aria-label="clear">×</button></div>';
+    bar.parentNode.insertBefore(sb, bar);
+    el("geneq").addEventListener("input", function(){
+      clearTimeout(GTIMER);
+      GTIMER = setTimeout(function(){
+        PAGE.q = el("geneq").value.trim();
+        PAGE.gene = null;
+        PAGE.offset = 0;
+        el("geneqx").hidden = !PAGE.q;
+        loadPage();
+      }, 200);
     });
-    el("nextpg").addEventListener("click", function(){
-      PAGE.offset += PAGE.limit; loadPage();
+    el("geneqx").addEventListener("click", function(){
+      el("geneq").value = ""; PAGE.q = ""; el("geneqx").hidden = true;
+      PAGE.offset = 0; loadPage(); el("geneq").focus();
     });
   }
 
@@ -747,6 +1315,10 @@ TAIL_JS = r"""
   /* ---------- enrichment: run it, then read it ---------- */
   var ENR = null, ENRSRC = null, ENRLIMIT = 20, ENRPOLL = null;
   var ENRQ = "", QTIMER = null;
+  // p ascending is the scientific default: strongest term first. Sorting by
+  // gene count answers a different question - which term the list touches most
+  // - so it is offered but never the default; a big term is not a strong one.
+  var ENRSORT = "p", ENRDESC = false;
 
   // BP, CC and MF mean nothing to a reader who has not met them before, and a
   // tab is the worst place to make someone remember an abbreviation.
@@ -868,9 +1440,7 @@ TAIL_JS = r"""
     // 8,516 for KEGG - so the number that actually divides changes per tab.
     el("enrichhead").textContent = run.rule_sentence +
       " were tested against a MANE Select background of " +
-      run.n_background.toLocaleString() + " genes. Each ontology was tested " +
-      "against the part of that background it annotates, so the denominator " +
-      "differs between tabs.";
+      run.n_background.toLocaleString() + " genes.";
 
     var bits = [run.background_source + " " + run.background_version];
     if (run.clusterprofiler_version)
@@ -886,7 +1456,10 @@ TAIL_JS = r"""
     else if (run.kegg_fetched_at)
       bits.push("KEGG fetched " + run.kegg_fetched_at.replace("T", " "));
     if (run.stale) bits.push("the job has been re-run since this result");
-    el("enrichmeta").textContent = bits.join("  \u00b7  ");
+    // Versions and the KEGG fetch time are off the page by request. They are
+    // still on the run row and in the TSV export, so the result stays
+    // reproducible even though the panel no longer prints them.
+    el("enrichmeta").textContent = "";
 
     if (run.status === "failed"){
       el("enrichtabs").innerHTML = "";
@@ -917,7 +1490,27 @@ TAIL_JS = r"""
     });
 
     wireSearch();
-    var rows = ENR.terms || [];
+    var rows = (ENR.terms || []).slice();
+    rows.sort(function(a, b){
+      var d = ENRSORT === "genes"
+        ? a.k_in_term_and_list - b.k_in_term_and_list
+        : (a.p_adjust - b.p_adjust) || (a.p_value - b.p_value);
+      return ENRDESC ? -d : d;
+    });
+    document.querySelectorAll(".terms th.sortable").forEach(function(th){
+      var on = th.dataset.sort === ENRSORT;
+      if (on) th.setAttribute("aria-sort", ENRDESC ? "descending" : "ascending");
+      else th.removeAttribute("aria-sort");
+      th.querySelector(".arrow").textContent = on ? (ENRDESC ? "\u25bc" : "\u25b2") : "\u2195";
+      if (!th.dataset.wired){
+        th.dataset.wired = "1";
+        th.addEventListener("click", function(){
+          if (ENRSORT === th.dataset.sort) ENRDESC = !ENRDESC;
+          else { ENRSORT = th.dataset.sort; ENRDESC = (ENRSORT === "genes"); }
+          renderEnrich();
+        });
+      }
+    });
     el("termbody").innerHTML = rows.length ? rows.map(function(t, i){
       return '<tr class="t" data-i="' + i + '">' +
         '<td class="caret">\u25b8</td>' +
@@ -945,10 +1538,12 @@ TAIL_JS = r"""
     document.querySelector(".tsearch").hidden = !(run.status === "done" && inSrc);
     el("termcount").textContent = !inSrc ? ""
       : (ENRQ
-         ? ("showing " + total + " of " + inSrc + " terms matching \u201c" +
+         ? ("Showing " + total + " of " + inSrc + " terms matching \u201c" +
             ENRQ + "\u201d")
-         : ("showing " + shown + " of " + inSrc + " in " +
-            (SRCNAME[ENRSRC] || ENRSRC || "all")));
+         : ("Showing " + shown + " of " + inSrc + " terms"));
+    // exportable as soon as there are terms; the search box and the open tab
+    // narrow the file the same way they narrow the panel
+    el("enrexp").hidden = !(run.status === "done" && inSrc);
     el("termmore").hidden = !!ENRQ || shown >= total;
     el("termmore").textContent = "show all " + total + " \u2192";
     el("termmore").onclick = function(){
@@ -988,6 +1583,8 @@ TAIL_JS = r"""
       stat("p-value", "<code>" + t.p_value.toExponential(2) + "</code>") +
       stat("Adjusted p (" + ENR.run.p_adjust_method + ")",
            "<code>" + t.p_adjust.toExponential(2) + "</code>") +
+      (t.q_value == null ? ""
+        : stat("q-value", "<code>" + t.q_value.toExponential(2) + "</code>")) +
       "</dl></td>";
     x.querySelectorAll("button").forEach(function(b){
       b.addEventListener("click", function(ev){
@@ -1024,14 +1621,22 @@ TAIL_JS = r"""
         if (!seen[label]) { seen[label] = 1; parts.push(label); }
       });
       parts.push(about.name + " " + about.version);
-      el("sources").textContent = "data " + parts.join("  ·  ");
+      el("sources").textContent = "";
       tools.forEach(function(t){ TOOLMETA[t.name] = t; });
 
-      el("f_tools").innerHTML = '<span>Tools</span>' + tools.map(function(t){
-        return '<label><input type="checkbox" value="' + t.name + '"' +
-          (t.slow ? "" : " checked") + "> " + t.name +
-          "</label>";
-      }).join("");
+      // Nothing is ticked. These are analysis methods the user chooses, and
+      // a pre-ticked box is a decision made on their behalf that they may
+      // never notice they did not make.
+      var TOOLTITLE = {seed: "Seed Analysis", rnahybrid: "RNAhybrid",
+                       targetscan: "TargetScan", mirtarbase: "miRTarBase"};
+      el("f_tools").innerHTML = '<span>Tools</span><div class="toolpick">' +
+        tools.map(function(t){
+          return '<label class="tp"><input type="checkbox" value="' + t.name +
+            '"><span class="tpn">' + (TOOLTITLE[t.name] || t.name) + "</span>" +
+            '<span class="tps">' + (t.question || "") + "</span>" +
+            "</label>";
+        }).join("") + "</div>";
+      toolsChanged();
 
       var map = {"Seed analyser": "seed", "RNAhybrid": "rnahybrid",
                  "TargetScan": "targetscan", "miRTarBase": "mirtarbase"};
