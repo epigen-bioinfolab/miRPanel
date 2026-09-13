@@ -20,6 +20,7 @@ import datetime, html, json, uuid
 import config
 import provenance
 import ranking
+import svg as SVG
 
 # Every column an aggregated gene row needs, fetched once for all the genes
 # that made the cut rather than per gene.
@@ -63,6 +64,10 @@ def create(con, job_id, spec):
     # ranking. Printing all 232 GO:BP terms turned a nine-gene report into
     # seventeen pages, and the complete list already lives in the terms TSV.
     spec.setdefault("terms_per_source", 20)
+    # A map is per gene, so fifty of them is a document nobody scrolls. The
+    # best-supported handful is a figure; the rest are in the TSV.
+    spec.setdefault("maps_for", 10)
+    spec.setdefault("network", True)
     try:
         ranking.gene_order(spec["sort"])
     except ranking.BadSort as e:
@@ -182,7 +187,112 @@ def summarise(rows):
 
 # --------------------------------------------------------------- render
 
-CSS = """
+def _geometry(con, symbols):
+    """MANE Select transcript length and region bounds, per gene symbol."""
+    import targets as T
+    if not symbols:
+        return {}
+    qs = ",".join("?" * len(symbols))
+    rows = con.execute("SELECT symbol, refseq, length FROM transcripts "
+                       "WHERE symbol IN (" + qs + ") AND "
+                       "mane_status='MANE Select'", list(symbols)).fetchall()
+    regs = T.regions(con, [r[1] for r in rows])
+    return {r[0]: {"refseq": r[1], "length": r[2],
+                   "regions": sorted(regs.get(r[1], []), key=lambda x: x[1])}
+            for r in rows}
+
+
+def _maps_section(con, syms, by_gene, limit):
+    """A binding map for the best-supported genes, in the report's own order."""
+    if not limit or not syms:
+        return ""
+    shown = syms[:int(limit)]
+    geom = _geometry(con, shown)
+    out = ["<h2>Binding sites</h2>",
+           "<p class='note'>One transcript per picture &mdash; the MANE "
+           "Select transcript that was scanned &mdash; drawn to scale. A "
+           "position only means anything against the sequence it was measured "
+           "on. The two lanes are kept apart on purpose: the seed analyser "
+           "reports a category at a point, RNAhybrid reports an energy over a "
+           "span, and drawing them on one line would imply they are the same "
+           "measurement.</p>"]
+    if len(shown) < len(syms):
+        out.append("<p class='note'>Maps are drawn for the first %d of %d "
+                   "genes in this report.</p>" % (len(shown), len(syms)))
+    drew = 0
+    for s in shown:
+        g = geom.get(s)
+        if not g or not g["length"]:
+            continue
+        rows = by_gene[s]
+        seed = [r for r in rows if r["tool"] == "seed"
+                and r["pos_start"] is not None]
+        rh = [r for r in rows if r["tool"] == "rnahybrid"
+              and r["pos_start"] is not None]
+        if not seed and not rh:
+            continue
+        out.append("<div class='mapblock'>")
+        out.append(SVG.binding_map(s, g["refseq"], g["length"], g["regions"],
+                                   seed, rh))
+        out.append("</div>")
+        drew += 1
+    if not drew:
+        return ("<h2>Binding sites</h2><p class='note'>No gene in this report "
+                "has a positioned site to draw: miRTarBase evidence and "
+                "TargetScan scores are reported per gene rather than at a "
+                "coordinate on this transcript.</p>")
+    return "".join(out)
+
+
+def _network_section(con, job_id, spec):
+    """The target network, laid out here so the same job gives one picture."""
+    import network as NET
+    try:
+        data = NET.build(con, job_id, sort=spec["sort"],
+                         top_n=int(spec["top_n"]))
+    except Exception as exc:
+        # a failed figure must not take the whole report down, but it must
+        # not vanish either - a reader has to know a section is missing
+        return ("<h2>Target network</h2><p class='note'>The network could "
+                "not be drawn for this report: %s</p>" % _esc(repr(exc)))
+    if len(data["nodes"]) < 2:
+        return ("<h2>Target network</h2><p class='note'>This job produced no "
+                "genes, so there is nothing to draw.</p>")
+    body, dropped = SVG.network(data)
+    m = data["meta"]
+    out = ["<h2>Target network</h2>", body,
+           "<div class='netkey-svg'>"
+           "<span><b style='background:#1f4e79'></b>miRNA</span>"
+           "<span><b style='background:#e2f1e8;border:1.5px solid #1a6b3c'>"
+           "</b>validated target (miRTarBase)</span>"
+           "<span><b style='background:#eaeff4;border:1.5px solid #1f4e79'>"
+           "</b>predicted only</span>"
+           "<span>solid line — a tool reported this target; thicker means "
+           "more tools agree</span>"
+           "<span>dotted line — the two genes share enriched terms</span>"
+           "</div>"]
+    note = ["Line thickness is tool agreement, which is the only cross-tool "
+            "number here: the tools' scores are on different scales and are "
+            "never combined."]
+    if dropped:
+        note.append("%d further genes are not drawn; the best-supported %d "
+                    "are shown." % (dropped, SVG.MAX_NODES))
+    if m["shared_layer"]:
+        note.append("%d of these genes carry shared-term links, from "
+                    "enrichment run %s."
+                    % (m["genes_in_shared_layer"], m["enrichment_run"]))
+    else:
+        note.append("No pathway analysis had been run when this report was "
+                    "requested, so genes are not linked to each other.")
+    note.append("The layout is computed from the data rather than by physics "
+                "in a browser, so the same job always gives the same picture.")
+    out.append("<p class='note'>%s</p>" % " ".join(_esc(x) for x in note))
+    return "".join(out)
+
+
+CSS = SVG.CSS + """
+.mapblock{margin:0 0 6px;padding:9px 11px 4px;border:1px solid var(--line);
+  border-radius:5px;background:#fff}
 :root{--ink:#15181d;--muted:#666f7a;--faint:#8a929c;--line:#e3e6ea;
   --accent:#1f4e79;--band:#f6f7f9}
 *{box-sizing:border-box}
@@ -434,6 +544,10 @@ def render(con, report_id):
                  "cell means that tool reported no value — N.A. means it "
                  "cannot assess that gene at all.</p>")
 
+    if syms:
+        parts.append(_maps_section(con, syms, by_gene,
+                                   spec.get("maps_for", 10)))
+
     if rep["enrichment_run"]:
         parts.append(_enrichment_section(con, rep["enrichment_run"],
                                          spec.get("terms_per_source", 20)))
@@ -441,6 +555,9 @@ def render(con, report_id):
         parts.append("<h2>Pathway analysis</h2><p class='note'>No pathway "
                      "analysis had been run on this job when the report was "
                      "requested.</p>")
+
+    if spec.get("network", True):
+        parts.append(_network_section(con, rep["job_id"], spec))
 
     # The same lines the TSV carries, from the same function, so a reader
     # comparing the two files can never find them claiming different versions.

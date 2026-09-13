@@ -13,6 +13,7 @@ import db
 import enrichment
 import flatten
 import geneset
+import network
 import orchestrator
 import provenance
 import ranking
@@ -650,6 +651,34 @@ def export_enrichment_genes(run_id: str, con=Depends(get_con)):
                  'attachment; filename="%s_genes.txt"' % run_id})
 
 
+@app.get("/jobs/{job_id}/network")
+def read_network(job_id: str,
+                 sort: str = Query("gene", pattern="^[a-z_]+$"),
+                 top_n: int = Query(50, ge=2, le=500),
+                 enrichment_run: Optional[str] = None,
+                 min_shared: int = Query(1, ge=1, le=50),
+                 max_edges: int = Query(network.MAX_PAIR_EDGES, ge=10,
+                                        le=5000),
+                 con=Depends(get_con)):
+    """Nodes and edges for the network view.
+
+    Computed per request rather than queued: it is two indexed reads and some
+    counting, milliseconds even at 500 genes. Nothing is stored, because
+    nothing here is new - it is the same rows the table shows, arranged as a
+    graph.
+    """
+    try:
+        return network.build(con, job_id, sort=sort, top_n=top_n,
+                             enrichment_run=enrichment_run,
+                             min_shared=min_shared, max_edges=max_edges)
+    except ranking.BadSort as e:
+        raise HTTPException(422, {"error": "bad_sort", "sort": sort,
+                                  "message": str(e)})
+    except ValueError as e:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id,
+                                  "message": str(e)})
+
+
 # ------------------------------------------------------------------ reports
 
 class ReportRequest(BaseModel):
@@ -659,6 +688,10 @@ class ReportRequest(BaseModel):
     terms_per_source: int = Field(
         20, ge=0, le=2000,
         description="enriched terms per ontology; 0 means every term")
+    maps_for: int = Field(
+        10, ge=0, le=100,
+        description="how many genes get a binding map; 0 draws none")
+    network: bool = Field(True, description="include the target network")
 
 
 @app.post("/jobs/{job_id}/reports", status_code=202)

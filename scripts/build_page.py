@@ -107,6 +107,43 @@ keep = keep[:_notes] + """<section class="panel" id="enrich">
     </div>
   </section>
 
+  <section class="panel" id="netbox" hidden>
+    <h2>Target network<em id="netstate"></em></h2>
+    <div class="panel-body">
+      <p class="say" id="nethead"></p>
+      <div class="netbar">
+        <label class="ctl">Genes
+          <select id="netn">
+            <option value="25">top 25</option>
+            <option value="50" selected>top 50</option>
+            <option value="100">top 100</option>
+          </select>
+        </label>
+        <label class="ctl">Link genes sharing
+          <select id="netmin">
+            <option value="1" selected>1+ terms</option>
+            <option value="2">2+ terms</option>
+            <option value="3">3+ terms</option>
+            <option value="5">5+ terms</option>
+          </select>
+        </label>
+        <label class="switch"><input type="checkbox" id="netphys" checked>
+          <span>Keep moving</span></label>
+        <button class="linkbtn" id="netfit" type="button">Fit to view</button>
+      </div>
+      <div class="netcanvas" id="netcanvas"></div>
+      <div class="netkey">
+        <span><b id="k1"></b>miRNA</span>
+        <span><b id="k2"></b>validated target (miRTarBase)</span>
+        <span><b id="k3"></b>predicted only</span>
+        <span><i></i>predicted or reported target — thicker = more tools agree</span>
+        <span><i class="dash"></i>genes sharing enriched terms</span>
+      </div>
+      <div class="netinfo" id="netinfo"></div>
+      <p class="netnote" id="netnote"></p>
+    </div>
+  </section>
+
   """ + keep[_notes:]
 
 # The binding map draws whichever gene is selected in the table, so it belongs
@@ -683,6 +720,39 @@ EXPORT_CSS = """
   #enrexpx{margin-left:7px}
 """
 
+NETWORK_CSS = """
+  .netbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;
+    margin:0 0 12px;font-size:13px;color:var(--ink)}
+  .netbar select{font:inherit;font-size:13px;padding:4px 8px;
+    border:1px solid var(--line);border-radius:3px;background:var(--surface);
+    color:var(--ink)}
+  .netcanvas{height:520px;border:1px solid var(--line);border-radius:5px;
+    background:var(--surface)}
+  .netkey{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;
+    font-size:12px;color:var(--muted)}
+  .netkey b{display:inline-block;width:11px;height:11px;border-radius:50%;
+    margin-right:5px;vertical-align:-1px}
+  .netkey i{display:inline-block;width:20px;height:0;margin-right:5px;
+    vertical-align:4px;border-top:2px solid var(--muted)}
+  .netkey i.dash{border-top-style:dotted}
+  .netinfo{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
+    border-radius:5px;background:var(--surface-2);font-size:13px;
+    line-height:1.6;min-height:54px}
+  .netinfo h4{margin:0 0 5px;font-size:14px}
+  .netinfo dl{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;
+    margin:6px 0 0}
+  .netinfo dt{color:var(--muted);font-size:12px}
+  .netinfo dd{margin:0;font-size:12.5px}
+  .netnote{margin:9px 0 0;font-size:12px;color:var(--muted);line-height:1.55}
+  /* the library's own 220 KB stylesheet is not vendored; this is the only
+     rule its canvas tooltip actually needs */
+  div.vis-tooltip{position:absolute;visibility:hidden;padding:6px 9px;
+    white-space:normal;max-width:320px;font:12px/1.5 'Inter',system-ui,
+    sans-serif;color:var(--ink);background:var(--surface);
+    border:1px solid var(--line);border-radius:5px;
+    box-shadow:0 4px 14px rgba(0,0,0,.14);pointer-events:none;z-index:60}
+"""
+
 HEAD = """<!doctype html>
 <html lang="en">
 <head>
@@ -727,7 +797,7 @@ HEAD = """<!doctype html>
   <div id="results" hidden>
 
     <div class="notice" id="prov"></div>
-""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS)
+""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS + NETWORK_CSS)
 
 TAIL_JS = r"""
   /* ================== live data ================== */
@@ -1020,6 +1090,7 @@ TAIL_JS = r"""
         render();
         pager();
         gsBoxes();
+        netReload();
       }).catch(showErr);
   }
 
@@ -1360,6 +1431,7 @@ TAIL_JS = r"""
   }
 
   /* ---------- enrichment: run it, then read it ---------- */
+  var NETSEEN = {};
   var ENR = null, ENRSRC = null, ENRLIMIT = 20, ENRPOLL = null;
   var ENRQ = "", QTIMER = null;
   // p ascending is the scientific default: strongest term first. Sorting by
@@ -1591,6 +1663,12 @@ TAIL_JS = r"""
     // exportable as soon as there are terms; the search box and the open tab
     // narrow the file the same way they narrow the panel
     el("enrexp").hidden = el("enrexpx").hidden = !(run.status === "done" && inSrc);
+    // the shared-term layer only exists once an enrichment has finished, so
+    // the network is redrawn once per completed run rather than every render
+    if (run.status === "done" && !NETSEEN[run.run_id]){
+      NETSEEN[run.run_id] = 1;
+      netReload();
+    }
     el("termmore").hidden = !!ENRQ || shown >= total;
     el("termmore").textContent = "show all " + total + " \u2192";
     el("termmore").onclick = function(){
@@ -1652,6 +1730,7 @@ TAIL_JS = r"""
 
   function boot(){
     wire();
+    netWire();
     Promise.all([api("/about"), api("/tools")]).then(function(r){
       var about = r[0], tools = r[1].tools;
       document.title = about.name;
@@ -1700,6 +1779,239 @@ TAIL_JS = r"""
 })();
 """
 
+NETWORK_JS = """
+  /* ---------- target network ----------
+     A second reading of rows already on the page, so it must agree with the
+     table: the server ranks genes with the same function the table uses, and
+     this code only draws what it is handed. */
+  var NET = null, NETDATA = null;
+
+  function nesc(s){
+    return String(s == null ? "" : s).replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function netPalette(){
+    // read the page's own variables rather than inventing a second palette
+    var c = getComputedStyle(document.documentElement);
+    function v(n, d){ var x = c.getPropertyValue(n).trim(); return x || d; }
+    return {accent: v("--accent", "#1f4e79"), ink: v("--ink", "#15181d"),
+            line: v("--line", "#e3e6ea"), muted: v("--muted", "#666f7a"),
+            surface: v("--surface", "#ffffff"),
+            val: "#1a6b3c", valbg: "#e2f1e8", predbg: "#eaeff4"};
+  }
+
+  function netStyleNode(n, P){
+    if (n.group === "mirna")
+      return {shape: "diamond", size: 26, color: {background: P.accent,
+              border: P.accent, highlight: {background: P.accent,
+              border: P.ink}},
+              font: {color: P.ink, size: 16, face: "Inter, system-ui",
+                     vadjust: -4}};
+    // Validated is not a better prediction, it is a different kind of claim,
+    // so it gets its own colour rather than a place on one scale.
+    var on = n.group === "validated";
+    return {shape: "dot",
+            color: {background: on ? P.valbg : P.predbg,
+                    border: on ? P.val : P.accent,
+                    highlight: {background: on ? P.val : P.accent,
+                                border: P.ink}},
+            font: {color: P.ink, size: 13, face: "Inter, system-ui"}};
+  }
+
+  function netHint(){
+    return "<h4>Click a node or a link</h4>Nodes are genes; the diamond is " +
+           "the miRNA. A solid link means a tool reported that target, and " +
+           "a dotted link means two genes appear together in enriched terms.";
+  }
+
+  function drawNetwork(d){
+    NETDATA = d;
+    var P = netPalette();
+    el("k1").style.background = P.accent;
+    el("k2").style.background = P.val;
+    el("k3").style.background = P.accent;
+    el("k3").style.opacity = "0.35";
+
+    var nodes = d.nodes.map(function(n){
+      var s = netStyleNode(n, P);
+      s.id = n.id; s.label = n.label; s.value = n.value;
+      s.title = n.group === "mirna"
+        ? n.label + " · " + n.accession + " · " + n.n_targets + " targets"
+        : n.label + " · " + n.n_tools + " of 4 tools" +
+          (n.strong_functional ? " · " + n.strong_functional +
+           " strong functional experiments" : "");
+      return s;
+    });
+
+    var edges = d.edges.map(function(e, i){
+      var shared = e.kind === "shared_terms";
+      return {id: "e" + i, from: e.from, to: e.to, value: e.value,
+              title: e.title,
+              dashes: shared ? [2, 4] : false,
+              width: shared ? 1 : undefined,
+              color: {color: shared ? P.line : P.muted,
+                      highlight: P.accent, opacity: shared ? 0.85 : 1},
+              smooth: shared ? {type: "continuous"} : false};
+    });
+
+    var opts = {
+      nodes: {scaling: {min: 10, max: 32}, borderWidth: 1.5},
+      edges: {scaling: {min: 1, max: 6}},
+      // improvedLayout is quadratic and stalls past a few hundred nodes;
+      // the physics settle is enough and starts drawing immediately
+      layout: {improvedLayout: false},
+      physics: {barnesHut: {gravitationalConstant: -9000, springLength: 135,
+                            springConstant: 0.03, avoidOverlap: 0.12},
+                stabilization: {iterations: 220}},
+      interaction: {hover: true, tooltipDelay: 120, keyboard: false,
+                    navigationButtons: false}
+    };
+
+    if (NET) NET.destroy();
+    NET = new vis.Network(el("netcanvas"),
+                          {nodes: new vis.DataSet(nodes),
+                           edges: new vis.DataSet(edges)}, opts);
+    NET.on("click", function(pr){
+      if (pr.nodes.length) return netShowNode(pr.nodes[0]);
+      if (pr.edges.length) return netShowEdge(pr.edges[0]);
+      el("netinfo").innerHTML = netHint();
+    });
+    NET.once("stabilizationIterationsDone", function(){
+      if (!el("netphys").checked) NET.setOptions({physics: {enabled: false}});
+    });
+
+    var m = d.meta;
+    el("netstate").textContent = m.genes_shown + " genes · " +
+      m.n_target_edges + " target links" +
+      (m.n_shared_edges ? " · " + m.n_shared_edges + " shared-term links" : "");
+    el("nethead").innerHTML =
+      "<b>" + nesc(d.mirna.name) + "</b> and its " + m.genes_shown +
+      (m.truncated ? " highest-ranked targets of " + m.genes_total : " targets") +
+      ", ranked by " + nesc(m.sort) + ".";
+    el("netinfo").innerHTML = netHint();
+
+    // Say what the picture is missing rather than let an empty-looking graph
+    // imply there was nothing to find.
+    var note = [];
+    if (!m.shared_layer)
+      note.push("No pathway analysis has been run on this job, so genes are " +
+                "not linked to each other yet — run one above and the " +
+                "shared-term links appear.");
+    else {
+      note.push(m.genes_in_shared_layer + " of these genes carry shared-term " +
+                "links. A gene with none was either not in the gene set the " +
+                "enrichment tested, or shares no enriched term with another " +
+                "gene shown here.");
+      var s = m.shared_stats || {};
+      if (s.terms_too_broad)
+        note.push(s.terms_too_broad + " term" +
+          (s.terms_too_broad === 1 ? " was" : "s were") + " skipped for " +
+          "containing more than " + s.term_size_cap + " of these genes: a " +
+          "term holding most of the list links everything to everything and " +
+          "says nothing about which genes belong together.");
+      if (s.edges_dropped)
+        note.push(s.edges_dropped + " weaker pairings were dropped to keep " +
+                  "the graph readable; raise the shared-terms threshold to " +
+                  "see the strongest ones alone.");
+    }
+    el("netnote").innerHTML = note.join(" ");
+    el("netbox").hidden = false;
+  }
+
+  function netRow(k, v){
+    return v == null || v === "" ? "" :
+      "<dt>" + nesc(k) + "</dt><dd>" + v + "</dd>";
+  }
+
+  function netShowNode(id){
+    var n = null;
+    (NETDATA.nodes || []).forEach(function(x){ if (x.id === id) n = x; });
+    if (!n) return;
+    if (n.group === "mirna"){
+      el("netinfo").innerHTML = "<h4>" + nesc(n.label) + "</h4><dl>" +
+        netRow("accession", nesc(n.accession)) +
+        netRow("targets shown", n.n_targets) + "</dl>";
+      return;
+    }
+    var RL = {"5UTR": "5\\u2032UTR", "CDS": "CDS", "3UTR": "3\\u2032UTR"};
+    el("netinfo").innerHTML =
+      "<h4>" + nesc(n.label) + " <span class='txid'>" + nesc(n.refseq) +
+      "</span></h4><dl>" +
+      netRow("tools reporting", n.tools.map(nesc).join(", ")) +
+      netRow("regions", (n.regions || []).map(function(r){
+        return RL[r] || r; }).join(" · ")) +
+      netRow("best seed site", n.seed_site ? nesc(n.seed_site) +
+             (n.n_seed > 1 ? " (" + n.n_seed + " sites)" : "") : null) +
+      netRow("RNAhybrid \\u0394G", n.dg == null ? null : n.dg.toFixed(1) +
+             " kcal/mol" + (n.n_rh > 1 ? " (best of " + n.n_rh + ")" : "")) +
+      netRow("TargetScan context++", n.context == null ? null :
+             n.context.toFixed(3)) +
+      netRow("TargetScan PCT", n.pct == null ? null : n.pct) +
+      netRow("miRTarBase", n.strong_functional ? n.strong_functional +
+             " strong functional experiments" : null) +
+      "</dl><button class='linkbtn' id='netgene' type='button'>" +
+      "show this gene's binding sites \\u2192</button>";
+    var b = el("netgene");
+    if (b) b.addEventListener("click", function(){
+      // the same jump the pathway panel makes: from a picture back to the rows
+      PAGE.gene = n.label; PAGE.offset = 0;
+      el("ungene").hidden = false;
+      el("ungene").textContent = "\\u2190 all genes";
+      loadPage();
+      el("results").scrollIntoView({behavior: "smooth", block: "start"});
+    });
+  }
+
+  function netShowEdge(id){
+    var i = parseInt(String(id).slice(1), 10);
+    var e = (NETDATA.edges || [])[i];
+    if (!e) return;
+    if (e.kind === "target"){
+      el("netinfo").innerHTML = "<h4>" + nesc(e.to) + "</h4><dl>" +
+        netRow("reported by", e.tools.map(nesc).join(", ")) +
+        netRow("tools agreeing", e.value + " of 4") + "</dl>" +
+        "<p class='netnote'>Agreement is the only cross-tool number here. " +
+        "Their scores are on different scales and are never combined.</p>";
+      return;
+    }
+    el("netinfo").innerHTML = "<h4>" + nesc(e.from) + " \\u2014 " +
+      nesc(e.to) + "</h4><dl>" + netRow("shared enriched terms", e.shared) +
+      netRow("including", e.terms.map(nesc).join("<br>")) + "</dl>";
+  }
+
+  function netReload(){
+    if (!JOBID || typeof vis === "undefined") return;
+    api("/jobs/" + JOBID + "/network?sort=" + PAGE.sort +
+        "&top_n=" + el("netn").value +
+        "&min_shared=" + el("netmin").value)
+      .then(drawNetwork)
+      .catch(function(e){
+        el("netbox").hidden = false;
+        el("netstate").textContent = "unavailable";
+        el("netinfo").textContent = (e && e.message) || "could not load";
+      });
+  }
+
+  function netWire(){
+    if (typeof vis === "undefined"){
+      // vendored locally, so this only happens if web/vendor is missing
+      el("netnote").textContent = "The network library did not load: " +
+        "web/vendor/vis-network.min.js is missing.";
+      return;
+    }
+    el("netn").addEventListener("change", netReload);
+    el("netmin").addEventListener("change", netReload);
+    el("netfit").addEventListener("click", function(){
+      if (NET) NET.fit({animation: true});
+    });
+    el("netphys").addEventListener("change", function(e){
+      if (NET) NET.setOptions({physics: {enabled: e.target.checked}});
+    });
+    el("netinfo").innerHTML = netHint();
+  }
+"""
+
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(HEAD + keep + """  </div>
 
@@ -1707,8 +2019,9 @@ OUT.write_text(HEAD + keep + """  </div>
 
 </div>
 
+<script src="vendor/vis-network.min.js"></script>
 <script>
-""" + script + TAIL_JS + """</script>
+""" + script + NETWORK_JS + TAIL_JS + """</script>
 </body>
 </html>
 """)
