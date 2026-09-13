@@ -214,3 +214,78 @@ CREATE TABLE IF NOT EXISTS results (
 CREATE INDEX IF NOT EXISTS idx_results_job  ON results(job_id);
 CREATE INDEX IF NOT EXISTS idx_results_pair ON results(job_id, entrez);
 CREATE INDEX IF NOT EXISTS idx_results_tool ON results(job_id, tool);
+
+-- ---------------------------------------------------------------------------
+-- Phase 8: pathway analysis. Same shape as jobs/results: one row describing
+-- the analysis, many rows of output.
+--
+-- Nothing here is ever deleted when a job is re-run. Each run stores the gene
+-- ids it actually tested, so it stays valid for those genes forever;
+-- job_finished_at records what the job looked like at the time, which is how
+-- the interface tells a current run from a historical one.
+
+CREATE TABLE IF NOT EXISTS enrichment_runs (
+    run_id            TEXT PRIMARY KEY,
+    job_id            TEXT NOT NULL,
+    job_finished_at   TEXT,            -- jobs.finished_at when this was run
+    created_at        TEXT NOT NULL,
+    started_at        TEXT,
+    finished_at       TEXT,
+    status            TEXT NOT NULL,   -- queued | running | done | failed
+    error             TEXT,
+
+    -- what was selected
+    spec_json         TEXT NOT NULL,
+    spec_hash         TEXT NOT NULL,
+    rule_sentence     TEXT NOT NULL,
+    gene_ids          TEXT NOT NULL,   -- the Entrez ids actually tested
+    n_genes           INTEGER NOT NULL,
+    n_genes_annotated INTEGER,         -- how many org.Hs.eg.db recognised
+
+    -- what it was tested against
+    background             TEXT NOT NULL,   -- 'mane_select'
+    background_source      TEXT NOT NULL,   -- data_sources.name
+    background_version     TEXT NOT NULL,   -- data_sources.version
+    n_background           INTEGER NOT NULL,
+    n_background_annotated INTEGER,
+
+    -- how the test was done
+    p_adjust_method   TEXT NOT NULL,
+    p_cutoff          REAL NOT NULL,
+    q_cutoff          REAL,
+    ontologies        TEXT NOT NULL,
+
+    -- what did the computing
+    r_version               TEXT,
+    clusterprofiler_version TEXT,
+    orgdb_version           TEXT,
+    kegg_ok                 INTEGER,
+    kegg_fetched_at         TEXT,
+
+    n_terms           INTEGER,
+    seconds           REAL
+);
+
+CREATE TABLE IF NOT EXISTS enrichment_terms (
+    run_id       TEXT NOT NULL,
+    source       TEXT NOT NULL,        -- GO:BP | GO:MF | GO:CC | KEGG
+    term_id      TEXT NOT NULL,
+    description  TEXT NOT NULL,
+
+    -- the four numbers of the hypergeometric test, so every p-value here can
+    -- be recomputed by anyone, in any language, without rerunning R
+    k_in_term_and_list       INTEGER NOT NULL,
+    n_in_list                INTEGER NOT NULL,
+    k_in_term_and_background INTEGER NOT NULL,
+    n_in_background          INTEGER NOT NULL,
+
+    p_value      REAL NOT NULL,
+    p_adjust     REAL NOT NULL,
+    q_value      REAL,
+    genes        TEXT NOT NULL,        -- symbols driving the term
+    PRIMARY KEY (run_id, source, term_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_enr_terms_run ON enrichment_terms(run_id, p_adjust);
+CREATE INDEX IF NOT EXISTS idx_enr_runs_job  ON enrichment_runs(job_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_enr_runs_hash ON enrichment_runs(job_id, spec_hash);

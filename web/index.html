@@ -250,6 +250,39 @@
   #gscount{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;text-transform:none;letter-spacing:0}
   #gscount.ok{color:var(--ok)}
   #gscount.warn{color:var(--warn)}
+  #enrichhead{font-size:13px;line-height:1.55;color:var(--ink);margin:0 0 4px}
+  #enrichmeta{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em;margin:0 0 14px}
+  .tabs{display:flex;gap:2px;margin:0 0 12px;border-bottom:1px solid var(--line)}
+  .tabs button{appearance:none;background:none;border:none;border-bottom:2px solid transparent;font:inherit;font-size:12.5px;color:var(--muted);padding:6px 12px;cursor:pointer;margin-bottom:-1px}
+  .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+  .tabs button b{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;font-weight:400;color:var(--faint);margin-left:5px}
+  .terms{width:100%;border-collapse:collapse;font-size:13px}
+  .terms th{text-align:left;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:500;padding:0 10px 6px 0;border-bottom:1px solid var(--line)}
+  .terms td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  .terms tr.t{cursor:pointer}
+  .terms tr.t:hover>td{background:var(--surface-2)}
+  .terms .num{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:12px;white-space:nowrap}
+  .terms .tid{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);display:block}
+  .terms .caret{color:var(--faint);font-size:9px;width:12px}
+  .terms tr.x>td{padding:0 10px 11px 0;border-bottom:1px solid var(--line-soft)}
+  .terms .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px}
+  .terms .chips button{appearance:none;background:var(--accent-wash);border:1px solid var(--line-soft);border-radius:3px;font:inherit;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:11px;color:var(--accent);padding:2px 6px;cursor:pointer}
+  .terms dl.four{display:grid;grid-template-columns:auto auto;gap:3px 14px;justify-content:start;margin:0;font-size:11.5px;color:var(--muted);line-height:1.6}
+  .terms dl.four dt{margin:0}
+  .terms dl.four dt i{font-style:normal;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;color:var(--faint)}
+  .terms dl.four dd{margin:0;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;color:var(--ink);text-align:right}
+  .terms .four code{font-family:inherit;font-size:11px;color:var(--ink)}
+  .tabs{flex-wrap:wrap}
+  .mapnone{margin:0;padding:26px 2px;color:var(--faint)}
+  .tsearch{margin:0 0 12px}
+  .tsearch label{display:block;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+  .tsbox{position:relative;max-width:420px}
+  .tsbox input{width:100%;font:inherit;font-size:13px;padding:7px 28px 7px 10px;border:1px solid var(--line);border-radius:4px;background:var(--paper);color:var(--ink);box-sizing:border-box}
+  .tsbox input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .tsbox input::-webkit-search-cancel-button{display:none}
+  .tsbox button{position:absolute;right:6px;top:50%;transform:translateY(-50%);appearance:none;background:none;border:none;font-size:16px;line-height:1;color:var(--faint);cursor:pointer;padding:2px 4px}
+  .tsbox button:hover{color:var(--ink)}
+  .termfoot{display:flex;align-items:center;gap:12px;margin-top:11px;font-size:11.5px;color:var(--faint)}
   .sub2line{margin:0;font-size:16px;font-weight:600;color:var(--accent);letter-spacing:-.005em}
   .sources{margin:6px 0 0;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em}
 </style>
@@ -392,6 +425,30 @@
     </div>
   </section>
 
+  <section class="panel" id="enrichout" hidden>
+    <h2>Enriched terms<em id="enrichstate"></em></h2>
+    <div class="panel-body">
+      <p id="enrichhead"></p>
+      <p id="enrichmeta"></p>
+      <div class="tabs" id="enrichtabs"></div>
+      <div class="tsearch">
+        <label for="termq">Search pathways and terms</label>
+        <div class="tsbox">
+          <input type="search" id="termq" autocomplete="off"
+                 placeholder="name or ID — mesenchyme, GO:0060485, hsa05206">
+          <button type="button" id="termqx" hidden aria-label="clear">×</button>
+        </div>
+      </div>
+      <table class="terms"><thead><tr>
+        <th></th><th>Term</th><th>Genes</th><th>Adjusted p</th>
+      </tr></thead><tbody id="termbody"></tbody></table>
+      <div class="termfoot">
+        <span id="termcount"></span>
+        <button class="linkbtn" id="termmore" type="button" hidden></button>
+      </div>
+    </div>
+  </section>
+
   <div class="notes">
     <h3>How to read this page</h3>
     <ul>
@@ -501,6 +558,15 @@
   ];
   /* ---------- map ---------- */
   function renderMap(){
+    if (!sel || !TX[sel]){
+      // Closing the open row leaves nothing to draw. Say so, rather than
+      // hiding the panel - a section that vanishes reads as a broken page.
+      document.getElementById("map").innerHTML =
+        '<p class="say mapnone">Select a gene in the table below to draw ' +
+        'its binding map.</p>';
+      document.getElementById("maphint").textContent = "";
+      return;
+    }
     var t = TX[sel], five = t.cds[0]-1, cds = t.cds[1]-t.cds[0]+1, three = t.len-t.cds[1];
     var maj = t.len>6000?2000:(t.len>3000?1000:400), min = maj/4, ruler = "";
     for (var p=0; p<=t.len; p+=min){
@@ -690,7 +756,8 @@
 
     document.querySelectorAll("tr.generow").forEach(function(tr){
       tr.addEventListener("click", function(){
-        if (sel !== tr.dataset.g) { sel = tr.dataset.g; selSite = null; }
+        sel = (sel === tr.dataset.g) ? null : tr.dataset.g;
+        selSite = null;
         render();
       });
     });
@@ -900,7 +967,8 @@
 
   function loadPage(){
     api("/jobs/" + JOBID + "/genes?sort=" + PAGE.sort + "&limit=" + PAGE.limit +
-        "&offset=" + PAGE.offset)
+        "&offset=" + PAGE.offset +
+        (PAGE.gene ? "&gene=" + encodeURIComponent(PAGE.gene) : ""))
       .then(function(p){
         PAGE.total = p.total_genes;
         applyData(p);
@@ -944,10 +1012,16 @@
   /* ---------- toolbar ---------- */
   function pager(){
     var lo = PAGE.offset + 1, hi = Math.min(PAGE.offset + PAGE.limit, PAGE.total);
-    el("pagelbl").textContent = PAGE.total
-      ? "genes " + lo + "–" + hi + " of " + PAGE.total.toLocaleString() : "no genes";
+    el("pagelbl").textContent = PAGE.gene
+      ? PAGE.gene + " only"
+      : (PAGE.total ? "genes " + lo + "–" + hi + " of " +
+                      PAGE.total.toLocaleString() : "no genes");
     el("prevpg").disabled = PAGE.offset <= 0;
     el("nextpg").disabled = hi >= PAGE.total;
+    // shown only while the table is filtered to one gene from a pathway term
+    var back = el("ungene");
+    back.hidden = !PAGE.gene;
+    back.textContent = "← all genes";
   }
 
   function wire(){
@@ -970,10 +1044,14 @@
     var bar = document.querySelector(".toolbar");
     var d = document.createElement("div");
     d.className = "pager";
-    d.innerHTML = '<button class="linkbtn" id="prevpg" type="button">← previous</button>' +
+    d.innerHTML = '<button class="linkbtn" id="ungene" type="button" hidden></button>' +
+                  '<button class="linkbtn" id="prevpg" type="button">← previous</button>' +
                   '<span id="pagelbl"></span>' +
                   '<button class="linkbtn" id="nextpg" type="button">next →</button>';
     bar.appendChild(d);
+    el("ungene").addEventListener("click", function(){
+      PAGE.gene = null; PAGE.offset = 0; loadPage();
+    });
     el("prevpg").addEventListener("click", function(){
       PAGE.offset = Math.max(0, PAGE.offset - PAGE.limit); loadPage();
     });
@@ -1023,7 +1101,12 @@
         '<input type="checkbox" id="gs_mt"> miRTarBase</label>' +
         '<span class="gsnote">genes with strong experimental support</span></div>');
     el("gsboxes").innerHTML = rows.join("");
-    el("gsrun").title = "GO and KEGG enrichment is not installed yet";
+    // gsBoxes() runs again on every page of the table, so this must not stack
+    // listeners: two listeners would start two enrichment runs per click.
+    if (!el("gsrun").dataset.wired){
+      el("gsrun").addEventListener("click", gsRun);
+      el("gsrun").dataset.wired = "1";
+    }
     document.querySelectorAll("#enrich input, #enrich select").forEach(function(x){
       x.addEventListener("change", gsChanged);
       if (x.type === "number") x.addEventListener("input", gsChanged);
@@ -1032,24 +1115,31 @@
   }
 
   function gsSpec(){
-    var q = [], boxes = 0;
+    // One reading of the boxes, used for both the live count (a query string)
+    // and the run request (a JSON body). Two readings would be two chances to
+    // count one thing and compute another.
+    var o = {}, boxes = 0;
     if (el("gs_seed") && el("gs_seed").checked){
-      q.push("seed=" + encodeURIComponent(el("gs_seed_v").value)); boxes++;
+      o.seed = el("gs_seed_v").value; boxes++;
     }
     if (el("gs_ts") && el("gs_ts").checked){
       var v = el("gs_ts_v").value;
-      q.push("targetscan=" + (v === "cut" ? el("gs_ts_c").value : v)); boxes++;
+      o.targetscan = (v === "cut" ? el("gs_ts_c").value : v); boxes++;
     }
     if (el("gs_rh") && el("gs_rh").checked){
-      q.push("rnahybrid=" + el("gs_rh_c").value); boxes++;
+      o.rnahybrid = el("gs_rh_c").value; boxes++;
     }
-    if (el("gs_mt") && el("gs_mt").checked){ q.push("mirtarbase=strong"); boxes++; }
+    if (el("gs_mt") && el("gs_mt").checked){ o.mirtarbase = "strong"; boxes++; }
     var regs = [].slice.call(document.querySelectorAll("#gsregions input:checked"))
                  .map(function(c){ return c.value; });
-    if (regs.length && regs.length < 3) q.push("regions=" + regs.join(","));
+    if (regs.length && regs.length < 3) o.regions = regs;
     var m = document.querySelector("#gsmatch input:checked");
-    q.push("match=" + (m ? m.value : "all"));
-    return {query: q.join("&"), boxes: boxes};
+    o.match = m ? m.value : "all";
+    var q = Object.keys(o).map(function(k){
+      var v = o[k];
+      return k + "=" + encodeURIComponent(v instanceof Array ? v.join(",") : v);
+    }).join("&");
+    return {query: q, boxes: boxes, body: o};
   }
 
   function gsChanged(){
@@ -1070,6 +1160,9 @@
       var c = el("gscount");
       c.textContent = r.count.toLocaleString() + " genes selected";
       c.className = (r.count >= 200 && r.count <= 1500) ? "ok" : "warn";
+      // A list outside 200-1500 is still allowed to run: the range is advice,
+      // not a rule, and the 628-gene list finding nothing is a real result.
+      el("gsrun").disabled = (r.count === 0);
       el("gssentence").textContent = r.count === 0
         ? "Tick at least one box."
         : r.sentence + (r.count < 200
@@ -1080,8 +1173,271 @@
     }).catch(function(e){
       el("gscount").textContent = "\u2014";
       el("gscount").className = "warn";
+      el("gsrun").disabled = true;
       el("gssentence").textContent = (e && e.message) || "the filter was refused";
     });
+  }
+
+  /* ---------- enrichment: run it, then read it ---------- */
+  var ENR = null, ENRSRC = null, ENRLIMIT = 20, ENRPOLL = null;
+  var ENRQ = "", QTIMER = null;
+
+  // BP, CC and MF mean nothing to a reader who has not met them before, and a
+  // tab is the worst place to make someone remember an abbreviation.
+  var SRCNAME = {"GO:BP": "GO: Biological Process",
+                 "GO:CC": "GO: Cellular Component",
+                 "GO:MF": "GO: Molecular Function",
+                 "KEGG": "KEGG"};
+
+  function esc(s){
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function gsRun(){
+    if (!JOBID) return;
+    ENRSRC = null;
+    el("gsrun").disabled = true;
+    el("gsrun").textContent = "Starting\u2026";
+    fetch("/jobs/" + JOBID + "/enrichment", {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify(gsSpec().body)
+    }).then(function(r){
+      return r.json().then(function(j){
+        if (!r.ok) throw new Error((j.detail && j.detail.message) ||
+                                   "the request was refused");
+        return j;
+      });
+    }).then(function(j){
+      watchRun(j.run_id);
+    }).catch(function(e){
+      gsIdle();
+      el("gssentence").textContent = e.message || "could not start";
+    });
+  }
+
+  function gsIdle(){
+    el("gsrun").disabled = false;
+    el("gsrun").textContent = "Run GO and KEGG";
+  }
+
+  function fetchRun(runId){
+    // While searching, every match is returned rather than a first page: a
+    // hidden match is worse than a long list, and the search exists precisely
+    // to reach terms below the top of the ranking.
+    var lim = ENRQ ? 1000 : ENRLIMIT;
+    return api("/enrichment/" + runId + "?limit=" + lim +
+               (ENRSRC ? "&source=" + encodeURIComponent(ENRSRC) : "") +
+               (ENRQ ? "&q=" + encodeURIComponent(ENRQ) : ""));
+  }
+
+  function wireSearch(){
+    var box = el("termq");
+    if (box.dataset.wired) return;
+    box.dataset.wired = "1";
+    box.addEventListener("input", function(){
+      // The database does the searching, so this waits for a pause in typing
+      // rather than asking on every keystroke.
+      clearTimeout(QTIMER);
+      QTIMER = setTimeout(function(){
+        ENRQ = box.value.trim();
+        el("termqx").hidden = !ENRQ;
+        if (ENR) fetchRun(ENR.run.run_id).then(function(r){
+          ENR = r; renderEnrich();
+        });
+      }, 200);
+    });
+    el("termqx").addEventListener("click", function(){
+      box.value = ""; ENRQ = ""; el("termqx").hidden = true;
+      if (ENR) fetchRun(ENR.run.run_id).then(function(r){
+        ENR = r; renderEnrich();
+      });
+      box.focus();
+    });
+  }
+
+  function watchRun(runId){
+    clearTimeout(ENRPOLL);
+    el("enrichout").hidden = false;
+    el("enrichstate").textContent = "starting";
+    (function poll(){
+      fetchRun(runId).then(function(r){
+        ENR = r;
+        // The first answer is the only one that knows which ontologies came
+        // back, so the opening tab can only be chosen once it has arrived.
+        // Ask again for that tab, then carry on - the status handling below
+        // must run either way, or the button never comes back.
+        var srcs = Object.keys(r.terms_by_source || {});
+        if (!ENRSRC && srcs.length){
+          ENRSRC = srcs[0];
+          return fetchRun(runId).then(function(r2){ ENR = r2; });
+        }
+      }).then(function(){
+        renderEnrich();
+        var st = ENR.run.status;
+        if (st === "queued" || st === "running"){
+          el("gsrun").textContent = st === "queued" ? "Queued\u2026" : "Running\u2026";
+          ENRPOLL = setTimeout(poll, 2000);
+        } else {
+          gsIdle();
+        }
+      }).catch(function(){
+        el("enrichstate").textContent = "could not be read";
+        gsIdle();
+      });
+    })();
+  }
+
+  function renderEnrich(){
+    var run = ENR.run;
+    el("enrichstate").textContent =
+      run.status === "done"
+        ? (run.n_terms === 0 ? "no enriched terms" : run.n_terms + " terms")
+        : (run.status === "failed" ? "failed" : run.status + "\u2026");
+
+    // Two sentences, because one would be wrong. 19,363 is the background we
+    // selected from; it is not the denominator of any single test. Each
+    // ontology annotates a different part of it - 17,116 for GO:BP against
+    // 8,516 for KEGG - so the number that actually divides changes per tab.
+    el("enrichhead").textContent = run.rule_sentence +
+      " were tested against a MANE Select background of " +
+      run.n_background.toLocaleString() + " genes. Each ontology was tested " +
+      "against the part of that background it annotates, so the denominator " +
+      "differs between tabs.";
+
+    var bits = [run.background_source + " " + run.background_version];
+    if (run.clusterprofiler_version)
+      bits.push("clusterProfiler " + run.clusterprofiler_version);
+    if (run.orgdb_version) bits.push("org.Hs.eg.db " + run.orgdb_version);
+    bits.push((run.p_adjust_method === "BH" ? "Benjamini\u2013Hochberg"
+                                            : run.p_adjust_method) +
+              ", adjusted p < " + run.p_cutoff);
+    if (run.n_genes_annotated != null && run.n_genes_annotated !== run.n_genes)
+      bits.push(run.n_genes_annotated + " of " + run.n_genes +
+                " genes known to the annotation");
+    if (run.kegg_ok === 0) bits.push("KEGG unavailable, GO only");
+    else if (run.kegg_fetched_at)
+      bits.push("KEGG fetched " + run.kegg_fetched_at.replace("T", " "));
+    if (run.stale) bits.push("the job has been re-run since this result");
+    el("enrichmeta").textContent = bits.join("  \u00b7  ");
+
+    if (run.status === "failed"){
+      el("enrichtabs").innerHTML = "";
+      el("termbody").innerHTML = '<tr><td colspan="4">' +
+        esc(run.error || "the run failed") + "</td></tr>";
+      el("termcount").textContent = "";
+      el("termmore").hidden = true;
+      return;
+    }
+
+    var counts = ENR.terms_by_source || {};
+    var srcs = Object.keys(counts);
+    // No "all sources" tab on purpose. GO and KEGG are tested against
+    // different universes - 17,116 genes for GO:BP against 8,516 for KEGG -
+    // so putting their p-values in one ranked list would invite a comparison
+    // that is not valid.
+    el("enrichtabs").innerHTML = srcs.map(function(s){
+      return '<button type="button" data-src="' + esc(s) + '"' +
+             (ENRSRC === s ? ' aria-selected="true"' : "") + ">" +
+             esc(SRCNAME[s] || s) + "<b>" + counts[s] + "</b></button>";
+    }).join("");
+    el("enrichtabs").querySelectorAll("button").forEach(function(b){
+      b.addEventListener("click", function(){
+        ENRSRC = b.dataset.src;
+        ENRLIMIT = 20;
+        fetchRun(run.run_id).then(function(r){ ENR = r; renderEnrich(); });
+      });
+    });
+
+    wireSearch();
+    var rows = ENR.terms || [];
+    el("termbody").innerHTML = rows.length ? rows.map(function(t, i){
+      return '<tr class="t" data-i="' + i + '">' +
+        '<td class="caret">\u25b8</td>' +
+        "<td>" + esc(t.description) +
+        '<span class="tid">' + esc(t.term_id) + "</span></td>" +
+        '<td class="num">' + t.k_in_term_and_list +
+        (t.k_in_term_and_list === 1 ? " gene" : " genes") + "</td>" +
+        '<td class="num">' + t.p_adjust.toExponential(1) + "</td></tr>";
+    }).join("") : ('<tr><td colspan="4">' + (run.status !== "done"
+        ? "waiting for the worker\u2026"
+        : (ENRQ
+           ? "No term in " + esc(SRCNAME[ENRSRC] || ENRSRC) + " matches \u201c" +
+             esc(ENRQ) + "\u201d."
+           : "No term reached an adjusted p below " + run.p_cutoff +
+             ". With " + run.n_genes + " genes all recognised by the " +
+             "annotation, that is a result about the gene list, not a " +
+             "lookup failure.")) + "</td></tr>");
+
+    el("termbody").querySelectorAll("tr.t").forEach(function(tr){
+      tr.addEventListener("click", function(){ toggleTerm(tr); });
+    });
+
+    var shown = rows.length, total = ENR.total, inSrc = ENR.in_source || 0;
+    // The search box is only meaningful once there is something to search.
+    document.querySelector(".tsearch").hidden = !(run.status === "done" && inSrc);
+    el("termcount").textContent = !inSrc ? ""
+      : (ENRQ
+         ? ("showing " + total + " of " + inSrc + " terms matching \u201c" +
+            ENRQ + "\u201d")
+         : ("showing " + shown + " of " + inSrc + " in " +
+            (SRCNAME[ENRSRC] || ENRSRC || "all")));
+    el("termmore").hidden = !!ENRQ || shown >= total;
+    el("termmore").textContent = "show all " + total + " \u2192";
+    el("termmore").onclick = function(){
+      ENRLIMIT = 500;
+      fetchRun(run.run_id).then(function(r){ ENR = r; renderEnrich(); });
+    };
+  }
+
+  function toggleTerm(tr){
+    var next = tr.nextElementSibling;
+    if (next && next.classList.contains("x")){
+      next.remove();
+      tr.querySelector(".caret").textContent = "\u25b8";
+      return;
+    }
+    var t = ENR.terms[+tr.dataset.i];
+    var chips = t.genes.split("/").map(function(g){
+      return '<button type="button" data-g="' + esc(g) + '">' + esc(g) + "</button>";
+    }).join("");
+    var x = document.createElement("tr");
+    x.className = "x";
+    // The four integers, each one named. Anyone can put them into a
+    // hypergeometric test and get the p-value below back out - which is the
+    // whole reason they are stored per term rather than per run.
+    function stat(label, value){
+      return "<dt>" + label + "</dt><dd>" + value + "</dd>";
+    }
+    x.innerHTML = '<td></td><td colspan="3"><div class="chips">' + chips +
+      '</div><dl class="four">' +
+      stat("Your genes in this term <i>(k)</i>", t.k_in_term_and_list) +
+      stat("Your genes this ontology annotates <i>(n)</i>",
+           t.n_in_list.toLocaleString()) +
+      stat("Background genes in this term <i>(K)</i>",
+           t.k_in_term_and_background.toLocaleString()) +
+      stat("Background genes it annotates <i>(N)</i>",
+           t.n_in_background.toLocaleString()) +
+      stat("p-value", "<code>" + t.p_value.toExponential(2) + "</code>") +
+      stat("Adjusted p (" + ENR.run.p_adjust_method + ")",
+           "<code>" + t.p_adjust.toExponential(2) + "</code>") +
+      "</dl></td>";
+    x.querySelectorAll("button").forEach(function(b){
+      b.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        focusGene(b.dataset.g);
+      });
+    });
+    tr.parentNode.insertBefore(x, tr.nextSibling);
+    tr.querySelector(".caret").textContent = "\u25be";
+  }
+
+  function focusGene(sym){
+    PAGE.gene = sym;
+    PAGE.offset = 0;
+    loadPage();
+    el("results").scrollIntoView({behavior: "smooth", block: "start"});
   }
 
   function boot(){

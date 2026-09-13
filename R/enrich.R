@@ -18,7 +18,8 @@
 #   - gene ids are translated back to symbols for reading
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) < 3) stop("usage: enrich.R genes.txt background.txt out.tsv")
+if (length(args) < 3)
+  stop("usage: enrich.R genes.txt background.txt out.tsv [meta.tsv]")
 
 suppressPackageStartupMessages({
   library(clusterProfiler)
@@ -85,6 +86,25 @@ out <- out[order(out$p_adjust, out$p_value), ]
 
 write.table(out, outfile, sep = "\t", quote = FALSE, row.names = FALSE,
             na = "")
+
+# Provenance for the database: versions, how many ids the annotation knew, and
+# when KEGG was fetched - KEGG is pulled live, so the same list next year can
+# give different pathways and this is what explains it.
+if (length(args) >= 4) {
+  writeLines(c(
+    paste0("r_version\t", paste(R.version$major, R.version$minor, sep = ".")),
+    paste0("clusterprofiler_version\t",
+           as.character(utils::packageVersion("clusterProfiler"))),
+    paste0("orgdb_version\t",
+           as.character(utils::packageVersion("org.Hs.eg.db"))),
+    paste0("n_genes\t", length(genes)),
+    paste0("n_genes_annotated\t", sum(genes %in% known)),
+    paste0("n_background\t", length(background)),
+    paste0("n_background_annotated\t", sum(background %in% known)),
+    paste0("kegg_ok\t", as.integer(!is.null(kegg))),
+    paste0("kegg_fetched_at\t", format(Sys.time(), "%Y-%m-%dT%H:%M:%S")),
+    paste0("n_terms\t", nrow(out))), args[4])
+}
 message(sprintf("%d enriched terms written to %s", nrow(out), outfile))
 if (nrow(out)) print(utils::head(out[, c("source", "term_id", "description",
                                          "n_genes", "p_adjust")], 10))

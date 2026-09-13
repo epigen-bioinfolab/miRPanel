@@ -1,0 +1,712 @@
+<title>miRNA Target Results Layout</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#eef2f2; --surface:#fff; --surface-2:#e4eaea; --surface-3:#f6f9f9;
+    --ink:#16242a; --muted:#5d6e74; --faint:#8c9b9f;
+    --line:#d3dcdd; --line-soft:#e3eaea;
+    --accent:#0e6e76; --accent-ink:#fff; --accent-wash:#dcecec;
+    --r5:#7a5fa8; --r5-wash:#ece6f5;
+    --rcds:#b06527; --rcds-wash:#f6e8da;
+    --r3:#0e6e76; --r3-wash:#d9ecec;
+    --blue:#3d7ea6; --blue-wash:#e2eef5;
+    --ok:#2c7a57; --ok-wash:#dcefe5;
+    --warn:#9a6a1c; --warn-wash:#f6ecd8;
+    --sel:#c8531f; --sel-wash:#fbe8dd;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#0f1a1d; --surface:#16242a; --surface-2:#1e3037; --surface-3:#1a2a30;
+    --ink:#e8eff0; --muted:#9fb2b6; --faint:#6d8288;
+    --line:#2b4149; --line-soft:#223940;
+    --accent:#4bb3b8; --accent-ink:#0f1a1d; --accent-wash:#173238;
+    --r5:#a68ad4; --r5-wash:#241f33;
+    --rcds:#d99349; --rcds-wash:#33251a;
+    --r3:#4bb3b8; --r3-wash:#14312f;
+    --blue:#6aaed6; --blue-wash:#162b38;
+    --ok:#5cbb8c; --ok-wash:#16302a;
+    --warn:#d6a44e; --warn-wash:#31261a;
+    --sel:#f0834a; --sel-wash:#3a2318;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#0f1a1d; --surface:#16242a; --surface-2:#1e3037; --surface-3:#1a2a30;
+    --ink:#e8eff0; --muted:#9fb2b6; --faint:#6d8288;
+    --line:#2b4149; --line-soft:#223940;
+    --accent:#4bb3b8; --accent-ink:#0f1a1d; --accent-wash:#173238;
+    --r5:#a68ad4; --r5-wash:#241f33;
+    --rcds:#d99349; --rcds-wash:#33251a;
+    --r3:#4bb3b8; --r3-wash:#14312f;
+    --blue:#6aaed6; --blue-wash:#162b38;
+    --ok:#5cbb8c; --ok-wash:#16302a;
+    --warn:#d6a44e; --warn-wash:#31261a;
+    --sel:#f0834a; --sel-wash:#3a2318;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 16px 90px;display:flex;flex-direction:column;gap:16px}
+
+  .masthead{display:flex;flex-direction:column;gap:7px}
+  .kicker{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(25px,3.2vw,32px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+  .sub{color:var(--muted);max-width:74ch;margin:0}
+  .notice{display:inline-flex;align-self:flex-start;background:var(--ok-wash);border:1px solid var(--ok);border-radius:4px;padding:5px 11px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ok)}
+
+  .modes{display:flex;flex-wrap:wrap;border-bottom:2px solid var(--line)}
+  .mode{appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:9px 15px 10px;font:inherit;font-weight:500;color:var(--muted);display:flex;flex-direction:column;gap:1px;text-align:left}
+  .mode[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+  .mode[aria-disabled="true"]{color:var(--faint)}
+  .mode .q{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .mode[aria-selected="true"] .q{color:var(--accent)}
+
+  .fgroup{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .fgroup>span{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .fgroup label{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12px}
+  .fgroup input{accent-color:var(--accent);width:14px;height:14px}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .panel>h2{margin:0;padding:8px 13px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+  .panel>h2 em{font-style:normal;color:var(--faint);letter-spacing:.04em;text-transform:none;font-size:10.5px}
+  .panel-body{padding:11px 13px}
+
+  .context{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,1.15fr);gap:12px}
+  @media (max-width:860px){.context{grid-template-columns:1fr}}
+  dl.facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:baseline}
+  dl.facts dt{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  dl.facts dd{margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;font-size:13px}
+  .rule{grid-column:1/-1;height:1px;background:var(--line-soft);margin:3px 0}
+  .seq{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.04em}
+  .seq mark{background:var(--accent-wash);color:var(--ink);border-radius:2px;padding:1px 0;box-shadow:0 1px 0 var(--accent)}
+
+  table.runs{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.runs th{text-align:left;font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:0 9px 5px 0}
+  table.runs td{padding:5px 9px 5px 0;border-top:1px solid var(--line-soft);font-size:12.5px}
+  table.runs td:first-child{font-family:'IBM Plex Mono',monospace}
+  table.runs td.n{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px}
+  table.runs tr.pending td{color:var(--faint);font-style:italic}
+
+  /* tool key */
+  .toolkey{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
+  table.tk{width:100%;border-collapse:collapse;min-width:900px}
+  table.tk th{background:var(--surface-2);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:7px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.tk td{padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:12.5px;vertical-align:top}
+  table.tk tr:last-child td{border-bottom:none}
+  table.tk tr.pending td{color:var(--faint)}
+  .tname{font-weight:600;white-space:nowrap}
+  .tver{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--faint);display:block;font-weight:400}
+  .unit{font-family:'IBM Plex Mono',monospace;font-size:11.5px;white-space:nowrap}
+  .dir{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+
+  /* map */
+  .browser>header{padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .browser>header h2{margin:0;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .hint{font-size:11.5px;color:var(--muted)}
+  .mapbody{padding:12px 13px 4px}
+
+  .ruler{position:relative;height:18px;border-bottom:1px solid var(--line);margin-bottom:5px}
+  .ruler .tick{position:absolute;bottom:0;width:1px;height:4px;background:var(--line)}
+  .ruler .tick.maj{height:8px;background:var(--faint)}
+  .ruler .tlab{position:absolute;bottom:8px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--faint);transform:translateX(-50%);white-space:nowrap}
+
+  .genebar{display:flex;height:15px;border-radius:2px;overflow:hidden;margin-bottom:14px}
+  .genebar span{display:block;position:relative}
+  .genebar .s5{background:var(--r5)} .genebar .scd{background:var(--rcds)} .genebar .s3{background:var(--r3)}
+  .genebar b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#fff;letter-spacing:.05em;overflow:hidden;white-space:nowrap}
+
+  .lane{margin-bottom:13px}
+  .lanecap{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.06em;color:var(--muted);padding:0 0 3px 2px;display:flex;gap:8px;align-items:baseline}
+  .lanecap em{font-style:normal;color:var(--faint);letter-spacing:0;font-size:10.5px}
+  .lanebody{position:relative;height:34px;background:var(--surface-3);border:1px solid var(--line-soft);border-radius:3px}
+  .lanebody.empty{height:24px}
+  .lanebody .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace}
+
+  .sd{position:absolute;top:6px;height:12px;border-radius:2px;background:var(--blue);opacity:.75;cursor:pointer;border:none;padding:0}
+  .sd:hover{opacity:1}
+  .sd.strong{background:var(--accent);opacity:.9}
+  .sd.sel{background:var(--sel);opacity:1;box-shadow:0 0 0 2px var(--sel-wash)}
+  .sd .lb{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);white-space:nowrap}
+
+  .st{position:absolute;top:4px;transform:translateX(-50%);background:none;border:none;padding:0;cursor:pointer}
+  .st i{display:block;width:6px;height:13px;border-radius:1px;margin:0 auto}
+  .st .lb{display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);white-space:nowrap;margin-top:2px}
+  .st:hover .lb{color:var(--ink)}
+  .st.sel i{background:var(--sel);width:8px;height:17px;margin-top:-2px;box-shadow:0 0 0 3px var(--sel-wash)}
+  .st.sel .lb{color:var(--sel);font-weight:600}
+  .st:focus-visible,.sd:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+  .t8{background:var(--accent)} .t7m8{background:var(--r5)} .t7a1{background:var(--blue)} .t6{background:var(--faint)}
+
+  .browser>footer{padding:7px 13px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .k{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px}
+  .k i{width:6px;height:11px;border-radius:1px;display:inline-block}
+
+  /* toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:9px 16px;padding:10px 13px;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+  .switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12.5px;color:var(--muted)}
+  .switch input{accent-color:var(--accent);width:15px;height:15px}
+  .ctl{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+  .ctl select{font:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:3px 7px}
+  .ctl select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* results */
+  .tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
+  table.results{width:100%;border-collapse:separate;border-spacing:0;min-width:1120px}
+  table.results thead th{background:var(--surface-2);text-align:left;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:bottom}
+  table.results thead tr.grouprow th{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:5px 10px 3px;background:var(--surface-3);border-bottom:1px solid var(--line-soft)}
+  table.results thead tr.grouprow th.gsep{border-left:1px solid var(--line)}
+  .hcell{display:flex;flex-direction:column;gap:1px;padding:6px 10px 7px}
+  .hn{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .hu{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--faint);max-width:20ch}
+  th.colsep,td.colsep{border-left:1px solid var(--line-soft)}
+  table.results thead th.colsep{border-left:1px solid var(--line)}
+
+  table.results tbody td{padding:8px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;font-size:12.5px}
+  tr.generow{cursor:pointer}
+  tr.generow:hover td{background:var(--surface-2)}
+  tr.generow.sel td{background:var(--sel-wash);box-shadow:inset 3px 0 0 var(--sel)}
+  .gene{font-weight:600;white-space:nowrap}
+  .txid{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;display:block;font-weight:400}
+  .num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap}
+  .sub2{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);display:block}
+
+  .site{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap;border:1px solid transparent}
+  .site.s8{background:var(--accent);color:var(--accent-ink)}
+  .site.s7m8{background:var(--r5-wash);color:var(--r5);border-color:var(--r5)}
+  .site.s7a1{background:var(--blue-wash);color:var(--blue);border-color:var(--blue)}
+  .site.s6{background:transparent;color:var(--faint);border-color:var(--line);border-style:dashed}
+  .region{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;padding:1px 5px;border-radius:3px;white-space:nowrap;margin-right:3px}
+  .region.utr5{background:var(--r5-wash);color:var(--r5)}
+  .region.cds{background:var(--rcds-wash);color:var(--rcds)}
+  .region.utr3{background:var(--r3-wash);color:var(--r3)}
+
+  .chip{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;font-weight:600}
+  .chip.cons{background:var(--ok-wash);color:var(--ok)}
+  .chip.noncons{background:var(--surface-2);color:var(--muted);font-weight:400}
+  .chip.val{background:var(--ok-wash);color:var(--ok)}
+  .chip.rep{background:var(--warn-wash);color:var(--warn)}
+  .chip.noeff{background:var(--sel-wash);color:var(--sel)}
+
+  .empty{font-family:'IBM Plex Mono',monospace;font-size:11px}
+  .empty.none{color:var(--faint)}
+  .empty.ncov{color:var(--faint);border-bottom:1px dotted var(--faint)}
+  .empty.nrun{color:var(--faint);opacity:.65;font-style:italic}
+
+  tr.detail td{background:var(--surface-3);padding:0;border-bottom:1px solid var(--line)}
+  .detwrap{padding:12px 14px 14px}
+  .dethead{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  table.sites{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.sites th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:0 10px 4px 0}
+  table.sites td{padding:5px 10px 5px 0;border-top:1px solid var(--line-soft);font-size:12px}
+  table.sites tr.sitesel td{background:var(--sel-wash)}
+  table.sites tr.clickable{cursor:pointer}
+  table.sites tr.clickable:hover td{background:var(--surface-2)}
+  .agree{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ok);white-space:nowrap}
+
+  /* plain-language layer */
+  .say{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:3px;max-width:21ch;white-space:normal}
+  .warnline{white-space:normal}
+  .warnline{display:block;font-size:11px;color:var(--warn);line-height:1.35;margin-top:2px}
+  .meter{display:block;height:4px;width:62px;background:var(--surface-2);border-radius:2px;margin:5px 0 2px}
+  .meter i{display:block;height:100%;background:var(--accent);border-radius:2px}
+  .meter.b i{background:var(--blue)}
+
+
+  .notes{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 6px 6px 0;padding:16px 20px}
+  .notes h3{margin:0 0 10px;font-family:'Fraunces',Georgia,serif;font-size:17px;font-weight:600}
+  .notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:13px}
+  .notes b{color:var(--ink);font-weight:600}
+  .notes code{font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:var(--surface-2);padding:1px 5px;border-radius:3px;color:var(--ink)}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="kicker">Results page · built from a real run</div>
+    <h1>Where four tools agree, and where they don't</h1>
+    <p class="sub">One miRNA against the human transcriptome. Every tool keeps its own column, its own units and its own direction — because they answer different questions and they disagree, and the disagreement is the information.</p>
+    <div class="notice" id="prov"></div>
+  </header>
+
+  <div class="modes" role="tablist" aria-label="Query shape">
+    <button class="mode" role="tab" aria-selected="true"><span class="q">one miRNA</span>vs whole transcriptome</button>
+    <button class="mode" role="tab" aria-selected="false" aria-disabled="true"><span class="q">one gene</span>vs all miRNAs</button>
+    <button class="mode" role="tab" aria-selected="false" aria-disabled="true"><span class="q">one pair</span>miRNA × gene</button>
+    <button class="mode" role="tab" aria-selected="false" aria-disabled="true"><span class="q">batch</span>many miRNAs, one job each</button>
+  </div>
+
+  <section class="context">
+    <div class="panel">
+      <h2>Query<em>miRNA only</em></h2>
+      <div class="panel-body" id="qpanel"></div>
+    </div>
+    <div class="panel">
+      <h2>Tools run<em>job_46def2d032c6</em></h2>
+      <div class="panel-body" id="rpanel"></div>
+    </div>
+  </section>
+
+  <section class="toolkey">
+    <table class="tk">
+      <thead>
+        <tr><th>Tool</th><th>The question it answers</th><th>What it gives you</th><th style="width:34%">How to read that number</th><th>Can look at</th></tr>
+      </thead>
+      <tbody id="tkbody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel browser">
+    <header><h2>Binding map</h2><span class="hint" id="maphint"></span></header>
+    <div class="mapbody" id="map"></div>
+    <footer>
+      <span class="k"><i class="t8"></i>8mer</span>
+      <span class="k"><i class="t7m8"></i>7mer-m8</span>
+      <span class="k"><i class="t7a1"></i>7mer-A1</span>
+      <span class="k"><i class="t6"></i>6mer</span>
+      <span class="k"><i style="background:var(--accent);opacity:.9"></i>duplex ≤ −25</span>
+      <span class="k"><i style="background:var(--blue);opacity:.75"></i>duplex &gt; −25</span>
+      <span style="margin-left:auto">click a gene row to change the map</span>
+    </footer>
+  </section>
+
+  <div class="toolbar">
+    <label class="ctl">Sort
+      <select id="sortby">
+        <option value="seed">Best seed site</option>
+        <option value="ts">TargetScan context++</option>
+        <option value="rh">RNAhybrid ΔG</option>
+        <option value="mt">Experimental support</option>
+      </select>
+    </label>
+    <label class="switch"><input type="checkbox" id="show6"> <span>Include 6mer sites</span></label>
+    <div class="fgroup" id="regfilter">
+      <span>Region</span>
+      <label><input type="checkbox" value="5UTR" checked> 5′UTR</label>
+      <label><input type="checkbox" value="CDS" checked> CDS</label>
+      <label><input type="checkbox" value="3UTR" checked> 3′UTR</label>
+    </div>
+    <span class="count" id="rowcount"></span>
+  </div>
+
+  <div class="tablewrap">
+    <table class="results">
+      <thead>
+        <tr class="grouprow">
+          <th colspan="2">Gene</th>
+          <th colspan="2" class="gsep">Seed analyser — ours</th>
+          <th colspan="1" class="gsep">RNAhybrid</th>
+          <th colspan="2" class="gsep">TargetScan</th>
+          <th colspan="1" class="gsep">miRTarBase</th>
+          <th colspan="1" class="gsep">Not yet built</th>
+        </tr>
+        <tr>
+          <th><div class="hcell"><span class="hn">Gene</span><span class="hu">symbol · RefSeq</span></div></th>
+          <th><div class="hcell"><span class="hn">Regions</span><span class="hu">with a site</span></div></th>
+          <th class="colsep"><div class="hcell"><span class="hn">Best site</span><span class="hu">strongest match</span></div></th>
+          <th><div class="hcell"><span class="hn">Position</span><span class="hu">on the transcript</span></div></th>
+          <th class="colsep"><div class="hcell"><span class="hn">ΔG</span><span class="hu">kcal/mol · bar 0 to −35</span></div></th>
+          <th class="colsep"><div class="hcell"><span class="hn">context++</span><span class="hu">bar 0 to −1</span></div></th>
+          <th><div class="hcell"><span class="hn">Conservation</span><span class="hu">TargetScan, per gene</span></div></th>
+          <th class="colsep"><div class="hcell"><span class="hn">Evidence</span><span class="hu">published tests</span></div></th>
+          <th class="colsep"><div class="hcell"><span class="hn">ML model · miRanda</span><span class="hu">later phases</span></div></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="notes">
+    <h3>How to read this page</h3>
+    <ul>
+      <li><b>Four different questions.</b> Seed asks <i>is there a canonical match</i>. RNAhybrid asks <i>could the duplex physically form</i>. TargetScan asks <i>how much repression, given the surroundings</i>, and separately <i>has evolution kept the site</i>. miRTarBase asks <i>did anyone test it</i>. No single number can carry four answers.</li>
+      <li><b>Scores are never combined.</b> Every column keeps its own units and its own arrow. −0.503 context++ and −18.5 kcal/mol are not comparable quantities, and averaging them would invent a number that means nothing.</li>
+      <li><b>Look at GAPDH.</b> RNAhybrid gives it a stronger duplex (−20.6) than the textbook miR-21 target PDCD4 (−18.5) — but its seed pairing uses G:U wobbles, TargetScan has nothing, and no one has ever reported it. Energy alone would rank a housekeeping gene above the real target. That is the whole argument for keeping the columns apart.</li>
+      <li><b>Look at ABHD12B.</b> The strongest context++ on this page (−0.693) with no conservation support at all, and no experimental record. A confident prediction from one tool and silence from the rest.</li>
+      <li><b>Four kinds of blank, never confused.</b> <code>—</code> the tool ran and found nothing · <code>not covered</code> the tool cannot assess this — GAPDH's only sites are in the CDS and TargetScan reads 3′UTRs, so its silence there means nothing at all · <code>not run</code> the tool was not selected · <code>not built</code> it does not exist yet.</li>
+      <li><b>Positions come only from tools that measure them on your transcript.</b> Seed and RNAhybrid read the MANE Select sequence directly. TargetScan scores a transcript it chose itself — different for 38.7% of genes — so its positions are not shown at all.</li>
+      <li><b>Region filters move the positional columns only.</b> Switching off CDS hides seed sites and duplexes in the CDS — it does not change TargetScan or miRTarBase, which are gene-level and have no position to filter. Per-column filter popovers (score cut-offs, site-type sets, evidence tiers) stay in the Phase 7 specification; this toolbar is the minimum needed to read the page.</li>
+      <li><b>The four query shapes share this layout.</b> Only <i>one miRNA vs the transcriptome</i> is running now. A gene-first or pair query changes which column is the axis, not what a column means — so the tool key, the empty states and the arrows all carry over unchanged.</li>
+      <li><b>Click a gene</b> to open every record it produced, one row each, exactly as stored. The <b>Agreement</b> column is the one to read: <code>↔ contains 8mer seed site 1805–1812</code> means RNAhybrid's folded duplex covers the nucleotides your own seed tool matched. Two methods, written twenty years apart, landing on the same place without knowing about each other.</li>
+      <li><b>No score is turned into a word.</b> The ΔG and context++ columns show the number and a bar on a stated scale, nothing else — deciding what counts as "strong" is the reader's call, not the tool's. The only threshold on this page is the −25 kcal/mol line used to colour the map, and it came from this run's own distribution, not a published standard.</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var MIR = {name:"hsa-miR-21-5p", acc:"MIMAT0000076",
+             seq:"UAGCUUAUCAGACUGAUGUUGACU", seed:"AGCTTAT",
+             family:"miR-21-5p/590-5p", cons:2};
+
+  var RUN = {job:"job_46def2d032c6", date:"2026-09-08", tx:19363, results:58954,
+             tools:[["seed","1.0","ok",10254,6673,0.84],
+                    ["rnahybrid","2.1.2-8","ok",45034,17671,803.60],
+                    ["targetscan","v8.0","ok",2598,2598,0.03],
+                    ["mirtarbase","10.0","ok",1068,1068,0.01],
+                    ["miranda","not integrated",null,null,null,null],
+                    ["ml model","not built",null,null,null,null]]};
+
+  var TX = {
+    PDCD4:  {rs:"NM_014456.5",     len:3481,  cds:[154,1563]},
+    DICER1: {rs:"NM_177438.3",     len:10384, cds:[346,6114]},
+    GAPDH:  {rs:"NM_002046.7",     len:1285,  cds:[77,1084]},
+    ABHD12B:{rs:"NM_001206673.2",  len:1815,  cds:[123,1211]},
+    ABCD3:  {rs:"NM_002858.4",     len:3604,  cds:[91,2070]},
+    ACTR3:  {rs:"NM_005721.5",     len:6589,  cds:[192,1448]},
+    ADCY2:  {rs:"NM_020546.3",     len:6645,  cds:[160,3435]},
+    AADACL4:{rs:"NM_001013630.2",  len:2027,  cds:[463,1686]}
+  };
+
+  /* every row below is verbatim output from the job named above */
+  var SEED = [
+    ["PDCD4","CDS","6mer",813,818],["PDCD4","3UTR","8mer",1805,1812],["PDCD4","3UTR","6mer",1952,1957],
+    ["DICER1","5UTR","6mer",301,306],["DICER1","CDS","6mer",3831,3836],
+    ["DICER1","3UTR","7mer-m8",6566,6572],["DICER1","3UTR","6mer",7896,7901],
+    ["ABHD12B","3UTR","8mer",1808,1815],
+    ["ABCD3","3UTR","8mer",3223,3230],
+    ["ACTR3","3UTR","8mer",3425,3432],
+    ["ADCY2","3UTR","8mer",4725,4732],
+    ["AADACL4","5UTR","8mer",410,417],["AADACL4","3UTR","7mer-A1",1820,1826]
+  ];
+
+  var RH = [
+    ["PDCD4","CDS",771,819,-18.2],["PDCD4","3UTR",1790,1813,-18.5],["PDCD4","3UTR",2785,2818,-17.0],
+    ["DICER1","CDS",2378,2403,-20.3],["DICER1","CDS",3814,3837,-25.4],["DICER1","3UTR",6549,6574,-27.0],
+    ["GAPDH","CDS",724,749,-20.6],["GAPDH","CDS",867,904,-17.5],
+    ["ABHD12B","3UTR",1295,1314,-23.8],["ABHD12B","3UTR",1586,1616,-17.5],["ABHD12B","3UTR",1793,1815,-17.1],
+    ["ABCD3","CDS",503,540,-19.5],["ABCD3","3UTR",2701,2723,-21.5],["ABCD3","3UTR",3234,3260,-19.3],
+    ["ACTR3","CDS",1323,1361,-16.1],["ACTR3","3UTR",2258,2287,-17.5],["ACTR3","3UTR",3406,3433,-20.5],
+    ["ADCY2","CDS",1091,1113,-23.0],["ADCY2","CDS",2452,2478,-22.9],["ADCY2","3UTR",4489,4527,-25.3],
+    ["AADACL4","5UTR",391,418,-19.4],["AADACL4","CDS",1454,1494,-26.3],["AADACL4","3UTR",1796,1827,-20.3]
+  ];
+
+  /* gene, context++, conserved sites, PCT (null = no conservation evidence) */
+  var TS = {
+    PDCD4:[-0.503,1,0.846], DICER1:[-0.02,0,null], ABHD12B:[-0.693,0,null],
+    ABCD3:[-0.259,0,null], ACTR3:[-0.17,0,null], ADCY2:[-0.076,0,null],
+    AADACL4:[-0.145,0,null]
+  };
+
+  /* verbatim from the mirtarbase extra JSON of the same job */
+  var MT = {
+    PDCD4:  {t:"validated_strong", sf:59, wf:27, snf:3, wnf:3, sites:28, pm:20},
+    DICER1: {t:"reported_weak",    sf:0,  wf:4,  snf:0, wnf:0, sites:0,  pm:1},
+    ABCD3:  {t:"reported_weak",    sf:0,  wf:1,  snf:0, wnf:0, sites:0,  pm:1}
+  };
+
+  var SITE_RANK={"8mer":4,"7mer-m8":3,"7mer-A1":2,"6mer":1};
+  var SITE_CLASS={"8mer":"s8","7mer-m8":"s7m8","7mer-A1":"s7a1","6mer":"s6"};
+  var TICK_CLASS={"8mer":"t8","7mer-m8":"t7m8","7mer-A1":"t7a1","6mer":"t6"};
+  var RC={"3UTR":"utr3","CDS":"cds","5UTR":"utr5"};
+  var RL={"3UTR":"3′UTR","CDS":"CDS","5UTR":"5′UTR"};
+  var MTC={validated_strong:["val","Validated (strong evidence)"],
+           reported_weak:["rep","Reported (weak evidence)"],
+           evidence_of_no_effect:["noeff","Reported: no effect"]};
+
+  var GENES = Object.keys(TX);
+  var sel = "PDCD4", selSite = null, show6 = false, sortby = "seed";
+  var regOn = {"5UTR":true, "CDS":true, "3UTR":true};
+
+  function seedOf(g){ return SEED.filter(function(s){return s[0]===g && regOn[s[1]] && (show6 || s[2]!=="6mer");}); }
+  function rhOf(g){ return RH.filter(function(r){return r[0]===g && regOn[r[1]];}); }
+  function bestSeed(g){ var s=seedOf(g); if(!s.length) return null;
+    return s.slice().sort(function(a,b){return SITE_RANK[b[2]]-SITE_RANK[a[2]];})[0]; }
+  function bestRh(g){ var r=rhOf(g); if(!r.length) return null;
+    return r.slice().sort(function(a,b){return a[4]-b[4];})[0]; }
+  function overlaps(s,r){ return s[0]===r[0] && s[3]<=r[3] && s[4]>=r[2]; }
+
+  function meter(frac, blue){
+    var pc = Math.max(0, Math.min(1, frac))*100;
+    return '<span class="meter'+(blue?" b":"")+'"><i style="width:'+pc.toFixed(0)+'%"></i></span>';
+  }
+  function mtSay(mt){
+    var papers = mt.pm+" paper"+(mt.pm===1?"":"s");
+    if (mt.sf > 0)
+      return "Validated by "+mt.sf+" strong"+
+             (mt.wf>0?" and "+mt.wf+" weak":"")+" experiment"+(mt.sf+mt.wf===1?"":"s")+
+             " across "+papers+".";
+    return "Reported by "+mt.wf+" weak experiment"+(mt.wf===1?"":"s")+" in "+papers+
+           " — no direct test.";
+  }
+
+  function none(){ return '<span class="empty none">—</span>'; }
+  function ncov(){ return '<span class="empty ncov" title="TargetScan only assesses 3′UTRs">not covered</span>'; }
+  function nrun(){ return '<span class="empty nrun">not run</span>'; }
+  function nbuilt(){ return '<span class="empty nrun">not built</span>'; }
+
+  /* ---------- panels ---------- */
+  function facts(list){
+    return '<dl class="facts">'+list.map(function(kv){
+      return kv[0]==="-" ? '<div class="rule"></div>' : "<dt>"+kv[0]+"</dt><dd>"+kv[1]+"</dd>";
+    }).join("")+"</dl>";
+  }
+
+  document.getElementById("prov").textContent =
+    "Real output · " + RUN.job + " · " + RUN.date + " · " + RUN.tx.toLocaleString() +
+    " MANE Select transcripts · " + RUN.results.toLocaleString() + " records · 8 genes shown";
+
+  document.getElementById("qpanel").innerHTML = facts([
+    ["miRNA", MIR.name],
+    ["accession", MIR.acc],
+    ["mature", '<span class="seq">U<mark>AGCUUAU</mark>CAGACUGAUGUUGACU</span>'],
+    ["seed 2–8", '<span class="seq">'+MIR.seed+'</span> — site <span class="seq">ATAAGCT</span>'],
+    ["TargetScan family", MIR.family+" · conservation "+MIR.cons],
+    ["-"],
+    ["transcripts scanned", RUN.tx.toLocaleString()+" (MANE Select, one per gene)"],
+    ["regions", "5′UTR · CDS · 3′UTR"]
+  ]);
+
+  document.getElementById("rpanel").innerHTML =
+    '<table class="runs"><thead><tr><th>Tool</th><th>Version</th><th class="n">Records</th><th class="n">Genes</th><th class="n">Seconds</th></tr></thead><tbody>'+
+    RUN.tools.map(function(t){
+      if (t[3]===null)
+        return '<tr class="pending"><td>'+t[0]+"</td><td>"+t[1]+
+               '</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>';
+      return "<tr><td>"+t[0]+"</td><td>"+t[1]+'</td><td class="n">'+t[3].toLocaleString()+
+             '</td><td class="n">'+t[4].toLocaleString()+'</td><td class="n">'+t[5].toFixed(2)+"</td></tr>";
+    }).join("")+"</tbody></table>";
+
+  var TOOLKEY = [
+    ["Seed analyser","ours, v1.0",
+     "Does the target contain an exact match to the miRNA's seed — the seven letters that do most of the binding?",
+     "a site type and its position","8mer &gt; 7mer-m8 &gt; 7mer-A1 &gt; 6mer. An 8mer is the textbook site. A 6mer on its own is weak — most 6mers happen by chance.",
+     "5′UTR · CDS · 3′UTR",false],
+    ["RNAhybrid","2.1.2-8",
+     "Could the two strands physically fold together here — even where the match is not exact?",
+     "ΔG, in kcal/mol","More negative = tighter fold. We only keep hits below −15; below −25 is genuinely tight. Wobble (G:U) pairs are allowed, so it sees sites the seed tool refuses.",
+     "whole transcript",false],
+    ["TargetScan","v8.0",
+     "Taking the surrounding sequence into account, how far down would this gene actually be pushed?",
+     "context++ score, roughly 0 to −1","More negative = more predicted repression. −0.50 is a strong prediction; −0.02 is close to nothing.",
+     "3′UTR only",false],
+    ["TargetScan","v8.0",
+     "Has this site survived in other animals more often than chance would explain?",
+     "conserved sites and P<sub>CT</sub>","P<sub>CT</sub> is the probability the site was kept <i>because</i> a miRNA uses it. 0.85 = strong. No conserved site = no P<sub>CT</sub> at all. TargetScan counts conserved sites <b>per gene, on its own transcript</b>, so the count cannot be matched to any one site in the table below — which is why it is not shown there.",
+     "3′UTR only",false],
+    ["miRTarBase","10.0",
+     "Has anyone tested this pair at the bench, and what did they find?",
+     "experiment counts and papers","<b>Strong</b> = reporter assay, western blot, qPCR — one pair tested deliberately. <b>Weak</b> = CLIP-seq, microarray, pSILAC — thousands screened at once. Strong evidence is worth far more. Look for experiments that reported <i>no</i> effect.",
+     "every gene",false],
+    ["ML model","not built",
+     "All of the above at once, in one calibrated number, for all three regions",
+     "a probability, 0 to 1","Higher = more likely a real target. Not built yet, so the column stays empty.",
+     "5′UTR · CDS · 3′UTR",true],
+    ["miRanda","not integrated",
+     "A second, independent alignment-and-energy opinion",
+     "an alignment score","Higher = better alignment. Useful mainly as a cross-check on the other two predictors.",
+     "whole transcript",true]
+  ];
+  document.getElementById("tkbody").innerHTML = TOOLKEY.map(function(t){
+    return '<tr'+(t[6]?' class="pending"':"")+'><td><span class="tname">'+t[0]+'<span class="tver">'+t[1]+"</span></span></td>"+
+      "<td>"+t[2]+'</td><td class="unit">'+t[3]+"</td><td>"+t[4]+"</td><td>"+t[5]+"</td></tr>";
+  }).join("");
+
+  /* ---------- map ---------- */
+  function renderMap(){
+    var t = TX[sel], five = t.cds[0]-1, cds = t.cds[1]-t.cds[0]+1, three = t.len-t.cds[1];
+    var maj = t.len>6000?2000:(t.len>3000?1000:400), min = maj/4, ruler = "";
+    for (var p=0; p<=t.len; p+=min){
+      var pc=(p/t.len)*100, M=(p%maj===0);
+      ruler += '<span class="tick'+(M?" maj":"")+'" style="left:'+pc.toFixed(3)+'%"></span>';
+      if (M) ruler += '<span class="tlab" style="left:'+pc.toFixed(3)+'%">'+
+        (p===0?"0":(t.len>2000?(p/1000).toFixed(1).replace(/\.0$/,"")+"k":p))+"</span>";
+    }
+    var bar = '<div class="genebar"><span class="s5" style="width:'+((five/t.len)*100).toFixed(3)+'%"><b>5′UTR</b></span>'+
+      '<span class="scd" style="width:'+((cds/t.len)*100).toFixed(3)+'%"><b>CDS</b></span>'+
+      '<span class="s3" style="width:'+((three/t.len)*100).toFixed(3)+'%"><b>3′UTR</b></span></div>';
+
+    var ss = seedOf(sel), rr = rhOf(sel);
+
+    var seedLane = ss.length ? ss.map(function(s){
+      var mid=((s[3]+s[4])/2/t.len)*100, k="seed|"+s[3];
+      return '<button class="st'+(selSite===k?" sel":"")+'" data-k="'+k+'" style="left:'+mid.toFixed(3)+'%" '+
+        'title="'+s[2]+" "+RL[s[1]]+" "+s[3]+"–"+s[4]+'"><i class="'+TICK_CLASS[s[2]]+'"></i>'+
+        '<span class="lb">'+s[2]+"</span></button>";
+    }).join("") : '<span class="none">no seed site on this transcript</span>';
+
+    var rhLane = rr.length ? rr.map(function(r){
+      var L=(r[2]/t.len)*100, W=Math.max(0.35,((r[3]-r[2]+1)/t.len)*100), k="rh|"+r[2];
+      return '<button class="sd'+(r[4]<=-25?" strong":"")+(selSite===k?" sel":"")+'" data-k="'+k+'" '+
+        'style="left:'+L.toFixed(3)+'%;width:'+W.toFixed(3)+'%" title="ΔG '+r[4].toFixed(1)+" · "+
+        RL[r[1]]+" "+r[2]+"–"+r[3]+'"><span class="lb">'+r[4].toFixed(1)+"</span></button>";
+    }).join("") : '<span class="none">no duplex below the −15 kcal/mol cutoff</span>';
+
+    document.getElementById("map").innerHTML =
+      '<div class="ruler">'+ruler+"</div>"+bar+
+      '<div class="lane"><div class="lanecap">Seed sites <em>Watson–Crick only</em></div>'+
+        '<div class="lanebody'+(ss.length?"":" empty")+'">'+seedLane+"</div></div>"+
+      '<div class="lane"><div class="lanecap">RNAhybrid duplexes <em>span shown to scale · G:U wobbles allowed</em></div>'+
+        '<div class="lanebody'+(rr.length?"":" empty")+'">'+rhLane+"</div></div>";
+
+    document.getElementById("maphint").textContent =
+      sel + " · " + TX[sel].rs + " · " + t.len.toLocaleString() + " nt · " +
+      ss.length + " seed site" + (ss.length===1?"":"s") + " · " + rr.length + " duplex" + (rr.length===1?"":"es");
+
+    document.querySelectorAll("#map .st, #map .sd").forEach(function(b){
+      b.addEventListener("click", function(){
+        selSite = (selSite===b.dataset.k) ? null : b.dataset.k;
+        render();
+      });
+    });
+  }
+
+  /* ---------- table ---------- */
+  function geneRow(g){
+    var s = bestSeed(g), r = bestRh(g), ts = TS[g], mt = MT[g];
+    var regions = {}; seedOf(g).forEach(function(x){regions[x[1]]=1;});
+    var regList = Object.keys(regions).sort(function(a,b){
+      return ["5UTR","CDS","3UTR"].indexOf(a)-["5UTR","CDS","3UTR"].indexOf(b);});
+    var nSeed = seedOf(g).length, nRh = rhOf(g).length;
+
+    var cells = [];
+    cells.push('<td><span class="gene">'+g+'</span><span class="txid">'+TX[g].rs+"</span></td>");
+    cells.push("<td>"+(regList.length
+      ? regList.map(function(x){return '<span class="region '+RC[x]+'">'+RL[x]+"</span>";}).join("")
+      : none())+"</td>");
+    cells.push('<td class="colsep">'+(s
+      ? '<span class="site '+SITE_CLASS[s[2]]+'">'+s[2]+"</span>"+
+        (nSeed>1?'<span class="sub2">'+nSeed+" sites total</span>":"")
+      : none())+"</td>");
+    cells.push('<td class="num">'+(s
+      ? s[3].toLocaleString()+"–"+s[4].toLocaleString()+
+        '<span class="sub2">'+RL[s[1]]+"</span>"
+      : none())+"</td>");
+    cells.push('<td class="num colsep">'+(r
+      ? r[4].toFixed(1)+meter(Math.abs(r[4])/35)+
+        (nRh>1?'<span class="say">best&nbsp;of&nbsp;'+nRh+" foldings</span>":"")
+      : none())+"</td>");
+    var has3 = SEED.some(function(s){return s[0]===g && s[1]==="3UTR";}) ||
+               RH.some(function(r){return r[0]===g && r[1]==="3UTR";});
+    var tsEmpty = has3 ? none() : ncov();
+    cells.push('<td class="num colsep">'+(ts
+      ? ts[0].toFixed(3)+meter(Math.abs(ts[0]), true)
+      : tsEmpty)+"</td>");
+    cells.push("<td>"+(ts
+      ? (ts[1]>0
+          ? '<span class="chip cons" title="'+ts[1]+" conserved site"+(ts[1]===1?"":"s")+
+            ' counted by TargetScan for this gene">Conserved</span>'+
+            '<span class="say">P<sub>CT</sub> '+ts[2].toFixed(2)+"</span>"
+          : '<span class="chip noncons">Not conserved</span>'+
+            '<span class="say">P<sub>CT</sub> not applicable</span>')
+      : tsEmpty)+"</td>");
+    cells.push('<td class="colsep">'+(mt
+      ? '<span class="chip '+MTC[mt.t][0]+'">'+MTC[mt.t][1]+"</span>"+
+        '<span class="say">'+mtSay(mt)+"</span>"+
+        (mt.snf+mt.wnf>0?'<span class="warnline">'+(mt.snf+mt.wnf)+
+          " experiment"+(mt.snf+mt.wnf===1?"":"s")+" reported no effect</span>":"")
+      : none()+'<span class="say">Not reported in miRTarBase</span>')+"</td>");
+    cells.push('<td class="colsep">'+nbuilt()+"</td>");
+    return '<tr class="generow'+(sel===g?" sel":"")+'" data-g="'+g+'">'+cells.join("")+"</tr>";
+  }
+
+  function detailRow(g){
+    return '<tr class="detail"><td colspan="9"><div class="detwrap">'+rawSites(g)+"</div></td></tr>";
+  }
+
+
+  function rawSites(g){
+    var rows = [];
+    seedOf(g).forEach(function(s){
+      var ov = rhOf(g).filter(function(r){return overlaps(s,r);})[0];
+      rows.push({tool:"seed", region:s[1], site:s[2], a:s[3], b:s[4], dg:null,
+                 k:"seed|"+s[3], note: ov ? "inside RNAhybrid duplex "+ov[2]+"–"+ov[3] : ""});
+    });
+    rhOf(g).forEach(function(r){
+      var ov = seedOf(g).filter(function(s){return overlaps(s,r);})[0];
+      rows.push({tool:"rnahybrid", region:r[1], site:null, a:r[2], b:r[3], dg:r[4],
+                 k:"rh|"+r[2], note: ov ? "contains "+ov[2]+" seed site "+ov[3]+"–"+ov[4] : ""});
+    });
+    rows.sort(function(a,b){return a.a-b.a;});
+
+    var body = rows.map(function(x){
+      return '<tr class="clickable'+(selSite===x.k?" sitesel":"")+'" data-k="'+x.k+'">'+
+        "<td>"+x.tool+"</td>"+
+        '<td><span class="region '+RC[x.region]+'">'+RL[x.region]+"</span></td>"+
+        "<td>"+(x.site?'<span class="site '+SITE_CLASS[x.site]+'">'+x.site+"</span>":none())+"</td>"+
+        '<td class="num">'+x.a.toLocaleString()+"–"+x.b.toLocaleString()+"</td>"+
+        '<td class="num">'+(x.dg===null?none():x.dg.toFixed(1))+"</td>"+
+        '<td class="agree">'+(x.note?"↔ "+x.note:"")+"</td></tr>";
+    }).join("");
+
+    var nAgree = rows.filter(function(x){return x.note;}).length;
+    if (!rows.length)
+      return '<div class="dethead">No tool that measures position found a site in '+g+
+             " with the current filters.</div>";
+
+    return '<div class="dethead">'+rows.length+" record"+(rows.length===1?"":"s")+" for "+g+
+      ", one row each, exactly as stored — from the two tools that measure position."+
+      (nAgree?" The Agreement column marks where both tools point at the same nucleotides.":"")+
+      " TargetScan and miRTarBase report one value for the whole gene, so they have no row here.</div>"+
+      '<table class="sites"><thead><tr><th>Tool</th><th>Region</th><th>Seed site</th>'+
+      "<th>Position</th><th>ΔG</th><th>Agreement</th></tr></thead><tbody>"+
+      body+"</tbody></table>";
+  }
+
+  function order(){
+    var g = GENES.slice();
+    g.sort(function(a,b){
+      if (sortby==="seed"){
+        var sa=bestSeed(a), sb=bestSeed(b);
+        return (sb?SITE_RANK[sb[2]]:0)-(sa?SITE_RANK[sa[2]]:0) || a.localeCompare(b);
+      }
+      if (sortby==="ts"){
+        var ta=TS[a]?TS[a][0]:1, tb=TS[b]?TS[b][0]:1; return ta-tb;
+      }
+      if (sortby==="rh"){
+        var ra=bestRh(a), rb=bestRh(b);
+        return (ra?ra[4]:0)-(rb?rb[4]:0);
+      }
+      var ma=MT[a]?MT[a].sf*1000+MT[a].wf:0, mb=MT[b]?MT[b].sf*1000+MT[b].wf:0;
+      return mb-ma || a.localeCompare(b);
+    });
+    return g;
+  }
+
+  function render(){
+    var g = order(), html = "";
+    g.forEach(function(x){
+      html += geneRow(x);
+      if (sel===x) html += detailRow(x);
+    });
+    document.getElementById("rows").innerHTML = html;
+
+    var nSites = GENES.reduce(function(n,x){return n+seedOf(x).length;},0);
+    var nDup = GENES.reduce(function(n,x){return n+rhOf(x).length;},0);
+    var off = ["5UTR","CDS","3UTR"].filter(function(r){return !regOn[r];}).map(function(r){return RL[r];});
+    document.getElementById("rowcount").textContent =
+      GENES.length+" genes · "+nSites+" seed sites · "+nDup+" duplexes"+
+      (show6?"":" · 6mer sites hidden")+
+      (off.length?" · "+off.join(" and ")+" hidden":"");
+
+    document.querySelectorAll("tr.generow").forEach(function(tr){
+      tr.addEventListener("click", function(){
+        if (sel !== tr.dataset.g) { sel = tr.dataset.g; selSite = null; }
+        render();
+      });
+    });
+    document.querySelectorAll("table.sites tr.clickable").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        selSite = (selSite===el.dataset.k) ? null : el.dataset.k;
+        render();
+      });
+    });
+    renderMap();
+  }
+
+  document.getElementById("show6").addEventListener("change", function(e){
+    show6 = e.target.checked; selSite = null; render();
+  });
+  document.getElementById("sortby").addEventListener("change", function(e){
+    sortby = e.target.value; render();
+  });
+  document.querySelectorAll("#regfilter input").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      regOn[cb.value] = cb.checked; selSite = null; render();
+    });
+  });
+
+  render();
+})();
+</script>

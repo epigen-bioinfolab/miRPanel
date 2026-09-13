@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 import config
 import db
+import enrichment
 import geneset
 import orchestrator
 import resolve
@@ -233,6 +234,7 @@ def _gene_order(sort):
 @app.get("/jobs/{job_id}/genes")
 def read_genes(job_id: str,
                sort: str = Query("gene", pattern="^[a-z_]+$"),
+               gene: Optional[str] = None,
                limit: int = Query(25, ge=1, le=200),
                offset: int = Query(0, ge=0),
                con=Depends(get_con)):
@@ -242,12 +244,18 @@ def read_genes(job_id: str,
     if orchestrator.job_status(con, job_id) is None:
         raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
     order, oargs = _gene_order(sort)
+    # ?gene= narrows the table to one gene: how the pathway panel jumps from a
+    # term's gene list back to the binding sites that put it there.
+    gclause, gargs = ("", [])
+    if gene:
+        gclause = " AND (symbol = ? COLLATE NOCASE OR entrez = ?)"
+        gargs = [gene, gene]
     total = con.execute("SELECT COUNT(DISTINCT symbol) FROM results "
-                        "WHERE job_id=?", (job_id,)).fetchone()[0]
+                        "WHERE job_id=?" + gclause, [job_id] + gargs).fetchone()[0]
     syms = [r[0] for r in con.execute(
-        "SELECT symbol FROM results WHERE job_id=? GROUP BY symbol "
+        "SELECT symbol FROM results WHERE job_id=?" + gclause + " GROUP BY symbol "
         "ORDER BY " + order + " LIMIT ? OFFSET ?",
-        [job_id] + oargs + [limit, offset])]
+        [job_id] + gargs + oargs + [limit, offset])]
     if not syms:
         return {"job_id": job_id, "total_genes": total, "limit": limit,
                 "offset": offset, "sort": sort, "genes": [], "results": []}
@@ -300,6 +308,91 @@ def read_geneset(job_id: str,
     if not include_genes:
         out.pop("genes")
     return out
+
+
+class EnrichmentRequest(BaseModel):
+    """The same tick boxes as /geneset, sent as a body."""
+    seed: Optional[str] = None
+    targetscan: Optional[str] = None
+    rnahybrid: Optional[str] = None
+    mirtarbase: Optional[str] = None
+    regions: Optional[List[str]] = None
+    match: str = Field("all", pattern="^(all|any)$")
+
+
+def _spec(req):
+    return req.model_dump() if hasattr(req, "model_dump") else req.dict()
+
+
+@app.post("/jobs/{job_id}/enrichment", status_code=202)
+def post_enrichment(job_id: str, req: EnrichmentRequest, force: bool = False,
+                    con=Depends(get_con)):
+    """Queue GO and KEGG over-representation for the genes the boxes select.
+
+    Returns immediately; the same worker that runs jobs runs this. Poll
+    GET /enrichment/{run_id}. Enrichment takes minutes, mostly waiting on the
+    KEGG server, so it is never done inside the request.
+
+    An identical filter already run on this job is handed back instead of
+    computed again - unless the job has been re-run since, or force=true.
+    """
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    spec = _spec(req)
+    if not force:
+        existing = enrichment.find(con, job_id, spec)
+        if existing:
+            r = enrichment.get_run(con, existing)
+            if not r["stale"]:
+                return {"run_id": existing, "status": r["status"], "reused": True,
+                        "rule_sentence": r["rule_sentence"],
+                        "n_terms": r["n_terms"]}
+    try:
+        run_id = enrichment.create(con, job_id, spec)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(422, {"error": "bad_request", "message": str(e)})
+    return {"run_id": run_id, "status": "queued", "reused": False}
+
+
+@app.get("/jobs/{job_id}/enrichment")
+def list_enrichment(job_id: str, con=Depends(get_con)):
+    """Every enrichment ever run on this job, newest first. Nothing is
+    deleted, so this is also the history."""
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    return {"job_id": job_id, "runs": enrichment.list_runs(con, job_id)}
+
+
+@app.get("/enrichment/{run_id}")
+def read_enrichment(run_id: str,
+                    source: Optional[str] = None,
+                    q: Optional[str] = Query(None, max_length=120),
+                    include_genes: bool = False,
+                    limit: int = Query(50, ge=1, le=1000),
+                    offset: int = Query(0, ge=0),
+                    con=Depends(get_con)):
+    """One enrichment: how it was run, and a page of its terms.
+
+    Every term carries the four integers of its own hypergeometric test, so a
+    reader can recompute the p-value without this tool. They are per term and
+    not per run: the annotation covers a different number of genes in each
+    ontology, and KEGG covers about half the genome.
+    """
+    r = enrichment.get_run(con, run_id)
+    if r is None:
+        raise HTTPException(404, {"error": "run_not_found", "run_id": run_id})
+    if not include_genes:
+        r.pop("genes")
+    # terms_by_source is never filtered by q: it labels the tabs, and a tab
+    # whose count changed as you typed would be unreadable.
+    by_source = {s: n for s, n in con.execute(
+        "SELECT source, COUNT(*) FROM enrichment_terms WHERE run_id=? "
+        "GROUP BY source ORDER BY source", (run_id,))}
+    return {"run": r, "terms_by_source": by_source,
+            "total": enrichment.count_terms(con, run_id, source, q),
+            "in_source": by_source.get(source, sum(by_source.values())),
+            "limit": limit, "offset": offset, "source": source, "q": q,
+            "terms": enrichment.terms(con, run_id, source, limit, offset, q)}
 
 
 # Mounted last: it claims "/", so every real endpoint must be declared above.

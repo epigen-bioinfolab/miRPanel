@@ -3,6 +3,31 @@
 Every number here was measured on `job_46def2d032c6` (hsa-miR-21-5p,
 transcriptome-wide, four tools). Nothing was chosen by taste.
 
+Enrichment results are quoted from stored runs by id — `enr_3e67cd65200d`
+(conserved, 381 genes) and `enr_0ac52b947705` (8mer ∩ conserved, 150 genes) —
+so any figure here can be re-queried rather than taken on trust. Both passed
+`scripts/validate_enrichment.py`: the database matches the TSV R wrote, and
+every p-value can be recomputed from the four integers stored beside it.
+
+## What the denominator actually is
+
+The background is every MANE Select gene, 19,363 of them. That is the set the
+tool selected from, and it is **not** the denominator of any single test.
+org.Hs.eg.db annotates a different part of it for each ontology, and KEGG
+covers about half the genome:
+
+| | Genes tested (n) | Background (N) |
+|---|---|---|
+| GO: Biological Process | 357 | 17,116 |
+| GO: Molecular Function | 362 | 17,807 |
+| GO: Cellular Component | 372 | 18,206 |
+| KEGG | 190 | 8,516 |
+
+All from the same 381-gene list. This is why the four integers are stored per
+term and not once per run, and why a KEGG p-value and a GO p-value are not
+comparable quantities. A term absent from KEGG may mean "not enriched" or
+"not annotated", and the two cannot be told apart from the p-value alone.
+
 ## Gene list sizes (`scripts/enrichment_sets.py`)
 
 Enrichment needs roughly 200–1,500 genes: fewer and nothing reaches
@@ -42,16 +67,44 @@ transcript is not evidence of function. This is a clean negative result and
 worth reporting: it is the downstream counterpart of the site-level
 argument for showing four columns instead of one.
 
-**2. Conservation alone gives coherent, correct biology.** 381 genes:
+**2. Conservation alone gives coherent, correct biology.** 381 genes, all 381
+recognised by org.Hs.eg.db, 340 enriched terms. Read from the stored run
+`enr_3e67cd65200d`, not from a terminal scrollback:
 
-- GO: epithelial-to-mesenchymal transition, mesenchyme development,
-  Rac signalling, muscle cell proliferation, cardiocyte differentiation
-  (best adjusted p 1.9 × 10⁻⁷)
-- KEGG: **MicroRNAs in cancer**, MAPK signalling, Ras signalling,
-  proteoglycans in cancer, stem-cell pluripotency (21 KEGG terms)
+| GO: Biological Process | Genes | Adjusted p |
+|---|---|---|
+| mesenchyme development | 29 | 1.9 × 10⁻⁷ |
+| stem cell differentiation | 25 | 4.0 × 10⁻⁷ |
+| lung morphogenesis | 13 | 4.0 × 10⁻⁷ |
+| mesenchymal cell differentiation | 24 | 8.6 × 10⁻⁷ |
 
-miR-21 is the canonical EMT and fibrosis miRNA. The tool reached that from
-sequence and conservation alone, with no knowledge of the literature.
+| KEGG | Genes | Adjusted p |
+|---|---|---|
+| **MicroRNAs in cancer** | 17 | 2.2 × 10⁻⁵ |
+| MAPK signalling | 21 | 3.6 × 10⁻⁴ |
+| pathways regulating stem-cell pluripotency | 13 | 1.3 × 10⁻³ |
+| proteoglycans in cancer | 15 | 2.4 × 10⁻³ |
+| Ras signalling | 16 | 3.0 × 10⁻³ |
+
+The dominant theme is the mesenchymal and stem-cell programme, and the
+strongest pathway in a database that knows nothing about this project is
+*MicroRNAs in cancer*. The tool reached that from sequence and conservation
+alone, with no knowledge of the literature.
+
+**Correction to an earlier draft of this file.** It named
+*epithelial-to-mesenchymal transition* as the leading term at
+1.9 × 10⁻⁷, and gave the same p-value for KEGG. Both were wrong: that p
+belongs to *mesenchyme development*, and EMT itself sits at 1.8 × 10⁻⁴ with
+16 genes — present and consistent, but three orders of magnitude weaker than
+claimed. KEGG's best is 2.2 × 10⁻⁵. The error came from reading the wrong row
+out of a terminal; every number above is now queried from the database, which
+is the reason the database exists.
+
+The EMT family in full, for the record: mesenchymal cell differentiation
+(24 genes, 8.6 × 10⁻⁷), cardiac EMT (8, 1.3 × 10⁻⁴), EMT (16, 1.8 × 10⁻⁴),
+mesenchymal cell proliferation (8, 5.0 × 10⁻⁴), regulation of EMT
+(10, 3.5 × 10⁻³). The signal is real and spread across the family rather than
+concentrated in the one term with the famous name.
 
 **3. Intersecting with the 8mer scan adds nothing** (`scripts/enrich_control.py`).
 
@@ -103,3 +156,19 @@ Enrichment on a few hundred genes is unstable. Two consequences:
   enrichment" can never be confused with "nothing mapped"
 - KEGG contacts the KEGG server and is allowed to fail without taking GO
   down with it
+- a provenance sidecar records R, clusterProfiler and org.Hs.eg.db versions,
+  whether KEGG answered, and when — KEGG is fetched live, so the same gene
+  list next year can give different pathways and this is what will explain it
+
+## In the database (`src/enrichment.py`, `src/schema.sql`)
+
+- `enrichment_runs` — one row per analysis: the filter, the gene ids actually
+  tested, the background release (`MANE v1.5`, joined from `data_sources`),
+  the correction method and cutoffs, and the software versions
+- `enrichment_terms` — one row per term, carrying `k`, `n`, `K`, `N` so every
+  p-value can be recomputed in any language without R
+- nothing is deleted when a job is re-run. `job_finished_at` records what the
+  job looked like at the time, so a historical result stays readable and the
+  interface derives staleness by comparison instead of by destruction
+- a repeat of an identical filter returns the existing run rather than
+  spending two minutes recomputing it
