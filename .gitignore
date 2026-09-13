@@ -6,3 +6,8 @@ data/
 .env
 worker.log
 data/tmp/
+server.log
+__pycache__/
+venv/
+data/raw/
+data/processed/
