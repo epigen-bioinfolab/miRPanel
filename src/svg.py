@@ -328,16 +328,19 @@ def binding_map(symbol, refseq, length, regions, seed_sites, rh_sites,
 CSS = """
 .netsvg, .mapsvg{display:block;width:100%;height:auto}
 .netsvg{margin:4px 0 2px}
-.ed-target{stroke:#8d96a1;stroke-linecap:round}
-.ed-share{stroke:#b9c3cd;stroke-dasharray:2 4;stroke-linecap:round}
-.nd-val{fill:#e2f1e8;stroke:#1a6b3c;stroke-width:1.6}
-.nd-pred{fill:#eaeff4;stroke:#1f4e79;stroke-width:1.4}
-.nd-mir{fill:#1f4e79;stroke:#15181d;stroke-width:1.2}
-.nd-lab{font-size:11.5px;text-anchor:middle;fill:#15181d;
-  paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
-.nd-mirlab{font-size:13px;font-weight:600}
-.netkey-svg{display:flex;flex-wrap:wrap;gap:5px 18px;margin:2px 0 0;
-  font-size:11.5px;color:#666f7a}
+.ed-target{stroke:#78838f;stroke-linecap:round}
+.ed-share{stroke:#aab5c0;stroke-dasharray:2 4;stroke-linecap:round}
+/* teal against amber: a strong contrast that also survives red-green colour
+   blindness, where the earlier pale green and pale blue did not. The miRNA
+   keeps a diamond as well as its own colour, so it never relies on hue. */
+.nd-val{fill:#0d7d74;stroke:#0a5d56;stroke-width:1.6}
+.nd-pred{fill:#f6dfba;stroke:#d4881a;stroke-width:1.8}
+.nd-mir{fill:#12314f;stroke:#15181d;stroke-width:1.2}
+.nd-lab{font-size:12.5px;text-anchor:middle;fill:#15181d;
+  paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
+.nd-mirlab{font-size:14px;font-weight:700}
+.netkey-svg{display:flex;flex-wrap:wrap;gap:6px 20px;margin:6px 0 0;
+  font-size:12.5px;color:#5c6670}
 .netkey-svg b{display:inline-block;width:10px;height:10px;border-radius:50%;
   margin-right:5px;vertical-align:-1px}
 

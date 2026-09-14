@@ -262,10 +262,10 @@ def _network_section(con, job_id, spec):
     m = data["meta"]
     out = ["<h2>Target network</h2>", body,
            "<div class='netkey-svg'>"
-           "<span><b style='background:#1f4e79'></b>miRNA</span>"
-           "<span><b style='background:#e2f1e8;border:1.5px solid #1a6b3c'>"
-           "</b>validated target (miRTarBase)</span>"
-           "<span><b style='background:#eaeff4;border:1.5px solid #1f4e79'>"
+           "<span><b style='background:#12314f'></b>miRNA</span>"
+           "<span><b style='background:#0d7d74'></b>"
+           "validated target (miRTarBase)</span>"
+           "<span><b style='background:#f6dfba;border:2px solid #d4881a'>"
            "</b>predicted only</span>"
            "<span>solid line — a tool reported this target; thicker means "
            "more tools agree</span>"

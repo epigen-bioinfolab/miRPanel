@@ -34,7 +34,7 @@ keep = keep[:keep.rindex("</div>")]          # drop the wrap close, we re-add it
 # the mock's fixed job id and query-shape label become live fields
 for old, new in [('<h2>Query<em>miRNA only</em></h2>', '<h2>Query<em id="qscope"></em></h2>'),
                  ('<h2>Tools run<em>job_46def2d032c6</em></h2>',
-                  '<h2>Tools run<em id="runid"></em></h2>')]:
+                  '<h2>Tools Run<em id="runid"></em></h2>')]:
     assert keep.count(old) == 1, old
     keep = keep.replace(old, new)
 
@@ -53,10 +53,19 @@ for _a, _b in NOTE_SUBS:
     assert keep.count(_a) == 1, _a[:40]
     keep = keep.replace(_a, _b)
 
+# Section headings are Title Case throughout, so the two that come straight
+# from the approved layout are brought into line here rather than by editing
+# the layout, which stays the record of what was approved.
+for _a, _b in [("<h2>Binding map", "<h2>Binding Map"),
+               ("<h3>How to read this page</h3>",
+                "<h3>How To Read This Page</h3>")]:
+    assert keep.count(_a) == 1, _a[:40]
+    keep = keep.replace(_a, _b)
+
 # the pathway-analysis panel goes between the table and the notes
 _notes = keep.index('<div class="notes">')
 keep = keep[:_notes] + """<section class="panel" id="enrich">
-    <h2>Pathway analysis<em id="gscount">nothing selected</em></h2>
+    <h2>Pathway Analysis<em id="gscount">nothing selected</em></h2>
     <div class="panel-body">
       <div class="gsgrid" id="gsboxes"></div>
       <div class="gsbar">
@@ -80,7 +89,7 @@ keep = keep[:_notes] + """<section class="panel" id="enrich">
   </section>
 
   <section class="panel" id="enrichout" hidden>
-    <h2>Enriched terms<em id="enrichstate"></em></h2>
+    <h2>Enriched Terms<em id="enrichstate"></em></h2>
     <div class="panel-body">
       <p id="enrichhead"></p>
       <p id="enrichmeta"></p>
@@ -108,7 +117,7 @@ keep = keep[:_notes] + """<section class="panel" id="enrich">
   </section>
 
   <section class="panel" id="netbox" hidden>
-    <h2>Target network<em id="netstate"></em></h2>
+    <h2>Target Network<em id="netstate"></em></h2>
     <div class="panel-body">
       <p class="say" id="nethead"></p>
       <div class="netbar">
@@ -155,7 +164,7 @@ _map = keep[_b0:_b1]
 keep = keep[:_b0] + keep[_b1:]
 _tbl = keep.index('<div class="toolbar">')
 keep = (keep[:_tbl] + _map +
-        '\n\n  <h2 class="sectitle">The result table</h2>\n  ' + keep[_tbl:])
+        '\n\n  <h2 class="sectitle">The Result Table</h2>\n  ' + keep[_tbl:])
 
 # The tool key is reference material, not a step in the workflow, so it moves
 # down beside the notes that explain how to read the page.
@@ -753,6 +762,89 @@ NETWORK_CSS = """
     box-shadow:0 4px 14px rgba(0,0,0,.14);pointer-events:none;z-index:60}
 """
 
+# Last in the cascade on purpose: one place to adjust typography, spacing and
+# section prominence without unpicking the rules the approved layout set.
+POLISH_CSS = """
+  /* ---- the masthead carries the tool's name ----
+     Three tiers, each doing one job: a small version kicker, the name at
+     display size, the one-line promise in the accent colour, and the
+     description set at reading width underneath. No rule closes it: the
+     first section heading sits just below with a rule of its own, and two
+     heavy lines that close together read as a mistake. */
+  .masthead{margin:0 0 48px;padding:4px 0 0;gap:9px;border-bottom:0}
+  .kicker{font-family:'Inter',system-ui,sans-serif;font-size:12px;
+    letter-spacing:.17em;text-transform:uppercase;color:var(--accent);
+    font-weight:700}
+  #title{font-family:'Inter',system-ui,sans-serif;
+    font-size:clamp(38px,5.2vw,54px);font-weight:800;letter-spacing:-.032em;
+    line-height:1.03;color:var(--accent);margin:0}
+  .sub2line{font-size:clamp(19px,2.2vw,24px);font-weight:600;
+    color:var(--accent);letter-spacing:-.014em;line-height:1.34;
+    max-width:36ch;margin:4px 0 0}
+  .masthead .sub{font-size:16.5px;line-height:1.72;color:var(--muted);
+    max-width:78ch;margin:8px 0 0}
+
+  /* ---- sections announce themselves ----
+     The panel heading was a 10px uppercase mono label, which read as a
+     caption rather than a section. Each one is now a real heading with a
+     heavy rule under it in the accent colour. */
+  .panel>h2, .sectitle, .notes h3{
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:19px;font-weight:700;letter-spacing:-.01em;
+    text-transform:none;color:var(--ink)}
+  .panel>h2{
+    padding:15px 18px 12px;background:var(--surface);
+    border-bottom:3px solid var(--accent);
+    align-items:baseline}
+  .panel>h2 em{
+    font-size:13.5px;font-weight:500;color:var(--muted);
+    letter-spacing:0;text-transform:none;white-space:nowrap}
+  .sectitle{
+    margin:0 0 18px;padding-bottom:12px;
+    border-bottom:3px solid var(--accent)}
+  .notes h3{margin:0 0 14px;padding-bottom:12px;
+    border-bottom:3px solid var(--accent)}
+
+  /* ---- room to breathe between sections ---- */
+  section.panel{margin:0 0 40px}
+  .context{margin-bottom:40px;gap:26px 40px}
+  .tablewrap{margin-bottom:40px}
+  h2.sectitle{margin-top:48px}
+  .toolbar{margin-bottom:18px}
+  .notes{margin-top:48px}
+  .panel-body{padding:18px}
+
+  /* ---- the result table: every cell centred under its heading ---- */
+  table.results{font-size:13.5px}
+  table.results thead th,
+  table.results thead tr.grouprow th{text-align:center;vertical-align:bottom}
+  table.results tbody td,
+  table.results tbody td.num{text-align:center;vertical-align:middle;
+    padding-top:11px;padding-bottom:11px}
+  table.results tbody td .sub2,
+  table.results tbody td .txid{text-align:center}
+  table.results tbody td .gene{font-size:14.5px}
+
+  /* The enrichment table keeps its term names left-aligned: a long sentence
+     centred is harder to scan, not easier. Its numbers centre like the rest. */
+  .terms{font-size:13.5px}
+  .terms td, .terms th{vertical-align:middle;padding-top:10px;
+    padding-bottom:10px}
+  .terms td:nth-child(n+3), .terms th:nth-child(n+3){text-align:center}
+
+  /* ---- nothing readable is left at caption size ---- */
+  .txid, .hu, .gsnote, .say, .sub2, #rowcount, .termfoot,
+  .expnote, .netnote, .netkey, .expstat, .sources{font-size:13.5px}
+  .txid, .sub2{line-height:1.5}
+  .empty{font-size:13.5px}
+  .notes li{font-size:14px;line-height:1.65;margin-bottom:9px}
+  .netinfo{font-size:13.5px}
+  .netinfo dt{font-size:13px}
+  .netinfo dd{font-size:13.5px}
+  .ctl, .switch{font-size:13.5px}
+  .mapbody, .maphint{font-size:13.5px}
+"""
+
 HEAD = """<!doctype html>
 <html lang="en">
 <head>
@@ -774,7 +866,7 @@ HEAD = """<!doctype html>
   </header>
 
   <section class="panel" id="querybox">
-    <h2>New search<em></em></h2>
+    <h2>New Search<em></em></h2>
     <div class="panel-body">
       <form class="qform" id="qform">
         <label class="f"><span>miRNA</span>
@@ -797,7 +889,7 @@ HEAD = """<!doctype html>
   <div id="results" hidden>
 
     <div class="notice" id="prov"></div>
-""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS + NETWORK_CSS)
+""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS + NETWORK_CSS + POLISH_CSS)
 
 TAIL_JS = r"""
   /* ================== live data ================== */
@@ -1737,6 +1829,9 @@ TAIL_JS = r"""
       el("title").textContent = about.name;
       el("tagline").textContent = about.description;
       el("subtitle").textContent = about.subtitle || "";
+      // the kicker was in the approved layout but never filled; the version
+      // is the one true thing that belongs above the name
+      el("kicker").textContent = about.version ? "Version " + about.version : "";
       var seen = {}, parts = [];
       (about.data_sources || []).forEach(function(s){
         if (/^miRBase_mature_(20|21|22)$/.test(s.name)) return;
@@ -1795,28 +1890,34 @@ NETWORK_JS = """
     // read the page's own variables rather than inventing a second palette
     var c = getComputedStyle(document.documentElement);
     function v(n, d){ var x = c.getPropertyValue(n).trim(); return x || d; }
+    // Validated and predicted were a pale green and a pale blue-grey, which
+    // sat too close together to read at a glance. Teal against amber is a
+    // strong contrast that also survives red-green colour blindness, and the
+    // miRNA keeps its own dark navy plus a diamond shape, so it never
+    // depends on colour alone.
     return {accent: v("--accent", "#1f4e79"), ink: v("--ink", "#15181d"),
             line: v("--line", "#e3e6ea"), muted: v("--muted", "#666f7a"),
             surface: v("--surface", "#ffffff"),
-            val: "#1a6b3c", valbg: "#e2f1e8", predbg: "#eaeff4"};
+            mir: "#12314f",
+            val: "#0d7d74", valbg: "#0d7d74",
+            pred: "#d4881a", predbg: "#f6dfba"};
   }
 
   function netStyleNode(n, P){
     if (n.group === "mirna")
-      return {shape: "diamond", size: 26, color: {background: P.accent,
-              border: P.accent, highlight: {background: P.accent,
-              border: P.ink}},
-              font: {color: P.ink, size: 16, face: "Inter, system-ui",
-                     vadjust: -4}};
+      return {shape: "diamond", size: 28, color: {background: P.mir,
+              border: P.ink, highlight: {background: P.mir, border: P.ink}},
+              font: {color: P.ink, size: 17, face: "Inter, system-ui",
+                     vadjust: -6, bold: true}};
     // Validated is not a better prediction, it is a different kind of claim,
     // so it gets its own colour rather than a place on one scale.
     var on = n.group === "validated";
     return {shape: "dot",
-            color: {background: on ? P.valbg : P.predbg,
-                    border: on ? P.val : P.accent,
-                    highlight: {background: on ? P.val : P.accent,
+            color: {background: on ? P.val : P.predbg,
+                    border: on ? P.val : P.pred,
+                    highlight: {background: on ? P.val : P.pred,
                                 border: P.ink}},
-            font: {color: P.ink, size: 13, face: "Inter, system-ui"}};
+            font: {color: P.ink, size: 14, face: "Inter, system-ui"}};
   }
 
   function netHint(){
@@ -1828,10 +1929,10 @@ NETWORK_JS = """
   function drawNetwork(d){
     NETDATA = d;
     var P = netPalette();
-    el("k1").style.background = P.accent;
+    el("k1").style.background = P.mir;
     el("k2").style.background = P.val;
-    el("k3").style.background = P.accent;
-    el("k3").style.opacity = "0.35";
+    el("k3").style.background = P.predbg;
+    el("k3").style.border = "2px solid " + P.pred;
 
     var nodes = d.nodes.map(function(n){
       var s = netStyleNode(n, P);
