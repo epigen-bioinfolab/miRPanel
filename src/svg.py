@@ -328,14 +328,14 @@ def binding_map(symbol, refseq, length, regions, seed_sites, rh_sites,
 CSS = """
 .netsvg, .mapsvg{display:block;width:100%;height:auto}
 .netsvg{margin:4px 0 2px}
-.ed-target{stroke:#78838f;stroke-linecap:round}
-.ed-share{stroke:#aab5c0;stroke-dasharray:2 4;stroke-linecap:round}
-/* teal against amber: a strong contrast that also survives red-green colour
-   blindness, where the earlier pale green and pale blue did not. The miRNA
-   keeps a diamond as well as its own colour, so it never relies on hue. */
-.nd-val{fill:#0d7d74;stroke:#0a5d56;stroke-width:1.6}
-.nd-pred{fill:#f6dfba;stroke:#d4881a;stroke-width:1.8}
-.nd-mir{fill:#12314f;stroke:#15181d;stroke-width:1.2}
+.ed-target{stroke:#9aa4ae;stroke-linecap:round}
+.ed-share{stroke:#c4ccd4;stroke-dasharray:2 4;stroke-linecap:round}
+/* the same palette the page uses, so the figure in a report and the network
+   on screen are recognisably the same picture: light fills in three well
+   separated hues, each with a deeper border of its own hue */
+.nd-val{fill:#9cc7e8;stroke:#2c6fa5;stroke-width:1.8}
+.nd-pred{fill:#f7dd82;stroke:#c29a1e;stroke-width:1.8}
+.nd-mir{fill:#f0a19b;stroke:#bd4a42;stroke-width:1.8}
 .nd-lab{font-size:12.5px;text-anchor:middle;fill:#15181d;
   paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
 .nd-mirlab{font-size:14px;font-weight:700}

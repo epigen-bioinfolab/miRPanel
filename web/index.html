@@ -1227,34 +1227,42 @@
     // read the page's own variables rather than inventing a second palette
     var c = getComputedStyle(document.documentElement);
     function v(n, d){ var x = c.getPropertyValue(n).trim(); return x || d; }
-    // Validated and predicted were a pale green and a pale blue-grey, which
-    // sat too close together to read at a glance. Teal against amber is a
-    // strong contrast that also survives red-green colour blindness, and the
-    // miRNA keeps its own dark navy plus a diamond shape, so it never
-    // depends on colour alone.
+    // Light fills in three clearly separated hues - blue, orange, rose -
+    // each with a deeper border of the same hue so the shape still reads at
+    // small sizes. Light fills matter here because the labels sit on top of
+    // the drawing: a dark node would swallow its own name.
     return {accent: v("--accent", "#1f4e79"), ink: v("--ink", "#15181d"),
             line: v("--line", "#e3e6ea"), muted: v("--muted", "#666f7a"),
             surface: v("--surface", "#ffffff"),
-            mir: "#12314f",
-            val: "#0d7d74", valbg: "#0d7d74",
-            pred: "#d4881a", predbg: "#f6dfba"};
+            mirbg: "#f0a19b", mirline: "#bd4a42",
+            valbg: "#9cc7e8", valline: "#2c6fa5",
+            predbg: "#f7dd82", predline: "#c29a1e",
+            edge: "#9aa4ae", edgeshare: "#c4ccd4"};
   }
 
   function netStyleNode(n, P){
+    // Every label gets a white halo. Without it a link drawn across a name
+    // makes the name unreadable, and on a force layout you cannot predict
+    // which names a link will cross.
+    var halo = {strokeWidth: 5, strokeColor: "#ffffff"};
     if (n.group === "mirna")
-      return {shape: "diamond", size: 28, color: {background: P.mir,
-              border: P.ink, highlight: {background: P.mir, border: P.ink}},
+      return {shape: "diamond", size: 30,
+              color: {background: P.mirbg, border: P.mirline,
+                      highlight: {background: P.mirbg, border: P.ink}},
               font: {color: P.ink, size: 17, face: "Inter, system-ui",
-                     vadjust: -6, bold: true}};
+                     vadjust: 6, strokeWidth: halo.strokeWidth,
+                     strokeColor: halo.strokeColor}};
     // Validated is not a better prediction, it is a different kind of claim,
     // so it gets its own colour rather than a place on one scale.
     var on = n.group === "validated";
     return {shape: "dot",
-            color: {background: on ? P.val : P.predbg,
-                    border: on ? P.val : P.pred,
-                    highlight: {background: on ? P.val : P.pred,
+            color: {background: on ? P.valbg : P.predbg,
+                    border: on ? P.valline : P.predline,
+                    highlight: {background: on ? P.valbg : P.predbg,
                                 border: P.ink}},
-            font: {color: P.ink, size: 14, face: "Inter, system-ui"}};
+            font: {color: P.ink, size: 14, face: "Inter, system-ui",
+                   strokeWidth: halo.strokeWidth,
+                   strokeColor: halo.strokeColor}};
   }
 
   function netHint(){
@@ -1266,10 +1274,12 @@
   function drawNetwork(d){
     NETDATA = d;
     var P = netPalette();
-    el("k1").style.background = P.mir;
-    el("k2").style.background = P.val;
+    el("k1").style.background = P.mirbg;
+    el("k1").style.border = "2px solid " + P.mirline;
+    el("k2").style.background = P.valbg;
+    el("k2").style.border = "2px solid " + P.valline;
     el("k3").style.background = P.predbg;
-    el("k3").style.border = "2px solid " + P.pred;
+    el("k3").style.border = "2px solid " + P.predline;
 
     var nodes = d.nodes.map(function(n){
       var s = netStyleNode(n, P);
@@ -1288,8 +1298,10 @@
               title: e.title,
               dashes: shared ? [2, 4] : false,
               width: shared ? 1 : undefined,
-              color: {color: shared ? P.line : P.muted,
-                      highlight: P.accent, opacity: shared ? 0.85 : 1},
+              // mid grey so the links carry structure without competing with
+              // the coloured nodes or the labels drawn over them
+              color: {color: shared ? P.edgeshare : P.edge,
+                      highlight: P.mirline, opacity: 1},
               smooth: shared ? {type: "continuous"} : false};
     });
 
