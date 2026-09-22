@@ -22,10 +22,17 @@ EXTRA_ORDER = [
     # miRTarBase
     "status", "strong_functional", "weak_functional", "strong_nonfunctional",
     "weak_nonfunctional", "curated_sites", "pmids",
+    # scanMiR - the per-transcript numbers first, then the per-site ones.
+    # match_sequence is the KD model's 12-mer context window, wider than the
+    # site's own coordinates, so it sits with the other raw strings at the end.
+    "transcript_repression", "n_8mer_sites", "n_7mer_sites", "n_6mer_sites",
+    "n_noncanonical_sites", "n_orf_canonical_sites", "n_orf_noncanonical_sites",
+    "p3_score", "log_kd_scaled_int", "scanmir_orf_region", "site_note",
     # RNAhybrid - the four alignment strings are one picture of a duplex and
     # are only meaningful read together, so they go at the far right
     "duplex_span", "target_unpaired", "target_paired", "mirna_paired",
     "mirna_unpaired",
+    "match_sequence",
 ]
 
 

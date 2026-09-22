@@ -47,6 +47,13 @@ STRONG = {"8mer", "7mer-m8", "7mer-a1", "7mer-A1",
           "wobbled 8mer", "wobbled 7mer",
           "g-bulged 8mer", "g-bulged 7mer"}
 
+# aggregateMatches() names its per-type site counts for reading, not for use
+# as column names. Mapped here so the export gets stable identifiers.
+COUNT_COLS = {"8mer": "n_8mer_sites", "7mer": "n_7mer_sites",
+              "6mer": "n_6mer_sites", "non-canonical": "n_noncanonical_sites",
+              "ORF.canonical": "n_orf_canonical_sites",
+              "ORF.nonCanonical": "n_orf_noncanonical_sites"}
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RUNNER = os.path.join(os.path.dirname(os.path.dirname(_HERE)),
                       "scripts", "scanmir_run.R")
@@ -154,8 +161,20 @@ def run(con, mirna, tgts, opts=None, progress=None):
                     repression[r] = float(f[idx["repression"]])
                 except (KeyError, ValueError):
                     repression[r] = None
-                counts[r] = {h: f[i] for h, i in idx.items()
-                             if h not in ("refseq", "repression")}
+                # Flat named keys, not a nested object: `extra` is unpacked
+                # into export columns one level deep, so a dict here would be
+                # re-serialised as JSON inside a TSV cell.
+                c = {}
+                for h, i in idx.items():
+                    if h in ("refseq", "repression"):
+                        continue
+                    try:
+                        c[COUNT_COLS.get(h, "n_%s_sites"
+                                         % h.lower().replace(".", "_")
+                                         .replace("-", ""))] = int(f[i])
+                    except (ValueError, IndexError):
+                        pass
+                counts[r] = c
 
         out = []
         with open(sites_p) as fh:
@@ -186,14 +205,16 @@ def run(con, mirna, tgts, opts=None, progress=None):
                     site_type=stype, pos_start=start, pos_end=end,
                     score=raw / 1000.0, score_type=META["score_type"],
                     low_confidence=(stype not in STRONG),
-                    extra=json.dumps({
+                    extra=json.dumps(dict({
                         "log_kd_scaled_int": raw,
                         "p3_score": None if p3 in ("", "NA") else int(p3),
-                        "match_sequence": mseq or None,
-                        "note": None if note in ("", "-", "NA") else note,
+                        "site_note": None if note in ("", "-", "NA") else note,
                         "scanmir_orf_region": (orf == "TRUE"),
                         "transcript_repression": repression.get(r),
-                        "transcript_site_counts": counts.get(r)})))
+                        # the 12-mer context window the KD model scored, which
+                        # is wider than pos_start..pos_end for a 6mer
+                        "match_sequence": mseq or None},
+                        **counts.get(r, {})))))
 
         warn = []
         how = st.get("STATUS_MSG") or ""
