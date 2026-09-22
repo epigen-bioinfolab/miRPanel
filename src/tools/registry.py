@@ -15,7 +15,8 @@ import importlib
 REQUIRED_META = ("name", "version", "kind", "score_type", "better",
                  "gives_position", "needs_sequence", "slow")
 
-DEFAULT_TOOLS = ("seed_tool", "targetscan_tool", "mirtarbase_tool", "rnahybrid_tool")
+DEFAULT_TOOLS = ("seed_tool", "targetscan_tool", "mirtarbase_tool", "rnahybrid_tool",
+                 "scanmir_tool")
 
 def check_meta(meta):
     """Reject a tool whose META is incomplete or contradictory."""
