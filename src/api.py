@@ -13,6 +13,7 @@ import db
 import enrichment
 import flatten
 import geneset
+import agreement
 import network
 import orchestrator
 import provenance
@@ -676,6 +677,89 @@ def read_network(job_id: str,
                                   "message": str(e)})
     except ValueError as e:
         raise HTTPException(404, {"error": "job_not_found", "job_id": job_id,
+                                  "message": str(e)})
+
+
+# -------------------------------------------------------------- agreement
+
+def _regs(regions):
+    """The shared region-filter parse. Absent and empty mean different
+    things and must stay distinguishable all the way down."""
+    if regions is None:
+        return None
+    regs = [r.strip() for r in regions.split(",") if r.strip()]
+    bad = [r for r in regs if r not in REGIONS]
+    if bad:
+        raise HTTPException(422, {"error": "bad_region", "regions": bad,
+                                  "allowed": sorted(REGIONS)})
+    return regs
+
+
+def _csv(v):
+    return [x.strip() for x in (v or "").split(",") if x.strip()]
+
+
+# Declared before /agreement so the bare route cannot swallow this path -
+# the same ordering rule /reports/{id}.html needs.
+@app.get("/jobs/{job_id}/agreement/genes")
+def read_agreement_genes(job_id: str,
+                         inc: str = Query(..., alias="in"),
+                         out: Optional[str] = None,
+                         regions: Optional[str] = None,
+                         include_6mer: bool = True,
+                         q: Optional[str] = Query(None, max_length=60),
+                         scanmir_canonical: bool = True,
+                         limit: int = Query(100, ge=1, le=1000),
+                         offset: int = Query(0, ge=0),
+                         con=Depends(get_con)):
+    """The genes in one exclusive region of the agreement diagram.
+
+    `in` and `out` are comma-separated tool names. Both matter: clicking a
+    Venn region asks for the genes those tools found and the others did not,
+    which is not the same question as "found by these tools".
+    """
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    where, args = _where(job_id, None, None, None, None,
+                         regions=_regs(regions), include_6mer=include_6mer, q=q)
+    try:
+        return agreement.region_genes(
+            con, job_id, _csv(inc), _csv(out), where=where, args=args,
+            scanmir_canonical=scanmir_canonical, limit=limit, offset=offset)
+    except agreement.BadRequest as e:
+        raise HTTPException(422, {"error": "bad_region_request",
+                                  "message": str(e)})
+
+
+@app.get("/jobs/{job_id}/agreement")
+def read_agreement(job_id: str,
+                   tools: Optional[str] = None,
+                   regions: Optional[str] = None,
+                   include_6mer: bool = True,
+                   q: Optional[str] = Query(None, max_length=60),
+                   scanmir_canonical: bool = True,
+                   con=Depends(get_con)):
+    """How much the tools agree, as set sizes and exclusive regions.
+
+    Computed over the same filtered rows the results table is showing, and
+    the filters are echoed back so a figure can caption itself. A diagram
+    whose numbers disagree with the table above it reads as a bug.
+
+    `display` says whether to draw a Venn or an UpSet plot: beyond four sets
+    a Venn needs ellipses and 31 regions, several too thin to click.
+    """
+    if orchestrator.job_status(con, job_id) is None:
+        raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
+    regs = _regs(regions)
+    where, args = _where(job_id, None, None, None, None,
+                         regions=regs, include_6mer=include_6mer, q=q)
+    try:
+        return agreement.build(
+            con, job_id, tools=_csv(tools) or None, where=where, args=args,
+            scanmir_canonical=scanmir_canonical,
+            filters={"regions": regs, "include_6mer": include_6mer, "q": q})
+    except agreement.BadRequest as e:
+        raise HTTPException(422, {"error": "bad_agreement_request",
                                   "message": str(e)})
 
 
