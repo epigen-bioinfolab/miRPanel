@@ -345,3 +345,73 @@ toolkit for versatile and efficient microRNA target prediction.
 McGeary SE, Lin KS, Shi CY, Pham TM, Bisaria N, Kelley GM, Bartel DP. The
 biochemical basis of microRNA targeting efficacy. *Science*.
 2019;366(6472):eaav1741.
+
+## Finding 7 — every site is reported as an 8-nt window
+
+Found when the first integrated job put scanMiR beside the seed analyser on
+PDCD4:
+
+| Site | seed | scanMiR |
+|---|---|---|
+| CDS 6mer | 813 | 812 |
+| 3'UTR 6mer | 1952 | 1951 |
+| 3'UTR 8mer | 1805 | 1805 |
+
+The 8mer agrees exactly; the 6mers are offset by one. Every scanMiR row in
+every run carries `width = 8`, whatever the site type.
+
+So `start`-`end` is a fixed 8-nt frame, not the site itself: a 6mer is a 6-nt
+core inside an 8-nt window. Two consequences:
+
+- The binding map would draw every scanMiR site 8 nt wide. Either accept it
+  and say so in the legend, or narrow the drawn extent per site type.
+- Matching sites between tools needs a tolerance of at least 1 nt, not
+  coordinate equality.
+
+This resolves open question 5. The `match_sequence` field is wider still - the
+KD model's 12-mer context window - so it does not align 1:1 with `start`-`end`
+either, and is stored alongside the raw strings rather than as a site extent.
+
+## Finding 8 — the aggregate counts 3'UTR and ORF sites separately
+
+For PDCD4, scanMiR returned 11 sites, while `aggregateMatches` reported
+8mer 1, 7mer 0, 6mer 1, non-canonical 7 - nine - plus ORF.canonical 2.
+
+The per-type counts cover 3'UTR sites only; ORF sites are counted in their own
+columns. Summing the first four understates the total, and adding all six is
+the correct total only because the two groups are disjoint. The export column
+documentation must say this, or a reader will get the arithmetic wrong.
+
+Exported as `n_8mer_sites`, `n_7mer_sites`, `n_6mer_sites`,
+`n_noncanonical_sites` (3'UTR) and `n_orf_canonical_sites`,
+`n_orf_noncanonical_sites` (ORF).
+
+## Integration, completed 22 September 2026
+
+- `src/tools/scanmir_tool.py` - the tool, following the registry contract
+- `scripts/scanmir_run.R` - the runner; holds no policy, all thresholds are
+  passed in so the Python side records them in provenance
+- `scripts/register_scanmir.py` - writes the scanMiRData row into
+  data_sources, reading versions from the installed packages
+- `src/tools/registry.py` - scanmir_tool added to DEFAULT_TOOLS
+- `src/flatten.py` - the new extra keys added to EXTRA_ORDER
+
+No schema change was needed: the `results` table holds scanMiR's records
+unaltered, and `ranking.py` already orders genes by their best site, which is
+the length-independent ranking Finding 5 called for.
+
+`slow: True`, so scanMiR is excluded from the default tool set exactly as
+RNAhybrid is. A four-gene job takes 5.4 s, almost all of it R startup and
+loading 2,656 models; transcriptome-wide is 17 s. The flag is accurate, and
+the frontend should pre-tick scanMiR in the tool selector so the default user
+experience includes it while the API default stays honest.
+
+Verified on hsa-miR-21-5p against PTEN, BCL2, TPM1 and PDCD4: 56 sites, both
+the direct and the queued path producing identical results, and the flattened
+export carrying no JSON in any cell.
+
+**Biological check.** PDCD4's strongest site anywhere in that job is an 8mer
+at 1805-1812 in the 3'UTR, log Kd -4.563 - the canonical, heavily validated
+miR-21 site. The seed analyser puts an 8mer at the same position, RNAhybrid a
+site at 1790, and miRTarBase records 59 strong functional experiments. Four
+methods converging on one site, reported side by side and not averaged.
