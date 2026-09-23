@@ -350,17 +350,26 @@ def read_geneset(job_id: str,
 
 
 class EnrichmentRequest(BaseModel):
-    """The same tick boxes as /geneset, sent as a body."""
+    """The same tick boxes as /geneset, sent as a body - or, instead of any
+    of them, an explicit gene list from a click on the agreement diagram.
+    `included`/`excluded` name the tools that produced it, only so the
+    stored run can describe itself in the same words as the region did."""
     seed: Optional[str] = None
     targetscan: Optional[str] = None
     rnahybrid: Optional[str] = None
     mirtarbase: Optional[str] = None
     regions: Optional[List[str]] = None
     match: str = Field("all", pattern="^(all|any)$")
+    genes: Optional[List[int]] = None
+    included: Optional[List[str]] = None
+    excluded: Optional[List[str]] = None
 
 
 def _spec(req):
-    return req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    d = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    d["in"] = d.pop("included", None)
+    d["out"] = d.pop("excluded", None)
+    return d
 
 
 @app.post("/jobs/{job_id}/enrichment", status_code=202)
@@ -709,7 +718,7 @@ def read_agreement_genes(job_id: str,
                          include_6mer: bool = True,
                          q: Optional[str] = Query(None, max_length=60),
                          scanmir_canonical: bool = True,
-                         limit: int = Query(100, ge=1, le=1000),
+                         limit: int = Query(100, ge=1, le=20000),
                          offset: int = Query(0, ge=0),
                          con=Depends(get_con)):
     """The genes in one exclusive region of the agreement diagram.
@@ -717,6 +726,12 @@ def read_agreement_genes(job_id: str,
     `in` and `out` are comma-separated tool names. Both matter: clicking a
     Venn region asks for the genes those tools found and the others did not,
     which is not the same question as "found by these tools".
+
+    The ceiling is 20,000, not the usual page size, because two callers need
+    every gene in the region at once rather than a page of it: the CSV
+    export and the "run enrichment on these genes" button, which has to hand
+    enrichment.create() the complete list or the p-values would be wrong.
+    19,363 MANE Select genes is the largest a region could ever be.
     """
     if orchestrator.job_status(con, job_id) is None:
         raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})

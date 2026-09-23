@@ -31,6 +31,7 @@ import time
 import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import agreement
 import geneset
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,7 +48,11 @@ ONTOLOGIES = "GO:BP,GO:CC,GO:MF,KEGG"
 COLS = ("source", "term_id", "description", "gene_ratio", "bg_ratio",
         "p_value", "p_adjust", "q_value", "n_genes", "genes")
 
-SPEC_KEYS = ("seed", "targetscan", "rnahybrid", "mirtarbase", "regions", "match")
+SPEC_KEYS = ("seed", "targetscan", "rnahybrid", "mirtarbase", "regions", "match",
+            # An explicit gene list - a click on one exclusive region of the
+            # agreement diagram - plus the tool names that produced it, kept
+            # only so the stored sentence can name them (see create()).
+            "genes", "in", "out")
 
 
 def _now():
@@ -75,6 +80,10 @@ def normalise(spec):
             v = str(v).lower()
             if v == "all":
                 continue
+        elif k == "genes":
+            v = sorted(set(int(g) for g in v))
+        elif k in ("in", "out"):
+            v = sorted(str(x) for x in v)
         else:
             v = str(v)
         out[k] = v
@@ -162,6 +171,15 @@ def create(con, job_id, spec):
     sel = geneset.select(con, job_id, spec)
     if not sel["count"]:
         raise ValueError("no genes selected - nothing to test")
+
+    if spec.get("genes") is not None:
+        # A gene list with no rule of its own - the agreement diagram's own
+        # words for the region name the genes, sharing agreement.py's
+        # wording so a run started from a click describes itself the same
+        # way the click did.
+        label = agreement.region_label(spec.get("in") or [], spec.get("out") or [])
+        sel["sentence"] = "%d gene%s found %s" % (
+            sel["count"], "" if sel["count"] == 1 else "s", label)
 
     bg, bg_source, bg_version = background(con)
     finished = con.execute("SELECT finished_at FROM jobs WHERE job_id=?",
@@ -324,9 +342,14 @@ def _term_where(run_id, source, q):
         # characters, so they are escaped rather than honoured.
         pat = "%" + q.replace("\\", "\\\\").replace("%", "\\%") \
                      .replace("_", "\\_") + "%"
+        # genes are stored slash-separated, so a plain substring match is
+        # what a search box should do: typing PTEN finds every term PTEN
+        # drives, and typing PT finds it while you are still typing. It will
+        # also match PTENP1 - that is a search, not a lookup.
         where.append("(description LIKE ? ESCAPE '\\' "
-                     "OR term_id LIKE ? ESCAPE '\\')")
-        args += [pat, pat]
+                     "OR term_id LIKE ? ESCAPE '\\' "
+                     "OR genes LIKE ? ESCAPE '\\')")
+        args += [pat, pat, pat]
     return " AND ".join(where), args
 
 

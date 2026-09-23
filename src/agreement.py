@@ -26,6 +26,55 @@ import json
 
 from tools import registry
 
+# Display names, kept in one place so the figure, the enrichment sentence it
+# can trigger, and any export all say the same thing about the same tool.
+TOOLLABEL = {"seed": "Seed analyser", "rnahybrid": "RNAhybrid",
+             "targetscan": "TargetScan", "mirtarbase": "miRTarBase",
+             "scanmir": "scanMiR"}
+
+
+def _nice(t):
+    return TOOLLABEL.get(t, t)
+
+
+def region_label(inc, exc):
+    """'by seed and TargetScan, and not by RNAhybrid or miRTarBase' - the
+    fragment naming one exclusive region. Shared by the figure's own labels
+    and by an enrichment run started from a click on one, so a region and
+    the run it started can never describe the same genes two different ways.
+    """
+    if not inc:
+        return "by no tool"
+    names = [_nice(t) for t in inc]
+    who = names[0] if len(names) == 1 else (
+        ", ".join(names[:-1]) + " and " + names[-1])
+    out = "by " + who
+    if exc:
+        onames = [_nice(t) for t in exc]
+        out += ", and not by " + (onames[0] if len(onames) == 1 else
+                                  ", ".join(onames[:-1]) + " or " + onames[-1])
+    return out
+
+
+def describe_region(inc, exc, tools_meta):
+    """One sentence about what a region *means*, not just which tools they
+    are. Evidence and prediction are different kinds of information (see the
+    module docstring), so a region that mixes them says so."""
+    evid = [t for t in inc if tools_meta.get(t, {}).get("kind") == "evidence"]
+    pred = [t for t in inc if tools_meta.get(t, {}).get("kind") == "prediction"]
+    sent = "Found " + region_label(inc, exc) + "."
+    if evid and pred:
+        sent += (" Computational prediction corroborated by published "
+                "experimental evidence.")
+    elif evid and not pred:
+        sent += (" Experimental evidence with no computational prediction "
+                "backing it under these filters.")
+    elif len(pred) > 1:
+        sent += (" Independent computational agreement, with no "
+                "experimental record yet.")
+    return sent
+
+
 # scanMiR site classes that count towards set membership. Everything else -
 # the 6mer family and the non-canonical tail, 76% of its sites for miR-21 -
 # is real output and stays in the table, but is too permissive to define a
@@ -92,8 +141,8 @@ def build(con, job_id, tools=None, where=None, args=None,
                              % ", ".join(unknown))
     else:
         tools = ran
-    if len(tools) < 2:
-        raise BadRequest("an agreement diagram needs at least two tools")
+    if len(tools) < 1:
+        raise BadRequest("an agreement diagram needs at least one tool")
 
     sets, names = _sets(con, job_id, where, args, tools, scanmir_canonical)
     sets = {t: sets.get(t, set()) for t in tools}
@@ -105,6 +154,33 @@ def build(con, job_id, tools=None, where=None, args=None,
         regions[key] = regions.get(key, 0) + 1
 
     metas = {m.META["name"]: m.META for m in registry.load().values()}
+    total = len(names) or 1  # percentages of the union; guard the 0-gene case
+
+    def _region(k, n):
+        inc, exc = list(k), [t for t in tools if t not in k]
+        return {"in": inc, "out": exc, "n": n,
+                "pct": round(100.0 * n / total, 1),
+                "label": region_label(inc, exc),
+                "note": describe_region(inc, exc, metas)}
+
+    # Every non-empty combination of the picked tools gets a region, whether
+    # or not any gene actually landed there. A Venn is read by its shape as
+    # much as its numbers - a slice silently missing because it happened to
+    # be empty reads as the figure being broken, not as "zero". Sum over the
+    # shown regions is still exactly 100%; the empty ones just contribute 0.
+    all_keys = [k for r in range(1, len(tools) + 1)
+                for k in itertools.combinations(tools, r)]
+
+    # One circle needs no overlap geometry; up to four draw as a real Venn;
+    # past that a Venn needs ellipses and 31 regions, several too thin to
+    # click, so the frontend switches to an UpSet-style list instead.
+    if len(tools) == 1:
+        display = "single"
+    elif len(tools) <= VENN_MAX_SETS:
+        display = "venn"
+    else:
+        display = "upset"
+
     return {
         "job_id": job_id,
         "tools": [{"tool": t,
@@ -117,12 +193,10 @@ def build(con, job_id, tools=None, where=None, args=None,
                    "is_evidence": metas.get(t, {}).get("kind") == "evidence"}
                   for t in tools],
         "regions": sorted(
-            ({"in": list(k),
-              "out": [t for t in tools if t not in k],
-              "n": n} for k, n in regions.items() if n),
+            (_region(k, regions.get(k, 0)) for k in all_keys),
             key=lambda r: (-len(r["in"]), -r["n"])),
         "n_genes": len(names),
-        "display": "venn" if len(tools) <= VENN_MAX_SETS else "upset",
+        "display": display,
         "membership": {
             "rule": "a gene is in a tool's set if that tool reported at "
                     "least one row for it, after the filters below",

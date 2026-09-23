@@ -49,8 +49,21 @@ def select(con, job_id, spec):
          mirtarbase  'strong'
          regions     list, applied to seed and rnahybrid only
          match       'all' (AND, default) or 'any' (OR)
+         genes       an explicit list of Entrez ids - bypasses every rule
+                     above. For a set someone already has, such as one
+                     exclusive region of the agreement diagram: the genes
+                     were chosen by a click, not by a rule this function
+                     could write in words, so the caller supplies its own
+                     sentence (enrichment.create() does this for a click).
     Returns the gene ids, the count, and each rule written out in words.
     """
+    if spec.get("genes") is not None:
+        genes = sorted(set(int(g) for g in spec["genes"]))
+        return {"genes": genes, "count": len(genes), "rules": [],
+                "match": spec.get("match") or "all",
+                "sentence": "%d gene%s" % (len(genes),
+                                           "" if len(genes) == 1 else "s")}
+
     match = (spec.get("match") or "all").lower()
     if match not in ("all", "any"):
         raise ValueError("match must be 'all' or 'any'")

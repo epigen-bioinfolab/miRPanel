@@ -86,13 +86,620 @@
 
   /* tool key */
   .toolkey{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
-  table.tk{width:100%;border-collapse:collapse;min-width:900px}
-  table.tk th{background:var(--surface-2);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:7px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
-  table.tk td{padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:12.5px;vertical-align:top}
-  table.tk tr:last-child td{border-bottom:none}
-  table.tk tr.pending td{color:var(--faint)}
-  .tname{font-weight:600;white-space:nowrap}
-  .tver{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--faint);display:block;font-weight:400}
+  /* The tool-guide slides always render in Arial, per an explicit request -
+     scoped to this section only, so the rest of the page keeps its own
+     typeface. */
+  .toolkey, .toolkey *{
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  }
+
+  .tw-deck{
+    position: relative;
+    height: 640px;
+    max-height: 80vh;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .tw-slides{
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .tw-slide{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(20px, 5vw, 64px) clamp(16px, 6vw, 88px);
+    background: var(--bg);
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+    transition: opacity .42s ease, transform .42s ease;
+    pointer-events: none;
+    overflow-y: auto;
+  }
+  .tw-slide.tw-is-active{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .tw-slide[data-theme="intro"]{ --bg:#efe9fb; --text:#2c2650; --accent:#6d47c9; --card:#faf8ff; --pill:#ded1f6; }
+  .tw-slide[data-theme="seed"]{ --bg:#fdeaf1; --text:#5c2340; --accent:#c23b72; --card:#fff6fa; --pill:#f6cfe0; }
+  .tw-slide[data-theme="rnahybrid"]{ --bg:#e6f1fc; --text:#193a5e; --accent:#2c6ca8; --card:#f4faff; --pill:#c9e2f6; }
+  .tw-slide[data-theme="targetscan"]{ --bg:#e7f7ee; --text:#1c4a35; --accent:#2b8a58; --card:#f5fdf8; --pill:#c7ecd6; }
+  .tw-slide[data-theme="mirtarbase"]{ --bg:#fdeee0; --text:#6a3a10; --accent:#c1712c; --card:#fff8f1; --pill:#f7d9b8; }
+  .tw-slide[data-theme="ml"]{ --bg:#eceef2; --text:#2b3240; --accent:#586173; --card:#f8f9fb; --pill:#d6dae2; }
+
+  /* Dark-mode equivalents of the six pastel slide themes, following the same
+     two-guard pattern the rest of the page uses for --paper/--ink etc. */
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .tw-slide[data-theme="intro"]{ --bg:#241f3d; --text:#ded4fb; --accent:#a78bfa; --card:#2e2750; --pill:#4a3d78; }
+    :root:not([data-theme="light"]) .tw-slide[data-theme="seed"]{ --bg:#3a1f2b; --text:#f5c3da; --accent:#ec6fa3; --card:#46283a; --pill:#6b3350; }
+    :root:not([data-theme="light"]) .tw-slide[data-theme="rnahybrid"]{ --bg:#17293d; --text:#bfe0fa; --accent:#63aee0; --card:#1d3348; --pill:#2c4d68; }
+    :root:not([data-theme="light"]) .tw-slide[data-theme="targetscan"]{ --bg:#16301f; --text:#b9f0cd; --accent:#52c98a; --card:#1c3a26; --pill:#2a5638; }
+    :root:not([data-theme="light"]) .tw-slide[data-theme="mirtarbase"]{ --bg:#3a2413; --text:#fbd7ae; --accent:#eb9c4c; --card:#46301a; --pill:#6b4a22; }
+    :root:not([data-theme="light"]) .tw-slide[data-theme="ml"]{ --bg:#23262e; --text:#d6dae2; --accent:#98a3b5; --card:#2b2f38; --pill:#3c414d; }
+  }
+    :root[data-theme="dark"] .tw-slide[data-theme="intro"]{ --bg:#241f3d; --text:#ded4fb; --accent:#a78bfa; --card:#2e2750; --pill:#4a3d78; }
+    :root[data-theme="dark"] .tw-slide[data-theme="seed"]{ --bg:#3a1f2b; --text:#f5c3da; --accent:#ec6fa3; --card:#46283a; --pill:#6b3350; }
+    :root[data-theme="dark"] .tw-slide[data-theme="rnahybrid"]{ --bg:#17293d; --text:#bfe0fa; --accent:#63aee0; --card:#1d3348; --pill:#2c4d68; }
+    :root[data-theme="dark"] .tw-slide[data-theme="targetscan"]{ --bg:#16301f; --text:#b9f0cd; --accent:#52c98a; --card:#1c3a26; --pill:#2a5638; }
+    :root[data-theme="dark"] .tw-slide[data-theme="mirtarbase"]{ --bg:#3a2413; --text:#fbd7ae; --accent:#eb9c4c; --card:#46301a; --pill:#6b4a22; }
+    :root[data-theme="dark"] .tw-slide[data-theme="ml"]{ --bg:#23262e; --text:#d6dae2; --accent:#98a3b5; --card:#2b2f38; --pill:#3c414d; }
+
+  .tw-eyebrow{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+  .tw-eyebrow .tw-tag{
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: none;
+    background: var(--pill);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 3px 11px;
+    font-size: 12px;
+  }
+
+  .tw-slide-inner{
+    width: 100%;
+    max-width: 760px;
+  }
+
+  h1.tw-headline{
+    margin: 0 0 14px 0;
+    font-size: clamp(26px, 4.4vw, 42px);
+    line-height: 1.12;
+    font-weight: 800;
+    letter-spacing: -.01em;
+  }
+
+  .tw-lede{
+    margin: 0 0 26px 0;
+    font-size: clamp(15px, 2vw, 18px);
+    line-height: 1.55;
+    color: var(--text);
+    opacity: .88;
+    max-width: 62ch;
+  }
+
+  .tw-accent-text{ color: var(--accent); }
+
+  .tw-card-row{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .tw-feature-card{
+    --card-accent: var(--accent);
+    background: var(--card);
+    border-radius: 16px;
+    padding: 16px 16px 18px;
+    box-shadow: 0 1px 3px rgba(20,10,40,.06);
+    display: flex;
+    flex-direction: column;
+  }
+  .tw-card-num{
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--card-accent);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .tw-feature-card h3{
+    margin: 0 0 12px 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    line-height: 1.28;
+    color: var(--text);
+    min-height: 2.6em;
+  }
+  .tw-card-desc{
+    margin: 12px 0 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text);
+    opacity: .78;
+  }
+  .tw-mini{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 88px;
+    flex: 1;
+  }
+
+  /* card 1: find target genes */
+  .tw-mini-genes{ gap: 8px; }
+  .tw-mini-node{
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: var(--card-accent);
+    color: #fff;
+    white-space: nowrap;
+  }
+  .tw-mini-arrow-sm{ font-size: 13px; color: var(--card-accent); opacity: .7; }
+  .tw-mini-col{ display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .tw-mini-genepill{
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .tw-mini-more{ font-size: 10.5px; color: #97a0ad; padding-left: 4px; }
+
+  /* card 2: validated */
+  .tw-mini-validated{ flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; max-width: 150px; margin: 0 auto; }
+  .tw-mini-check-pill{
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #dbf3e0;
+    color: #1c7a3c;
+  }
+  .tw-mini-vrow{
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .tw-mini-vrow .ok{ color: #1c7a3c; }
+  .tw-mini-vrow.pending{ opacity: .5; }
+
+  /* card 3: pathways hub */
+  .tw-mini-hub{
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto auto;
+    column-gap: 6px;
+    row-gap: 10px;
+    align-items: center;
+    width: 100%;
+    max-width: 200px;
+    padding: 4px 0;
+  }
+  .tw-hub-lines{
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .tw-hub-line{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 2px;
+    background: var(--card-accent);
+    opacity: .4;
+    transform-origin: 0 50%;
+  }
+  .tw-hub-center{
+    position: relative;
+    z-index: 1;
+    grid-column: 2; grid-row: 2;
+    justify-self: center;
+    background: var(--card-accent); color: #fff;
+    font-size: 10px; font-weight: 800; padding: 5px 9px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .tw-hub-sat{
+    position: relative;
+    z-index: 1;
+    font-size: 9px; font-weight: 700;
+    padding: 3px 7px; border-radius: 999px;
+    background: #fff; border: 1.4px solid var(--card-accent); color: var(--card-accent);
+    white-space: nowrap;
+  }
+  .tw-hub-sat.tl{ grid-column: 1; grid-row: 1; justify-self: start; }
+  .tw-hub-sat.tr{ grid-column: 3; grid-row: 1; justify-self: end; }
+  .tw-hub-sat.bl{ grid-column: 1; grid-row: 3; justify-self: start; }
+  .tw-hub-sat.br{ grid-column: 3; grid-row: 3; justify-self: end; }
+
+  /* card 4: expression data */
+  .tw-mini-expr{ gap: 10px; }
+  .tw-mini-panel{
+    background: #f5f6f8; border-radius: 10px; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 5px; min-width: 76px;
+  }
+  .tw-mini-panel-title{
+    font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em; color: #7a8290; margin-bottom: 2px;
+  }
+  .tw-mini-panel .tw-ok-row{ display: flex; justify-content: space-between; gap: 6px; font-size: 10px; font-weight: 700; color: var(--text); }
+  .tw-mini-panel .tw-ok-row .ok{ color: #1c7a3c; }
+  .tw-mini-heat{ display: flex; flex-direction: column; gap: 3px; }
+  .tw-heat-row{ display: flex; align-items: center; gap: 3px; }
+  .tw-heat-cell{ width: 11px; height: 11px; border-radius: 3px; }
+  .tw-heat-label{ font-size: 9px; font-weight: 700; color: #7a8290; margin-left: 3px; }
+
+  .tw-q-label{
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .tw-question{
+    background: var(--card);
+    border-left: 5px solid var(--accent);
+    border-radius: 10px;
+    padding: 18px 22px;
+    font-size: clamp(17px, 2.4vw, 21px);
+    line-height: 1.45;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  .tw-stat-row{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .tw-stat-card{
+    flex: 1 1 220px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 2px rgba(20,10,40,.05);
+  }
+  .tw-stat-label{
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .tw-stat-value{
+    font-size: 16.5px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .tw-readbox{
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+  }
+  .tw-readbox .tw-stat-label{ margin-bottom: 8px; }
+  .tw-readbox p{
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.6;
+    opacity: .92;
+  }
+
+  .tw-badges{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tw-badge{
+    background: var(--pill);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 6px 13px;
+    border-radius: 999px;
+  }
+
+  /* nav */
+  .tw-navbtn{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 2px 10px rgba(0,0,0,.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .tw-navbtn:hover{ background: var(--surface-2); transform: translateY(-50%) scale(1.06); }
+  .tw-navbtn:active{ transform: translateY(-50%) scale(.96); }
+  .tw-navbtn svg{ width: 18px; height: 18px; }
+  .tw-navbtn svg path{ stroke: var(--ink); }
+  .tw-navbtn.tw-prev{ left: clamp(8px, 2.5vw, 22px); }
+  .tw-navbtn.tw-next{ right: clamp(8px, 2.5vw, 22px); }
+  .tw-navbtn[disabled]{ opacity: .3; cursor: default; }
+
+  .tw-dots{
+    position: absolute;
+    left: 50%;
+    bottom: clamp(14px, 3vw, 26px);
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 5;
+  }
+  .tw-dot{
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--line);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: transform .15s ease, background .15s ease, width .2s ease;
+  }
+  .tw-dot.tw-is-active{
+    background: var(--ink);
+    width: 22px;
+    border-radius: 5px;
+  }
+
+  .tw-counter{
+    position: absolute;
+    top: clamp(12px, 2.5vw, 20px);
+    right: clamp(14px, 3vw, 26px);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 5px 11px;
+    border-radius: 999px;
+    z-index: 5;
+    letter-spacing: .02em;
+  }
+
+  @media (max-width: 900px){
+    .tw-card-row{ grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 520px){
+    .tw-stat-row{ flex-direction: column; }
+    .tw-card-row{ grid-template-columns: 1fr; }
+    .tw-navbtn{ width: 38px; height: 38px; }
+    .tw-deck{ height: 760px; max-height: 86vh; }
+  }
+
+  /* ---------- site walkthrough slides (How To Read This Page) ---------- */
+  .notes, .notes *{
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  }
+
+  .sw-deck{
+    position: relative;
+    height: 810px;
+    max-height: 88vh;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .sw-slides{ position: relative; width: 100%; height: 100%; }
+
+  .sw-slide{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(22px, 5vw, 64px) clamp(18px, 6vw, 84px) 60px;
+    background: var(--bg);
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+    transition: opacity .42s ease, transform .42s ease;
+    pointer-events: none;
+    overflow-y: auto;
+  }
+  .sw-slide.sw-is-active{ opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+  .sw-slide[data-theme="search"]{     --bg:#e5f6ee; --text:#164a34; --accent:#1f8f5c; --card:#f6fdf9; --pill:#c3ecd7; }
+  .sw-slide[data-theme="sky"]{        --bg:#e5f2fb; --text:#123a5c; --accent:#2571ad; --card:#f5fafe; --pill:#c3e0f5; }
+  .sw-slide[data-theme="coral"]{      --bg:#fdece3; --text:#5c2c14; --accent:#c85a2e; --card:#fff8f4; --pill:#f7d3bd; }
+  .sw-slide[data-theme="periwinkle"]{ --bg:#eaeafc; --text:#2a2864; --accent:#5952c4; --card:#f8f8ff; --pill:#d4d2f5; }
+  .sw-slide[data-theme="rose"]{       --bg:#fbe7ef; --text:#5c1d3a; --accent:#b23768; --card:#fff6fa; --pill:#f4c9db; }
+  .sw-slide[data-theme="amber"]{      --bg:#fcf3dd; --text:#5c4408; --accent:#a67c11; --card:#fffbf0; --pill:#f3e2ad; }
+  .sw-slide[data-theme="violet"]{     --bg:#ece7fb; --text:#2f1f5c; --accent:#6144ab; --card:#f9f7ff; --pill:#d9cef5; }
+  .sw-slide[data-theme="taupe"]{      --bg:#eeece9; --text:#33302a; --accent:#6b6255; --card:#faf9f7; --pill:#ddd8d0; }
+  .sw-slide[data-theme="plum"]{       --bg:#efe6fb; --text:#2b1a4a; --accent:#6d3fc0; --card:#f9f5ff; --pill:#ddc9f5; }
+
+  /* Dark-mode equivalents, same two-guard pattern as the rest of the page. */
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .sw-slide[data-theme="search"]{     --bg:#12301f; --text:#b8ecd0; --accent:#4ecb8f; --card:#173c27; --pill:#255239; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="sky"]{        --bg:#0f2438; --text:#b7ddf7; --accent:#5aa8de; --card:#15304a; --pill:#204a6e; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="coral"]{      --bg:#3a2013; --text:#f8d2ba; --accent:#e8875a; --card:#452817; --pill:#6b4326; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="periwinkle"]{ --bg:#211f3f; --text:#cac8f2; --accent:#8b84e8; --card:#2a2850; --pill:#3c397a; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="rose"]{       --bg:#3a1626; --text:#f6c7dc; --accent:#e06fa0; --card:#452030; --pill:#6b2f4c; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="amber"]{      --bg:#332708; --text:#f3dd9e; --accent:#d1a53a; --card:#3f3010; --pill:#5c4614; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="violet"]{     --bg:#241a3d; --text:#d3c4f5; --accent:#9169e0; --card:#2d2149; --pill:#42317a; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="taupe"]{      --bg:#2a2822; --text:#d9d4c9; --accent:#a89c85; --card:#332f28; --pill:#4a4438; }
+    :root:not([data-theme="light"]) .sw-slide[data-theme="plum"]{       --bg:#2a1a45; --text:#e3d2fb; --accent:#a56ee8; --card:#331f54; --pill:#4f2f80; }
+  }
+    :root[data-theme="dark"] .sw-slide[data-theme="search"]{     --bg:#12301f; --text:#b8ecd0; --accent:#4ecb8f; --card:#173c27; --pill:#255239; }
+    :root[data-theme="dark"] .sw-slide[data-theme="sky"]{        --bg:#0f2438; --text:#b7ddf7; --accent:#5aa8de; --card:#15304a; --pill:#204a6e; }
+    :root[data-theme="dark"] .sw-slide[data-theme="coral"]{      --bg:#3a2013; --text:#f8d2ba; --accent:#e8875a; --card:#452817; --pill:#6b4326; }
+    :root[data-theme="dark"] .sw-slide[data-theme="periwinkle"]{ --bg:#211f3f; --text:#cac8f2; --accent:#8b84e8; --card:#2a2850; --pill:#3c397a; }
+    :root[data-theme="dark"] .sw-slide[data-theme="rose"]{       --bg:#3a1626; --text:#f6c7dc; --accent:#e06fa0; --card:#452030; --pill:#6b2f4c; }
+    :root[data-theme="dark"] .sw-slide[data-theme="amber"]{      --bg:#332708; --text:#f3dd9e; --accent:#d1a53a; --card:#3f3010; --pill:#5c4614; }
+    :root[data-theme="dark"] .sw-slide[data-theme="violet"]{     --bg:#241a3d; --text:#d3c4f5; --accent:#9169e0; --card:#2d2149; --pill:#42317a; }
+    :root[data-theme="dark"] .sw-slide[data-theme="taupe"]{      --bg:#2a2822; --text:#d9d4c9; --accent:#a89c85; --card:#332f28; --pill:#4a4438; }
+    :root[data-theme="dark"] .sw-slide[data-theme="plum"]{       --bg:#2a1a45; --text:#e3d2fb; --accent:#a56ee8; --card:#331f54; --pill:#4f2f80; }
+
+  .sw-slide-inner{ width: 100%; max-width: 760px; }
+
+  .sw-eyebrow{ display:flex; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .sw-tag{
+    font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    background: var(--pill); color: var(--text);
+    border-radius:999px; padding:4px 12px; font-size:11.5px;
+  }
+  .sw-tag-name{ background: var(--accent); color:#fff; text-transform:none; letter-spacing:.01em; }
+
+  h1.sw-headline{
+    margin: 0 0 16px 0;
+    font-size: clamp(24px, 4vw, 38px);
+    line-height: 1.14;
+    font-weight: 800;
+    letter-spacing: -.01em;
+  }
+
+  .sw-question{
+    background: var(--card);
+    border-left: 5px solid var(--accent);
+    border-radius: 10px;
+    padding: 15px 20px;
+    font-size: clamp(14.5px, 1.8vw, 16.5px);
+    line-height: 1.55;
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+
+  .sw-readbox{
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px 20px 14px;
+    margin-bottom: 14px;
+  }
+  .sw-stat-label{
+    font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .sw-list{
+    list-style:none; margin:0; padding:0;
+    display:grid; grid-template-columns: repeat(2, 1fr); gap: 8px 20px;
+  }
+  .sw-list.sw-one-col{ grid-template-columns: 1fr; }
+  .sw-list li{
+    display:flex; align-items:flex-start; gap:8px;
+    font-size: 13.5px; line-height:1.45; font-weight:500;
+  }
+  .sw-check{
+    flex: none; width:16px; height:16px; border-radius:50%;
+    background: var(--accent); color:#fff; font-size:10px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; margin-top:2px;
+  }
+  .sw-code{
+    font-family:"Courier New", monospace; font-size:.92em;
+    background: rgba(0,0,0,.07); padding: 1px 6px; border-radius: 5px;
+  }
+
+  .sw-tip{
+    display:inline-flex; align-items:flex-start; gap:8px;
+    background: var(--pill); color: var(--text);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 12.5px; font-weight:600; line-height:1.5;
+  }
+
+  .sw-thanks{ text-align:center; }
+  h1.sw-thanks-title{
+    margin:0 0 12px; font-size: clamp(34px, 6vw, 54px); font-weight:800; letter-spacing:-.01em;
+  }
+  .sw-thanks-sub{
+    font-size: clamp(15px, 2vw, 18px); font-weight:700; color: var(--accent); margin: 0 0 20px;
+  }
+  .sw-thanks-note{
+    font-size:13.5px; line-height:1.6; opacity:.82; max-width:46ch; margin:0 auto;
+  }
+  .sw-thanks-rule{
+    width:64px; height:3px; background:var(--accent); border-radius:3px; margin:22px auto;
+    opacity:.6;
+  }
+
+  .sw-navbtn{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:44px; height:44px; border-radius:50%;
+    border:1px solid var(--line); background:var(--surface);
+    box-shadow:0 2px 10px rgba(0,0,0,.12);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; z-index:5; transition:transform .15s ease, background .15s ease;
+  }
+  .sw-navbtn:hover{ background:var(--surface-2); transform:translateY(-50%) scale(1.06); }
+  .sw-navbtn:active{ transform:translateY(-50%) scale(.96); }
+  .sw-navbtn svg{ width:18px; height:18px; }
+  .sw-navbtn svg path{ stroke: var(--ink); }
+  .sw-navbtn.sw-prev{ left: clamp(8px, 2.5vw, 20px); }
+  .sw-navbtn.sw-next{ right: clamp(8px, 2.5vw, 20px); }
+  .sw-navbtn[disabled]{ opacity:.3; cursor:default; }
+
+  .sw-dots{
+    position:absolute; left:50%; bottom: clamp(14px, 3vw, 24px); transform:translateX(-50%);
+    display:flex; gap:8px; z-index:5;
+  }
+  .sw-dot{
+    width:8px; height:8px; border-radius:50%; background:var(--line);
+    border:none; cursor:pointer; padding:0; transition:transform .15s ease, background .15s ease, width .2s ease;
+  }
+  .sw-dot.sw-is-active{ background:var(--ink); width:22px; border-radius:5px; }
+
+  .sw-counter{
+    position:absolute; top: clamp(12px, 2.5vw, 20px); right: clamp(14px, 3vw, 24px);
+    font-size:12px; font-weight:700; color:var(--muted);
+    background:var(--surface); border:1px solid var(--line);
+    padding:5px 11px; border-radius:999px; z-index:5; letter-spacing:.02em;
+  }
+
+  @media (max-width: 640px){
+    .sw-list{ grid-template-columns: 1fr; }
+    .sw-navbtn{ width:38px; height:38px; }
+    .sw-deck{ height: 900px; max-height: 92vh; }
+  }
+
   .unit{font-family:'IBM Plex Mono',monospace;font-size:11.5px;white-space:nowrap}
   .dir{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
 
@@ -245,15 +852,226 @@
   </section>
 
   <section class="toolkey">
-    <table class="tk">
-      <thead>
-        <tr><th>Tool</th><th>The question it answers</th><th>What it gives you</th><th style="width:34%">How to read that number</th><th>Can look at</th></tr>
-      </thead>
-      <tbody id="tkbody"></tbody>
-    </table>
+    <h2 class="sectitle">How The Tool Works</h2>
+<div class="tw-deck" id="deck">
+  <div class="tw-counter" id="counter">1 / 6</div>
+
+  <div class="tw-slides" id="slides">
+
+    <div class="tw-slide tw-is-active" data-theme="intro">
+      <div class="tw-slide-inner" style="max-width: 940px;">
+        <div class="tw-eyebrow">Introduction</div>
+        <h1 class="tw-headline">One tool for the whole <span class="tw-accent-text">miRNA</span> story.</h1>
+        <p class="tw-lede">From target genes to pathways and your own data &mdash; all in one place, without writing a line of code.</p>
+
+        <div class="tw-card-row">
+
+          <div class="tw-feature-card" style="--card-accent:#2f6fb0;">
+            <div class="tw-card-num">01</div>
+            <h3>Find target genes</h3>
+            <div class="tw-mini tw-mini-genes">
+              <div class="tw-mini-node">miRNA</div>
+              <div class="tw-mini-arrow-sm">&#8594;</div>
+              <div class="tw-mini-col">
+                <span class="tw-mini-genepill" style="background:#dbe8fb;color:#23548c;">Gene A</span>
+                <span class="tw-mini-genepill" style="background:#dff0d8;color:#1f7a34;">Gene B</span>
+                <span class="tw-mini-genepill" style="background:#efe1fb;color:#6b3fae;">Gene C</span>
+                <span class="tw-mini-more">&hellip;</span>
+              </div>
+            </div>
+            <p class="tw-card-desc">See a list of potential target genes for your miRNA.</p>
+          </div>
+
+          <div class="tw-feature-card" style="--card-accent:#2f8f5b;">
+            <div class="tw-card-num">02</div>
+            <h3>See what's experimentally validated</h3>
+            <div class="tw-mini tw-mini-validated">
+              <span class="tw-mini-check-pill">&#10003; Validated</span>
+              <div class="tw-mini-vrow"><span>Gene A</span><span class="ok">&#10003;</span></div>
+              <div class="tw-mini-vrow"><span>Gene C</span><span class="ok">&#10003;</span></div>
+              <div class="tw-mini-vrow pending"><span>Gene F</span><span>&#9675;</span></div>
+            </div>
+            <p class="tw-card-desc">Quickly check which targets are supported by real experiments.</p>
+          </div>
+
+          <div class="tw-feature-card" style="--card-accent:#8451d6;">
+            <div class="tw-card-num">03</div>
+            <h3>Reveal the pathways involved</h3>
+            <div class="tw-mini tw-mini-hub">
+              <div class="tw-hub-lines">
+                <span class="tw-hub-line" style="width:76px; transform:rotate(-151deg);"></span>
+                <span class="tw-hub-line" style="width:76px; transform:rotate(-29deg);"></span>
+                <span class="tw-hub-line" style="width:76px; transform:rotate(151deg);"></span>
+                <span class="tw-hub-line" style="width:76px; transform:rotate(29deg);"></span>
+              </div>
+              <div class="tw-hub-sat tl">Cell cycle</div>
+              <div class="tw-hub-sat tr">Apoptosis</div>
+              <div class="tw-hub-center">Pathways</div>
+              <div class="tw-hub-sat bl">PI3K&#8209;Akt</div>
+              <div class="tw-hub-sat br">MAPK</div>
+            </div>
+            <p class="tw-card-desc">Explore the biological pathways your target genes are part of.</p>
+          </div>
+
+          <div class="tw-feature-card" style="--card-accent:#1f8a82;">
+            <div class="tw-card-num">04</div>
+            <h3>Link to your own expression data</h3>
+            <div class="tw-mini tw-mini-expr">
+              <div class="tw-mini-panel">
+                <div class="tw-mini-panel-title">Your data</div>
+                <div class="tw-ok-row"><span>RNA&#8209;seq</span><span class="ok">&#10003;</span></div>
+                <div class="tw-ok-row"><span>qPCR</span><span class="ok">&#10003;</span></div>
+                <div class="tw-ok-row"><span>Custom</span><span class="ok">&#10003;</span></div>
+              </div>
+              <div class="tw-mini-heat">
+                <div class="tw-heat-row"><span class="tw-heat-cell" style="background:#1f8a82;"></span><span class="tw-heat-cell" style="background:#7fc4bc;"></span><span class="tw-heat-cell" style="background:#d94f4f;"></span><span class="tw-heat-label">Gene A</span></div>
+                <div class="tw-heat-row"><span class="tw-heat-cell" style="background:#7fc4bc;"></span><span class="tw-heat-cell" style="background:#1f8a82;"></span><span class="tw-heat-cell" style="background:#e8a1a1;"></span><span class="tw-heat-label">Gene B</span></div>
+                <div class="tw-heat-row"><span class="tw-heat-cell" style="background:#d94f4f;"></span><span class="tw-heat-cell" style="background:#e8a1a1;"></span><span class="tw-heat-cell" style="background:#1f8a82;"></span><span class="tw-heat-label">Gene C</span></div>
+              </div>
+            </div>
+            <p class="tw-card-desc">See how your expression data matches the predicted targets.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="tw-slide" data-theme="seed">
+      <div class="tw-slide-inner">
+        <div class="tw-eyebrow">Tool 1 of 5 <span class="tw-tag">Seed analyser</span></div>
+        <div class="tw-q-label">The question it answers</div>
+        <div class="tw-question">Does this gene's sequence contain an exact match to the miRNA's seed &mdash; the 7 nucleotides (positions 2&ndash;8) that do most of the pairing work? A perfect seed match is the classic definition of a binding site, and the rule most target-prediction methods were originally built around.</div>
+        <div class="tw-stat-row">
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">What it gives you</div>
+            <div class="tw-stat-value">A site type, and exactly where it sits</div>
+          </div>
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Can look at</div>
+            <div class="tw-badges">
+              <span class="tw-badge">5&prime;UTR</span>
+              <span class="tw-badge">CDS</span>
+              <span class="tw-badge">3&prime;UTR</span>
+            </div>
+          </div>
+        </div>
+        <div class="tw-readbox">
+          <div class="tw-stat-label">How to read it</div>
+          <p>8mer &gt; 7mer&#8209;m8 &gt; 7mer&#8209;A1 &gt; 6mer. An 8mer is the textbook site. A 6mer on its own is weak &mdash; most 6mers happen by chance alone.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tw-slide" data-theme="rnahybrid">
+      <div class="tw-slide-inner">
+        <div class="tw-eyebrow">Tool 2 of 5 <span class="tw-tag">RNAhybrid &middot; 2.1.2-8</span></div>
+        <div class="tw-q-label">The question it answers</div>
+        <div class="tw-question">Could the miRNA and this sequence actually fold together and bind &mdash; even where the seed itself isn't a perfect match? Instead of applying a fixed rule, RNAhybrid searches the whole transcript for the single most energetically favourable pairing, closer to how the two strands would really behave inside a cell.</div>
+        <div class="tw-stat-row">
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">What it gives you</div>
+            <div class="tw-stat-value">Minimum free energy (&Delta;G), in kcal/mol</div>
+          </div>
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Can look at</div>
+            <div class="tw-badges"><span class="tw-badge">Whole transcript</span></div>
+          </div>
+        </div>
+        <div class="tw-readbox">
+          <div class="tw-stat-label">How to read it</div>
+          <p>More negative means a tighter fold. We only keep hits below &minus;15 kcal/mol; below &minus;25 is genuinely tight. Wobble (G:U) pairs are allowed, so it catches sites the seed analyser refuses.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tw-slide" data-theme="targetscan">
+      <div class="tw-slide-inner">
+        <div class="tw-eyebrow">Tool 3 of 5 <span class="tw-tag">TargetScan &middot; v8.0</span></div>
+        <div class="tw-q-label">The question it answers</div>
+        <div class="tw-question">Taking the sequence around the site into account, how strongly would this gene actually be repressed &mdash; and has that exact site been kept in place across species more often than chance alone would explain? A site conserved through evolution is one natural selection has actively protected, which is strong indirect evidence that it's real.</div>
+        <div class="tw-stat-row">
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Context++ score</div>
+            <div class="tw-stat-value">Roughly 0 to &minus;1</div>
+          </div>
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Conservation</div>
+            <div class="tw-stat-value">Conserved sites &amp; P<sub>CT</sub></div>
+          </div>
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Can look at</div>
+            <div class="tw-badges"><span class="tw-badge">3&prime;UTR only</span></div>
+          </div>
+        </div>
+        <div class="tw-readbox">
+          <div class="tw-stat-label">How to read it</div>
+          <p>More negative context++ = stronger predicted repression (&minus;0.50 is strong, &minus;0.02 is close to nothing). P<sub>CT</sub> is the probability a site was conserved because a miRNA actually uses it &mdash; 0.85 is strong, and no conserved site means no P<sub>CT</sub> at all. Conservation is counted per gene on its own transcript, so it can't be pinned to one row in the site table.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tw-slide" data-theme="mirtarbase">
+      <div class="tw-slide-inner">
+        <div class="tw-eyebrow">Tool 4 of 5 <span class="tw-tag">miRTarBase &middot; 10.0</span></div>
+        <div class="tw-q-label">The question it answers</div>
+        <div class="tw-question">Has this miRNA&ndash;gene pair actually been tested at the bench, and what did the experiment find? Every other tool here predicts; miRTarBase tells you what has already been measured directly, and how rigorously it was measured.</div>
+        <div class="tw-stat-row">
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">What it gives you</div>
+            <div class="tw-stat-value">Experiment counts, and the papers behind them</div>
+          </div>
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Can look at</div>
+            <div class="tw-badges"><span class="tw-badge">Every gene</span></div>
+          </div>
+        </div>
+        <div class="tw-readbox">
+          <div class="tw-stat-label">How to read it</div>
+          <p><strong>Strong</strong> = a reporter assay, western blot or qPCR &mdash; one pair, tested deliberately. <strong>Weak</strong> = CLIP-seq, microarray, pSILAC &mdash; thousands of pairs screened at once. Strong evidence outweighs weak; watch for experiments that reported no effect.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tw-slide" data-theme="ml">
+      <div class="tw-slide-inner">
+        <div class="tw-eyebrow">Tool 5 of 5 <span class="tw-tag">scanMiR 1.16.0</span></div>
+        <div class="tw-q-label">The question it answers</div>
+        <div class="tw-question">Combining sequence, structure and real biochemical binding data into a single score, how tightly would this miRNA actually bind here &mdash; across the 5&prime;UTR, CDS and 3&prime;UTR all at once? Rather than a rule-based cutoff, this is a model trained directly on RNA binding measurements, the closest thing here to one unified answer.</div>
+        <div class="tw-stat-row">
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">What it gives you</div>
+            <div class="tw-stat-value">A binding affinity (log K<sub>d</sub>) per site, plus a repression estimate per transcript</div>
+          </div>
+          <div class="tw-stat-card">
+            <div class="tw-stat-label">Can look at</div>
+            <div class="tw-badges">
+              <span class="tw-badge">5&prime;UTR</span>
+              <span class="tw-badge">CDS</span>
+              <span class="tw-badge">3&prime;UTR</span>
+            </div>
+          </div>
+        </div>
+        <div class="tw-readbox">
+          <div class="tw-stat-label">How to read it</div>
+          <p>A CNN model trained directly on real biochemical binding data (RNA bind&#8209;n&#8209;seq), not just sequence conservation. More negative log K<sub>d</sub> = tighter, more confident binding. Non&#8209;canonical sites are included but flagged low&#8209;confidence, so canonical sites are the safer default view.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="tw-navbtn tw-prev" id="prevBtn" aria-label="Previous slide">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5L8 12L15 19" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button class="tw-navbtn tw-next" id="nextBtn" aria-label="Next slide">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 5L16 12L9 19" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
+  <div class="tw-dots" id="dots"></div>
+</div>
   </section>
 
-  <section class="panel browser">
+  <section class="panel browser" id="mapsection">
     <header><h2>Binding map</h2><span class="hint" id="maphint"></span></header>
     <div class="mapbody" id="map"></div>
     <footer>
@@ -315,18 +1133,188 @@
 
   <div class="notes">
     <h3>How to read this page</h3>
-    <ul>
-      <li><b>Four different questions.</b> Seed asks <i>is there a canonical match</i>. RNAhybrid asks <i>could the duplex physically form</i>. TargetScan asks <i>how much repression, given the surroundings</i>, and separately <i>has evolution kept the site</i>. miRTarBase asks <i>did anyone test it</i>. No single number can carry four answers.</li>
-      <li><b>Scores are never combined.</b> Every column keeps its own units and its own arrow. −0.503 context++ and −18.5 kcal/mol are not comparable quantities, and averaging them would invent a number that means nothing.</li>
-      <li><b>Look at GAPDH.</b> RNAhybrid gives it a stronger duplex (−20.6) than the textbook miR-21 target PDCD4 (−18.5) — but its seed pairing uses G:U wobbles, TargetScan has nothing, and no one has ever reported it. Energy alone would rank a housekeeping gene above the real target. That is the whole argument for keeping the columns apart.</li>
-      <li><b>Look at ABHD12B.</b> The strongest context++ on this page (−0.693) with no conservation support at all, and no experimental record. A confident prediction from one tool and silence from the rest.</li>
-      <li><b>Four kinds of blank, never confused.</b> <code>—</code> the tool ran and found nothing · <code>not covered</code> the tool cannot assess this — GAPDH's only sites are in the CDS and TargetScan reads 3′UTRs, so its silence there means nothing at all · <code>not run</code> the tool was not selected · <code>not built</code> it does not exist yet.</li>
-      <li><b>Positions come only from tools that measure them on your transcript.</b> Seed and RNAhybrid read the MANE Select sequence directly. TargetScan scores a transcript it chose itself — different for 38.7% of genes — so its positions are not shown at all.</li>
-      <li><b>Region filters move the positional columns only.</b> Switching off CDS hides seed sites and duplexes in the CDS — it does not change TargetScan or miRTarBase, which are gene-level and have no position to filter. Per-column filter popovers (score cut-offs, site-type sets, evidence tiers) stay in the Phase 7 specification; this toolbar is the minimum needed to read the page.</li>
-      <li><b>The four query shapes share this layout.</b> Only <i>one miRNA vs the transcriptome</i> is running now. A gene-first or pair query changes which column is the axis, not what a column means — so the tool key, the empty states and the arrows all carry over unchanged.</li>
-      <li><b>Click a gene</b> to open every record it produced, one row each, exactly as stored. The <b>Agreement</b> column is the one to read: <code>↔ contains 8mer seed site 1805–1812</code> means RNAhybrid's folded duplex covers the nucleotides your own seed tool matched. Two methods, written twenty years apart, landing on the same place without knowing about each other.</li>
-      <li><b>No score is turned into a word.</b> The ΔG and context++ columns show the number and a bar on a stated scale, nothing else — deciding what counts as "strong" is the reader's call, not the tool's. The only threshold on this page is the −25 kcal/mol line used to colour the map, and it came from this run's own distribution, not a published standard.</li>
-    </ul>
+    <div class="sw-deck" id="swDeck">
+      <div class="sw-counter" id="swCounter">1 / 9</div>
+
+      <div class="sw-slides" id="swSlides">
+
+        <div class="sw-slide" data-theme="search">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 1 OF 8</span><span class="sw-tag sw-tag-name">New Search</span></div>
+            <h1 class="sw-headline">Start here — one miRNA is all it takes.</h1>
+            <div class="sw-question">Type a miRNA, optionally narrow it to specific genes, tick the tools you want, and run the analysis. This is the only screen you need to begin.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list sw-one-col">
+                <li><span class="sw-check">✓</span>Look up a miRNA by name (<span class="sw-code">hsa-miR-21-5p</span>) or accession (<span class="sw-code">MIMAT0000076</span>)</li>
+                <li><span class="sw-check">✓</span>Add a specific gene list, or leave it empty to scan the whole transcriptome</li>
+                <li><span class="sw-check">✓</span>Tick any combination of the five tools before you run anything</li>
+                <li><span class="sw-check">✓</span>The Run button stays disabled with a hint until at least one tool is picked</li>
+              </ul>
+            </div>
+            <div class="sw-tip">Tip: leave the gene box empty and the tool searches every gene in the human transcriptome, not just a shortlist.</div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="sky">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 2 OF 8</span><span class="sw-tag sw-tag-name">Query &amp; Tools Run</span></div>
+            <h1 class="sw-headline">See exactly what ran, and what it matched to.</h1>
+            <div class="sw-question">While a job is working you can watch it live. Once it's done, two panels confirm exactly what your miRNA resolved to and which tools actually executed.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span><b>Query</b> panel: the resolved accession, mature sequence, seed, and TargetScan seed family</li>
+                <li><span class="sw-check">✓</span><b>Tools Run</b> panel: every tool that actually executed for this job</li>
+                <li><span class="sw-check">✓</span>Live progress while a slower tool (RNAhybrid especially) is still working</li>
+                <li><span class="sw-check">✓</span>A job ID shown for reference, in case you want to find this exact run again</li>
+              </ul>
+            </div>
+            <div class="sw-tip">Tip: this is the place to double-check the tool understood your miRNA correctly before you trust anything below it.</div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="coral">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 3 OF 8</span><span class="sw-tag sw-tag-name">Binding Map</span></div>
+            <h1 class="sw-headline">Watch every predicted site land on the gene itself.</h1>
+            <div class="sw-question">A visual strip for whichever gene you're looking at, showing precisely where every tool found a binding site along its actual sequence.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span>One lane per tool, positioned along the real transcript</li>
+                <li><span class="sw-check">✓</span>Colour-coded by site type: 8mer, 7mer-m8, 7mer-A1, 6mer</li>
+                <li><span class="sw-check">✓</span>RNAhybrid duplexes shaded by strength — anything ≤ −25 kcal/mol stands out</li>
+                <li><span class="sw-check">✓</span>Click any gene in the results table to change which gene's map is shown</li>
+                <li><span class="sw-check">✓</span>Click a site on the map to jump straight to its row in the table below</li>
+              </ul>
+            </div>
+            <div class="sw-tip">Tip: the map and the table always stay in sync — click either one and the other follows.</div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="periwinkle">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 4 OF 8</span><span class="sw-tag sw-tag-name">The Result Table</span></div>
+            <h1 class="sw-headline">Every tool's own answer, gene by gene, side by side.</h1>
+            <div class="sw-question">The heart of the tool — one row per gene, with every tool's own score in its own column. Nothing is ever averaged or combined into a single made-up number.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What each column shows</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span><b>Seed analyser</b> — best site and its position</li>
+                <li><span class="sw-check">✓</span><b>RNAhybrid</b> — best duplex, position, and ΔG</li>
+                <li><span class="sw-check">✓</span><b>TargetScan</b> — context++ score and conservation</li>
+                <li><span class="sw-check">✓</span><b>miRTarBase</b> — number of published experiments behind the gene</li>
+                <li><span class="sw-check">✓</span><b>scanMiR</b> — best site type/position and log Kd affinity</li>
+              </ul>
+            </div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span>Sort by any single tool's own score — never a blended one</li>
+                <li><span class="sw-check">✓</span>Filter by region (5′UTR / CDS / 3′UTR) and toggle 6mer sites on or off</li>
+                <li><span class="sw-check">✓</span>Search for one gene directly</li>
+                <li><span class="sw-check">✓</span>Expand any row for the full per-site detail</li>
+                <li><span class="sw-check">✓</span>Export the whole table as TSV or Excel</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="rose">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 5 OF 8</span><span class="sw-tag sw-tag-name">Tool Agreement</span></div>
+            <h1 class="sw-headline">See where the tools agree — and where only one speaks.</h1>
+            <div class="sw-question">Pick up to four tools and see their results as a Venn diagram, so you can tell at a glance which genes only one tool found versus which every tool agrees on.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span>Choose any combination of up to four tools</li>
+                <li><span class="sw-check">✓</span>Every region of the diagram is clickable — even the ones with zero genes</li>
+                <li><span class="sw-check">✓</span>Click a region to see its exact gene list, with paging and export</li>
+                <li><span class="sw-check">✓</span>Send a region's genes straight into Pathway Analysis, one click, no re-typing</li>
+              </ul>
+            </div>
+            <div class="sw-tip">Tip: an empty region is still worth a click — it tells you a tool found nothing there, and that's information too.</div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="amber">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 6 OF 8</span><span class="sw-tag sw-tag-name">Pathway Analysis</span></div>
+            <h1 class="sw-headline">Turn a gene list into biology.</h1>
+            <div class="sw-question">Build a gene set — by rule, or straight from a Tool Agreement region — and run GO and KEGG enrichment on it in one click.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span>Build a gene set from tick-box rules, or arrive with one already picked from a Venn region</li>
+                <li><span class="sw-check">✓</span>Choose which regions count, and whether a gene needs every rule or just one</li>
+                <li><span class="sw-check">✓</span>One click runs GO Biological Process, GO Molecular Function, GO Cellular Component, and KEGG together</li>
+                <li><span class="sw-check">✓</span>Results ranked by adjusted p-value, with the gene count behind every term</li>
+                <li><span class="sw-check">✓</span>Search terms, IDs, or gene symbols directly in the results</li>
+                <li><span class="sw-check">✓</span>Export as TSV, or a multi-sheet Excel workbook — one sheet per ontology</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="violet">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 7 OF 8</span><span class="sw-tag sw-tag-name">Target Network</span></div>
+            <h1 class="sw-headline">The whole picture, as one living graph.</h1>
+            <div class="sw-question">An interactive network with your miRNA at the centre and its target genes arranged around it, so the whole relationship is visible at once — not just a table.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you can do here</div>
+              <ul class="sw-list">
+                <li><span class="sw-check">✓</span>Validated (miRTarBase) targets are shown differently from predicted-only ones</li>
+                <li><span class="sw-check">✓</span>Thicker edges mean more tools agree on that target</li>
+                <li><span class="sw-check">✓</span>Optional dashed links connect genes that share enriched pathway terms</li>
+                <li><span class="sw-check">✓</span>Choose how many genes to show (top 25 / 50 / 100)</li>
+                <li><span class="sw-check">✓</span>Choose how strict the "sharing" rule is (1+, 2+, 3+, or 5+ shared terms)</li>
+                <li><span class="sw-check">✓</span>Drag nodes around, pause the layout, or fit it back to view anytime</li>
+              </ul>
+            </div>
+            <div class="sw-tip">Tip: dashed edges are the only place on the whole page where shared biology, not shared binding, shows up.</div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="taupe">
+          <div class="sw-slide-inner">
+            <div class="sw-eyebrow"><span class="sw-tag">SECTION 8 OF 8</span><span class="sw-tag sw-tag-name">How The Tool Works</span></div>
+            <h1 class="sw-headline">Meet the five tools behind every number.</h1>
+            <div class="sw-question">A short, plain-language explainer for what each of the five analysis tools actually measures and how to read its number — the same deck sitting just above this one on the page.</div>
+            <div class="sw-readbox">
+              <div class="sw-stat-label">What you'll find there</div>
+              <ul class="sw-list sw-one-col">
+                <li><span class="sw-check">✓</span>One slide each for Seed analyser, RNAhybrid, TargetScan, miRTarBase, and scanMiR</li>
+                <li><span class="sw-check">✓</span>The exact question each tool answers, in plain language</li>
+                <li><span class="sw-check">✓</span>What it actually gives you, and how to read that number</li>
+                <li><span class="sw-check">✓</span>Which parts of the gene each tool is even able to look at</li>
+              </ul>
+            </div>
+            <div class="sw-tip">Tip: when two tools disagree, this is the section that explains why — they're often answering different questions, not getting the same one wrong.</div>
+          </div>
+        </div>
+
+        <div class="sw-slide" data-theme="plum">
+          <div class="sw-slide-inner sw-thanks">
+            <h1 class="sw-thanks-title">Thank You</h1>
+            <p class="sw-thanks-sub">miRPanel — An Epigen-BioinfoLab Product</p>
+            <div class="sw-thanks-rule"></div>
+            <p class="sw-thanks-note">One miRNA, five tools, and everything from its binding sites to its biology — in one place, without writing a line of code.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="sw-navbtn sw-prev" id="swPrev" aria-label="Previous slide">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="sw-navbtn sw-next" id="swNext" aria-label="Next slide">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sw-dots" id="swDots"></div>
+    </div>
   </div>
 
 </div>
@@ -467,40 +1455,103 @@
              '</td><td class="n">'+t[4].toLocaleString()+'</td><td class="n">'+t[5].toFixed(2)+"</td></tr>";
     }).join("")+"</tbody></table>";
 
-  var TOOLKEY = [
-    ["Seed analyser","ours, v1.0",
-     "Does the target contain an exact match to the miRNA's seed — the seven letters that do most of the binding?",
-     "a site type and its position","8mer &gt; 7mer-m8 &gt; 7mer-A1 &gt; 6mer. An 8mer is the textbook site. A 6mer on its own is weak — most 6mers happen by chance.",
-     "5′UTR · CDS · 3′UTR",false],
-    ["RNAhybrid","2.1.2-8",
-     "Could the two strands physically fold together here — even where the match is not exact?",
-     "ΔG, in kcal/mol","More negative = tighter fold. We only keep hits below −15; below −25 is genuinely tight. Wobble (G:U) pairs are allowed, so it sees sites the seed tool refuses.",
-     "whole transcript",false],
-    ["TargetScan","v8.0",
-     "Taking the surrounding sequence into account, how far down would this gene actually be pushed?",
-     "context++ score, roughly 0 to −1","More negative = more predicted repression. −0.50 is a strong prediction; −0.02 is close to nothing.",
-     "3′UTR only",false],
-    ["TargetScan","v8.0",
-     "Has this site survived in other animals more often than chance would explain?",
-     "conserved sites and P<sub>CT</sub>","P<sub>CT</sub> is the probability the site was kept <i>because</i> a miRNA uses it. 0.85 = strong. No conserved site = no P<sub>CT</sub> at all. TargetScan counts conserved sites <b>per gene, on its own transcript</b>, so the count cannot be matched to any one site in the table below — which is why it is not shown there.",
-     "3′UTR only",false],
-    ["miRTarBase","10.0",
-     "Has anyone tested this pair at the bench, and what did they find?",
-     "experiment counts and papers","<b>Strong</b> = reporter assay, western blot, qPCR — one pair tested deliberately. <b>Weak</b> = CLIP-seq, microarray, pSILAC — thousands screened at once. Strong evidence is worth far more. Look for experiments that reported <i>no</i> effect.",
-     "every gene",false],
-    ["ML model","not built",
-     "All of the above at once, in one calibrated number, for all three regions",
-     "a probability, 0 to 1","Higher = more likely a real target. Not built yet, so the column stays empty.",
-     "5′UTR · CDS · 3′UTR",true],
-    ["miRanda","not integrated",
-     "A second, independent alignment-and-energy opinion",
-     "an alignment score","Higher = better alignment. Useful mainly as a cross-check on the other two predictors.",
-     "whole transcript",true]
-  ];
-  document.getElementById("tkbody").innerHTML = TOOLKEY.map(function(t){
-    return '<tr'+(t[6]?' class="pending"':"")+'><td><span class="tname">'+t[0]+'<span class="tver">'+t[1]+"</span></span></td>"+
-      "<td>"+t[2]+'</td><td class="unit">'+t[3]+"</td><td>"+t[4]+"</td><td>"+t[5]+"</td></tr>";
-  }).join("");
+  /* ---------- tool guide slides ---------- */
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.tw-slide'));
+  var dotsWrap = document.getElementById('dots');
+  var counter = document.getElementById('counter');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var current = 0;
+
+  slides.forEach(function(s, i){
+    var d = document.createElement('button');
+    d.className = 'tw-dot' + (i === 0 ? ' tw-is-active' : '');
+    d.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    d.addEventListener('click', function(){ goTo(i); });
+    dotsWrap.appendChild(d);
+  });
+  var dots = Array.prototype.slice.call(dotsWrap.querySelectorAll('.tw-dot'));
+
+  function render(){
+    slides.forEach(function(s, i){
+      s.classList.toggle('tw-is-active', i === current);
+    });
+    dots.forEach(function(d, i){
+      d.classList.toggle('tw-is-active', i === current);
+    });
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === slides.length - 1;
+  }
+
+  function goTo(i){
+    if (i < 0 || i > slides.length - 1) return;
+    current = i;
+    render();
+  }
+
+  prevBtn.addEventListener('click', function(){ goTo(current - 1); });
+  nextBtn.addEventListener('click', function(){ goTo(current + 1); });
+
+  document.addEventListener('keydown', function(e){
+    // don't hijack arrow keys while the user is typing somewhere else
+    // on the page (the pathway search box, a select, etc).
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'ArrowRight') goTo(current + 1);
+    if (e.key === 'ArrowLeft') goTo(current - 1);
+  });
+
+  render();
+})();
+
+  /* ---------- site walkthrough slides (How To Read This Page) ---------- */
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.sw-slide'));
+  var dotsWrap = document.getElementById('swDots');
+  var counter = document.getElementById('swCounter');
+  var prevBtn = document.getElementById('swPrev');
+  var nextBtn = document.getElementById('swNext');
+  var current = 0;
+
+  slides.forEach(function(s, i){
+    var d = document.createElement('button');
+    d.className = 'sw-dot' + (i === 0 ? ' sw-is-active' : '');
+    d.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    d.addEventListener('click', function(){ goTo(i); });
+    dotsWrap.appendChild(d);
+  });
+  var dots = Array.prototype.slice.call(dotsWrap.querySelectorAll('.sw-dot'));
+
+  function render(){
+    slides.forEach(function(s, i){ s.classList.toggle('sw-is-active', i === current); });
+    dots.forEach(function(d, i){ d.classList.toggle('sw-is-active', i === current); });
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === slides.length - 1;
+  }
+
+  function goTo(i){
+    if (i < 0 || i > slides.length - 1) return;
+    current = i;
+    render();
+  }
+
+  prevBtn.addEventListener('click', function(){ goTo(current - 1); });
+  nextBtn.addEventListener('click', function(){ goTo(current + 1); });
+
+  document.addEventListener('keydown', function(e){
+    // don't hijack arrow keys while the user is typing somewhere else
+    // on the page (the pathway search box, a select, etc).
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'ArrowRight') goTo(current + 1);
+    if (e.key === 'ArrowLeft') goTo(current - 1);
+  });
+
+  render();
+})();
 
   /* ---------- map ---------- */
   function renderMap(){

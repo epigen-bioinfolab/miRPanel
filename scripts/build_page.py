@@ -38,21 +38,6 @@ for old, new in [('<h2>Query<em>miRNA only</em></h2>', '<h2>Query<em id="qscope"
     assert keep.count(old) == 1, old
     keep = keep.replace(old, new)
 
-# the notes named genes that happened to be in the mock run; generalise them
-NOTE_SUBS = [
- ("<b>Look at GAPDH.</b> RNAhybrid gives it a stronger duplex (−20.6) than the textbook miR-21 target PDCD4 (−18.5) — but its seed pairing uses G:U wobbles, TargetScan has nothing, and no one has ever reported it. Energy alone would rank a housekeeping gene above the real target. That is the whole argument for keeping the columns apart.",
-  "<b>A tight duplex is not evidence.</b> RNAhybrid regularly gives a housekeeping gene a stronger ΔG than a validated target, because folding energy is all it measures and G:U wobbles count. Ranking by energy alone would put such a gene above the real one. That is the whole argument for keeping the columns apart."),
- ("<b>Look at ABHD12B.</b> The strongest context++ on this page (−0.693) with no conservation support at all, and no experimental record. A confident prediction from one tool and silence from the rest.",
-  "<b>Watch for one loud tool.</b> A strong context++ with no conservation and no published test is a confident prediction from one method and silence from the other three — worth a second look, not a conclusion."),
-]
-NOTE_SUBS.append((
- "The ΔG and context++ columns show the number and a bar on a stated scale, nothing else",
- "The ΔG and context++ columns show the number and nothing else"))
-
-for _a, _b in NOTE_SUBS:
-    assert keep.count(_a) == 1, _a[:40]
-    keep = keep.replace(_a, _b)
-
 # Section headings are Title Case throughout, so the two that come straight
 # from the approved layout are brought into line here rather than by editing
 # the layout, which stays the record of what was approved.
@@ -77,6 +62,7 @@ keep = keep[:_notes] + """<section class="panel" id="agree" hidden>
   <section class="panel" id="enrich">
     <h2>Pathway Analysis<em id="gscount">nothing selected</em></h2>
     <div class="panel-body">
+      <p class="say gsextnote" id="gsextnote" hidden>Showing enrichment for the genes picked in Tool Agreement — the filters below were not used for this run.</p>
       <div class="gsgrid" id="gsboxes"></div>
       <div class="gsbar">
         <div class="fgroup" id="gsregions">
@@ -105,23 +91,24 @@ keep = keep[:_notes] + """<section class="panel" id="agree" hidden>
       <p id="enrichmeta"></p>
       <div class="tabs" id="enrichtabs"></div>
       <div class="tsearch">
-        <label for="termq">Search pathways and terms</label>
+        <label for="termq">Search pathways, terms and genes</label>
         <div class="tsbox">
           <input type="search" id="termq" autocomplete="off"
-                 placeholder="name or ID — mesenchyme, GO:0060485, hsa05206">
+                 placeholder="term, ID or gene — mesenchyme, GO:0060485, PTEN">
           <button type="button" id="termqx" hidden aria-label="clear">×</button>
         </div>
       </div>
       <table class="terms"><thead><tr>
         <th></th><th>Term</th>
         <th class="sortable" data-sort="genes">Genes<span class="arrow"></span></th>
+        <th>Gene symbols</th>
         <th class="sortable" data-sort="p">Adjusted p<span class="arrow"></span></th>
       </tr></thead><tbody id="termbody"></tbody></table>
       <div class="termfoot">
         <span id="termcount"></span>
         <button class="linkbtn" id="termmore" type="button" hidden></button>
-        <button class="linkbtn expright" id="enrexp" type="button" hidden>Export terms (TSV) ↓</button>
-        <button class="linkbtn" id="enrexpx" type="button" hidden>Excel ↓</button>
+        <button class="linkbtn expright" id="enrexpx" type="button" hidden>Export terms (Excel) ↓</button>
+        <button class="linkbtn" id="enrexp" type="button" hidden>TSV ↓</button>
       </div>
     </div>
   </section>
@@ -168,13 +155,13 @@ keep = keep[:_notes] + """<section class="panel" id="agree" hidden>
 # The binding map draws whichever gene is selected in the table, so it belongs
 # after the table rather than before it: meet the data, then the picture of one
 # row of it.
-_b0 = keep.index('<section class="panel browser">')
+_b0 = keep.index('<section class="panel browser" id="mapsection">')
 _b1 = keep.index("</section>", _b0) + len("</section>")
 _map = keep[_b0:_b1]
 keep = keep[:_b0] + keep[_b1:]
 _tbl = keep.index('<div class="toolbar">')
 keep = (keep[:_tbl] + _map +
-        '\n\n  <h2 class="sectitle">The Result Table</h2>\n  ' + keep[_tbl:])
+        '\n\n  <h2 class="sectitle" id="resulttable">The Result Table</h2>\n  ' + keep[_tbl:])
 
 # The tool key is reference material, not a step in the workflow, so it moves
 # down beside the notes that explain how to read the page.
@@ -183,7 +170,8 @@ _t1 = keep.index("</section>", _t0) + len("</section>")
 _tk = keep[_t0:_t1]
 keep = keep[:_t0] + keep[_t1:]
 _n = keep.index('<div class="notes">')
-keep = keep[:_n] + _tk + "\n\n  " + keep[_n:]
+keep = (keep[:_n] + '<div id="guidesHome"></div>\n\n  ' + _tk +
+        "\n\n  " + keep[_n:])
 
 # miRanda was dropped from the project, so its column comes out rather than
 # standing there permanently reading "not built". An empty column for a tool
@@ -191,14 +179,20 @@ keep = keep[:_n] + _tk + "\n\n  " + keep[_n:]
 for _a, _b in [
     ('<th colspan="1" class="gsep">Not yet built</th>',
      '<th colspan="2" class="gsep">scanMiR</th>'),
+    ('<th colspan="1" class="gsep">RNAhybrid</th>',
+     '<th colspan="2" class="gsep">RNAhybrid</th>'),
     ('<th class="colsep"><div class="hcell"><span class="hn">ML model \u00b7 miRanda'
      '</span><span class="hu">later phases</span></div></th>',
      '<th class="colsep"><div class="hcell"><span class="hn">Best site</span>'
      '<span class="hu">type \u00b7 position</span></div></th>'
      '<th><div class="hcell"><span class="hn">log Kd</span>'
      '<span class="hu">affinity \u2193</span></div></th>'),
-    ('<span class="hu">kcal/mol \u00b7 bar 0 to \u221235</span>',
-     '<span class="hu">kcal/mol</span>'),
+    ('<th class="colsep"><div class="hcell"><span class="hn">\u0394G</span>'
+     '<span class="hu">kcal/mol \u00b7 bar 0 to \u221235</span></div></th>',
+     '<th class="colsep"><div class="hcell"><span class="hn">Best duplex</span>'
+     '<span class="hu">position \u00b7 region</span></div></th>'
+     '<th><div class="hcell"><span class="hn">\u0394G</span>'
+     '<span class="hu">kcal/mol</span></div></th>'),
     ('<span class="hu">bar 0 to \u22121</span>',
      '<span class="hu">site context score</span>'),
     ('<th colspan="2" class="gsep">Seed analyser \u2014 ours</th>',
@@ -206,14 +200,6 @@ for _a, _b in [
     ]:
     assert keep.count(_a) == 1, _a[:50]
     keep = keep.replace(_a, _b)
-
-a = '''    ["miRanda","not integrated",
-     "A second, independent alignment-and-energy opinion",
-     "an alignment score","Higher = better alignment. Useful mainly as a cross-check on the other two predictors.",
-     "whole transcript",true]
-  ];'''
-assert script.count(a) == 1, "miRanda tool-key row"
-script = script.replace(a, "  ];")
 
 # The binding map lane captions and the detail-row paragraph explained the data
 # model at length. The reader at that moment wants to know what the rows are,
@@ -254,12 +240,7 @@ script = script[:script.index(a)] + """  var MIR = null, RUN = null;
 """ + script[script.index(b):]
 
 a = '  document.getElementById("prov").textContent ='
-b = "  var TOOLKEY = ["
-assert script.count(a) == 1 and script.count(b) == 1
-script = script[:script.index(a)] + script[script.index(b):]
-
-a = '  document.getElementById("tkbody").innerHTML = TOOLKEY.map(function(t){'
-b = "  /* ---------- map ---------- */"
+b = "  /* ---------- tool guide slides ---------- */"
 assert script.count(a) == 1 and script.count(b) == 1
 script = script[:script.index(a)] + script[script.index(b):]
 
@@ -300,10 +281,20 @@ script = script[:script.index(a)] + '''  function ran(t){ return RAN[t] === true
       ? s[3].toLocaleString() + "–" + s[4].toLocaleString() +
         '<span class="sub2">' + RL[s[1]] + "</span>"
       : seedEmpty) + "</td>");
-    cells.push('<td class="num colsep">' + (r
+    // RNAhybrid in two cells: where the duplex is, then how tight it is.
+    // It reports no site type - a fold is not a seed match - so the first
+    // cell carries position and region only.
+    var rhEmpty = ran("rnahybrid") ? none() : nrun();
+    cells.push('<td class="colsep">' + (r
+      ? '<span class="seq">' + r[2].toLocaleString() + "\u2013" +
+        r[3].toLocaleString() + "</span>" +
+        (r[1] ? '<span class="sub2">' + RL[r[1]] + "</span>" : "")
+      : rhEmpty) + "</td>");
+    cells.push('<td class="num">' + (r
       ? r[4].toFixed(1) + meter(Math.abs(r[4]) / 35) +
-        (nRh > 1 ? '<span class="say">best&nbsp;of&nbsp;' + nRh + " foldings</span>" : "")
-      : (ran("rnahybrid") ? none() : nrun())) + "</td>");
+        (nRh > 1 ? '<span class="say">best&nbsp;of&nbsp;' + nRh +
+                   " foldings</span>" : "")
+      : rhEmpty) + "</td>");
 
     var has3 = SEED.some(function(x){ return x[0] === g && x[1] === "3UTR"; }) ||
                RH.some(function(x){ return x[0] === g && x[1] === "3UTR"; });
@@ -416,9 +407,32 @@ EXTRA_CSS = """
   .gsbar{display:flex;flex-direction:column;gap:7px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-soft)}
   .gsfoot{display:flex;align-items:center;gap:14px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line-soft)}
   .gsfoot .say{max-width:none;margin:0;flex:1}
+  /* the button gets a little air below the sentence rather than sitting
+     pinned to its baseline - a small, deliberate nudge, not a new layout */
+  #gsrun{margin-top:9px}
   #gscount{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;text-transform:none;letter-spacing:0}
   #gscount.ok{color:var(--ok)}
   #gscount.warn{color:var(--warn)}
+
+  /* ---- when this panel's own gene run came from a Tool Agreement region
+     click, its tick-boxes were never read - so they must not look like the
+     source of what is showing below. Faded until the user actually touches
+     a filter or presses "Run GO and KEGG" themselves, at which point the
+     panel and its results agree again. The button stays fully active in
+     both states: it always has a real job, either confirming the filter
+     picture or replacing the region-driven run with one. ---- */
+  /* .say's base rule (layout-source.html) caps inline annotations at
+     21ch, which is right for a table-cell tag but wraps a full sentence
+     into a stack of short lines - override it here so this note reads
+     as one line the way .gsfoot .say already does for its own case. */
+  .gsextnote{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--warn);
+    max-width:none;white-space:nowrap;overflow-x:auto}
+  #enrich.gs-external .gsgrid,
+  #enrich.gs-external .gsbar,
+  #enrich.gs-external #gscount,
+  #enrich.gs-external #gssentence{opacity:.42;filter:grayscale(35%);
+    transition:opacity .25s,filter .25s}
+  #enrich.gs-external #gsrun{transition:opacity .25s}
   #enrichhead{font-size:13px;line-height:1.55;color:var(--ink);margin:0 0 4px}
   #enrichmeta{font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em;margin:0 0 14px}
   .tabs{display:flex;gap:2px;margin:0 0 12px;border-bottom:1px solid var(--line)}
@@ -665,6 +679,21 @@ REDESIGN_CSS = """
   .pager{margin:16px 0 0;justify-content:space-between;width:100%;
     align-items:center}
   #pagelbl{font-family:inherit;font-size:13px;color:var(--muted)}
+
+  /* The table filtered down to one gene is easy to land on mid-scroll (a
+     click from the agreement diagram, a pathway term, the network view)
+     and mistake for the whole table, or for whatever else is on screen -
+     see focusGene(). Deliberately louder than #pagelbl's small "X only"
+     text, and placed directly above the table by wire() so it is the
+     first thing in view when the page scrolls there. */
+  .genebanner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:4px 0 12px;padding:9px 14px;background:var(--accent-wash);
+    border:1px solid var(--accent);border-radius:6px;
+    font-size:15.5px;color:var(--ink)}
+  .genebanner b{font-family:'IBM Plex Mono',monospace;color:var(--accent);
+    font-weight:700}
+  .genebanner .linkbtn{font-size:12.5px;color:var(--accent);
+    border-bottom-color:var(--accent)}
   #pgnums{display:flex;gap:3px;align-items:center}
   .pgnum{min-width:34px;padding:6px 9px;font-size:13.5px;
     border:1px solid var(--line-soft)}
@@ -737,6 +766,16 @@ EXPORT_CSS = """
     font-size:12.5px;font-weight:600;color:var(--accent)}
   .exprow>button:hover{background:var(--accent);color:var(--accent-ink);
     border-color:var(--accent)}
+  /* Excel is the format that actually looks like a table when opened -
+     styled, frozen header, no 30-empty-column sparseness from a job that
+     ran five tools. Filled instead of outlined so it reads as the answer
+     to "give me something well organised", with TSV still one click away
+     for R/pandas. */
+  .exprow>button.expprimary{background:var(--accent);color:var(--accent-ink);
+    border-color:var(--accent)}
+  .exprow>button.expprimary:hover{filter:brightness(1.08)}
+  .exphint{margin:2px 10px 6px;font-size:11.5px;line-height:1.45;
+    color:var(--faint)}
 
   .expsep{margin-top:6px;padding-top:8px;border-top:1px solid var(--line)}
   .expctl{display:flex;align-items:center;justify-content:space-between;
@@ -761,7 +800,7 @@ EXPORT_CSS = """
   #enrexp:hover, #enrexpx:hover{background:var(--accent);
     color:var(--accent-ink);border-color:var(--accent)}
   .expright{margin-left:auto}
-  #enrexpx{margin-left:7px}
+  #enrexp{margin-left:7px}
 """
 
 NETWORK_CSS = """
@@ -778,7 +817,7 @@ NETWORK_CSS = """
     margin-right:5px;vertical-align:-1px}
   .netkey i{display:inline-block;width:20px;height:0;margin-right:5px;
     vertical-align:4px;border-top:2px solid var(--muted)}
-  .netkey i.dash{border-top-style:dotted}
+  .netkey i.dash{border-top-style:dashed;border-top-color:var(--accent)}
   .netinfo{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
     border-radius:5px;background:var(--surface-2);font-size:13px;
     line-height:1.6;min-height:54px}
@@ -800,24 +839,59 @@ NETWORK_CSS = """
 # Last in the cascade on purpose: one place to adjust typography, spacing and
 # section prominence without unpicking the rules the approved layout set.
 POLISH_CSS = """
-  /* ---- the masthead carries the tool's name ----
-     Three tiers, each doing one job: a small version kicker, the name at
-     display size, the one-line promise in the accent colour, and the
-     description set at reading width underneath. No rule closes it: the
-     first section heading sits just below with a rule of its own, and two
-     heavy lines that close together read as a mistake. */
-  .masthead{margin:0 0 48px;padding:4px 0 0;gap:9px;border-bottom:0}
-  .kicker{font-family:'Inter',system-ui,sans-serif;font-size:12px;
-    letter-spacing:.17em;text-transform:uppercase;color:var(--accent);
-    font-weight:700}
-  #title{font-family:'Inter',system-ui,sans-serif;
-    font-size:clamp(38px,5.2vw,54px);font-weight:800;letter-spacing:-.032em;
-    line-height:1.03;color:var(--accent);margin:0}
-  .sub2line{font-size:clamp(19px,2.2vw,24px);font-weight:600;
-    color:var(--accent);letter-spacing:-.014em;line-height:1.34;
-    max-width:36ch;margin:4px 0 0}
-  .masthead .sub{font-size:16.5px;line-height:1.72;color:var(--muted);
-    max-width:78ch;margin:8px 0 0}
+  /* ---- the masthead: a fixed dark-blue banner, independent of the site's
+     own light/dark theme, carrying the product name and a row of links to
+     every section on the page. Approved design, 23 Sep - see agreement_design
+     for the reference mock. Colours are hardcoded rather than themed: the
+     banner is a fixed brand element, not a themed surface. ---- */
+  .masthead{
+    margin:0 0 48px;padding:0;border-bottom:0;gap:0;
+    position:relative;overflow:hidden;border-radius:10px;
+    background:linear-gradient(115deg,#123a78 0%,#0c3268 55%,#0a2c5c 100%);
+  }
+  .masthead, .masthead *{font-family:Arial,Helvetica,sans-serif!important}
+  .mh-inner{max-width:760px;margin:0 auto;padding:38px 40px 0;text-align:center}
+  /* Three columns so the middle one - the name plus its maker line, which
+     must center on each other and nothing wider - lands in the true center
+     of the banner regardless of the pill's width. The pill sits in its own
+     column, right next to the name, balanced by an equal empty column on
+     the left rather than being folded into the centered group. */
+  .brand-row{display:grid;grid-template-columns:1fr auto 1fr;
+    align-items:start;column-gap:14px}
+  .brand-name-col{grid-column:2;display:flex;flex-direction:column;
+    align-items:center}
+  #title{font-size:clamp(34px,5vw,52px);font-weight:800;letter-spacing:-.02em;
+    color:#fff;margin:0;line-height:1}
+  .kicker{grid-column:3;justify-self:start;margin-top:11px;
+    display:inline-block;font-size:13px;font-weight:700;color:#fff;
+    text-transform:none;letter-spacing:0;
+    border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.10);
+    border-radius:999px;padding:6px 16px;white-space:nowrap}
+  .maker{font-size:16px;color:rgba(255,255,255,.94);margin:7px 0 0;
+    font-weight:600;letter-spacing:.01em}
+  .masthead .sub2line{font-size:clamp(18px,2.1vw,21px);font-weight:700;
+    color:#fff;letter-spacing:-.012em;line-height:1.35;max-width:none;
+    margin:20px 0 0}
+  /* #tagline carries an ID rule from the page's older, plain-masthead CSS
+     (color:var(--muted)) - an ID beats any number of classes, so this has
+     to match or beat that specificity rather than just come later. */
+  .masthead #tagline{font-size:15.5px;line-height:1.65;color:#fff;
+    font-weight:500;max-width:720px;margin:12px auto 0}
+
+  /* ---- section nav: one row of links to every part of the page. Before a
+     search only New Search / Query / the two reference decks make sense to
+     visit, so the rest start disabled (native <button disabled>, not just
+     dimmed - a click on a section that doesn't exist yet should do nothing).
+     positionGuides() flips the gate the moment #results shows or hides. ---- */
+  .navrow{margin:26px 0 0;border-top:1px solid rgba(255,255,255,.18);
+    display:flex;justify-content:center;flex-wrap:wrap;padding:0 6px}
+  .navitem{display:flex;align-items:center;gap:7px;padding:14px 16px;
+    font-size:13px;font-weight:600;color:#fff;white-space:nowrap;
+    cursor:pointer;position:relative;background:none;border:0;
+    font-family:inherit;transition:opacity .2s;appearance:none}
+  .navitem svg{width:15px;height:15px;flex:none;opacity:.92}
+  .navitem:disabled{opacity:.38;cursor:default}
+  .navitem:not(:disabled):hover{opacity:.82}
 
   /* ---- sections announce themselves ----
      The panel heading was a 10px uppercase mono label, which read as a
@@ -906,7 +980,7 @@ script = script.replace(a, """  function smOf(g){
 # one more column in the detail table, so the expanded row must span one more
 a = '<td colspan="9">'
 assert script.count(a) == 1
-script = script.replace(a, '<td colspan="10">', 1)
+script = script.replace(a, '<td colspan="11">', 1)
 
 a, b = "  function rawSites(g){", "  function order(){"
 assert script.count(a) == 1 and script.count(b) == 1
@@ -966,12 +1040,156 @@ script = script[:script.index(a)] + r"""  function rawSites(g){
 """ + script[script.index(b):]
 
 
+# ---- the binding map gets a lane per tool, and a flash target -------------
+# Three tools measure position, so the map shows three lanes, each named.
+# Without the names a reader cannot tell which row is whose, and the whole
+# point of drawing them together is comparing them.
+a, b = "  function renderMap(){", "  /* ---------- table ---------- */"
+assert script.count(a) == 1 and script.count(b) == 1
+script = script[:script.index(a)] + r"""  // scanMiR reports classes the seed analyser never emits. They are binned
+  // onto the existing three tick colours by strength, and everything
+  // non-canonical gets a hollow tick - present, but the weakest thing the
+  // model reports. A fifth hue would have to be validated for contrast and
+  // colour-vision separation; a hollow mark needs neither.
+  var SM_TICK = {"8mer":"t8", "wobbled 8mer":"t8", "g-bulged 8mer":"t8",
+                 "7mer-m8":"t7m8", "7mer-a1":"t7a1", "7mer-A1":"t7a1",
+                 "wobbled 7mer":"t7a1", "g-bulged 7mer":"t7a1",
+                 "6mer":"t6", "6mer-m8":"t6", "6mer-a1":"t6",
+                 "g-bulged 6mer":"t6"};
+  function smTick(t){ return SM_TICK[t] || "tnc"; }
+
+  function flashSite(k){
+    // Clicking a row in the expanded table is a question about a place on
+    // the transcript, so the answer is on the map. Bring the map into view
+    // and mark the site for a few seconds - long enough to find it, short
+    // enough not to sit there blinking.
+    if (!k) return;
+    var b = document.querySelector('#map [data-k="' + k + '"]');
+    if (!b) return;
+    var box = document.getElementById("map");
+    (box.closest(".panel") || box).scrollIntoView({behavior: "smooth",
+                                                   block: "center"});
+    b.classList.remove("flash");
+    void b.offsetWidth;                 // restart the animation
+    b.classList.add("flash");
+    setTimeout(function(){ b.classList.remove("flash"); }, 4500);
+  }
+
+  function flashTableSite(k){
+    // The reverse question from flashSite: clicking a position on the map
+    // asks "where is this stored record in the table?" - the answer is the
+    // matching row in the gene's own expanded detail table (detailRow/
+    // rawSites), further down the page below the map. That row already
+    // gets a persistent highlight from the sitesel class once render() has
+    // drawn it selected, so this only needs to bring it into view, not
+    // animate it as well.
+    if (!k) return;
+    var row = document.querySelector('#results .sites [data-k="' + k + '"]');
+    if (!row) return;
+    row.scrollIntoView({behavior: "smooth", block: "center"});
+  }
+
+  function renderMap(){
+    if (!sel || !TX[sel]){
+      document.getElementById("map").innerHTML =
+        '<p class="say mapnone">Select a gene in the table below to draw ' +
+        'its binding map.</p>';
+      document.getElementById("maphint").textContent = "";
+      return;
+    }
+    var t = TX[sel], five = t.cds[0]-1, cds = t.cds[1]-t.cds[0]+1, three = t.len-t.cds[1];
+    var maj = t.len>6000?2000:(t.len>3000?1000:400), min = maj/4, ruler = "";
+    for (var p=0; p<=t.len; p+=min){
+      var pc=(p/t.len)*100, M=(p%maj===0);
+      ruler += '<span class="tick'+(M?" maj":"")+'" style="left:'+pc.toFixed(3)+'%"></span>';
+      if (M) ruler += '<span class="tlab" style="left:'+pc.toFixed(3)+'%">'+
+        (p===0?"0":(t.len>2000?(p/1000).toFixed(1).replace(/\.0$/,"")+"k":p))+"</span>";
+    }
+    var bar = '<div class="genebar"><span class="s5" style="width:'+((five/t.len)*100).toFixed(3)+'%"><b>5′UTR</b></span>'+
+      '<span class="scd" style="width:'+((cds/t.len)*100).toFixed(3)+'%"><b>CDS</b></span>'+
+      '<span class="s3" style="width:'+((three/t.len)*100).toFixed(3)+'%"><b>3′UTR</b></span></div>';
+
+    var ss = seedOf(sel), rr = rhOf(sel), mm = smOf(sel);
+
+    var seedLane = ss.length ? ss.map(function(s){
+      var mid=((s[3]+s[4])/2/t.len)*100, k="seed|"+s[3];
+      return '<button class="st'+(selSite===k?" sel":"")+'" data-k="'+k+'" style="left:'+mid.toFixed(3)+'%" '+
+        'title="'+s[2]+" "+RL[s[1]]+" "+s[3]+"–"+s[4]+'"><i class="'+TICK_CLASS[s[2]]+'"></i>'+
+        '<span class="lb">'+s[2]+"</span></button>";
+    }).join("") : '<span class="none">no seed site on this transcript</span>';
+
+    var rhLane = rr.length ? rr.map(function(r){
+      var L=(r[2]/t.len)*100, W=Math.max(0.35,((r[3]-r[2]+1)/t.len)*100), k="rh|"+r[2];
+      return '<button class="sd'+(r[4]<=-25?" strong":"")+(selSite===k?" sel":"")+'" data-k="'+k+'" '+
+        'style="left:'+L.toFixed(3)+'%;width:'+W.toFixed(3)+'%" title="ΔG '+r[4].toFixed(1)+" · "+
+        RL[r[1]]+" "+r[2]+"–"+r[3]+'"><span class="lb">'+r[4].toFixed(1)+"</span></button>";
+    }).join("") : '<span class="none">no duplex below the −15 kcal/mol cutoff</span>';
+
+    var smLane = mm.length ? mm.map(function(m){
+      var mid=((m[3]+m[4])/2/t.len)*100, k="sm|"+m[3], cls=smTick(m[2]);
+      // canonical sites are labelled; the non-canonical tail is drawn as
+      // bare ticks, or a transcript with 26 of them becomes unreadable
+      var lab = cls === "tnc" ? "" : '<span class="lb">'+m[2]+"</span>";
+      return '<button class="st'+(selSite===k?" sel":"")+'" data-k="'+k+'" style="left:'+mid.toFixed(3)+'%" '+
+        'title="'+m[2]+" "+(m[1]?RL[m[1]]:"")+" "+m[3]+"–"+m[4]+
+        " · log Kd "+m[5].toFixed(3)+'"><i class="'+cls+'"></i>'+lab+"</button>";
+    }).join("") : '<span class="none">no scanMiR site above the cutoff</span>';
+
+    function lane(name, body, n){
+      return '<div class="lanehead">'+name+'<span>'+n+" site"+(n===1?"":"s")+
+        "</span></div>"+'<div class="lane"><div class="lanebody'+
+        (n?"":" empty")+'">'+body+"</div></div>";
+    }
+
+    document.getElementById("map").innerHTML =
+      '<div class="ruler">'+ruler+"</div>"+bar+
+      lane("Seed analyser", seedLane, ss.length)+
+      lane("RNAhybrid", rhLane, rr.length)+
+      lane("scanMiR", smLane, mm.length);
+
+    document.getElementById("maphint").textContent =
+      sel + " · " + TX[sel].rs + " · " + t.len.toLocaleString() + " nt · " +
+      ss.length + " seed site" + (ss.length===1?"":"s") + " · " +
+      rr.length + " duplex" + (rr.length===1?"":"es") + " · " +
+      mm.length + " scanMiR site" + (mm.length===1?"":"s");
+
+    document.querySelectorAll("#map .st, #map .sd").forEach(function(b){
+      b.addEventListener("click", function(){
+        selSite = (selSite===b.dataset.k) ? null : b.dataset.k;
+        render();
+        flashTableSite(selSite);
+      });
+    });
+  }
+
+""" + script[script.index(b):]
+
+# clicking a row in the expanded table jumps to that site on the map
+a = """        selSite = (selSite===el.dataset.k) ? null : el.dataset.k;
+        render();"""
+assert script.count(a) == 1
+script = script.replace(a, """        selSite = (selSite===el.dataset.k) ? null : el.dataset.k;
+        render();
+        flashSite(selSite);""", 1)
+
+
 AGREE_CSS = """
   /* ---- tool agreement ----
 
-  Region fills encode a count, which is magnitude, so they run on one hue
-  from the surface toward the accent - never a hue per region. Identity
-  comes from the labels, so nothing here depends on telling colours apart.
+  The UpSet list (5 tools - see agreement.py, VENN_MAX_SETS) still ranks by
+  magnitude, so it keeps a one-hue ramp from the surface toward the accent.
+  The Venn diagram (2-4 tools) is a different job: each circle IS a tool, so
+  identity is the point, and identity needs one fixed hue per tool - never a
+  magnitude ramp, which would say "how much" about something that is a
+  "which". The five categorical hues (--agc-*) are validated for CVD
+  separation and normal-vision separation as a set (dataviz skill,
+  scripts/validate_palette.js, --pairs all - overlapping fills are the "any
+  two marks can be neighbours" case, not the adjacent-only one). One pair
+  (aqua/green, dark mode only) still sits under the normal-vision floor;
+  that is why identity is never colour-alone here - every circle keeps its
+  own fixed position in the standard 2/3/4-set layout (VENN_LAYOUT below)
+  and its own row in the tools legend, so position and the legend carry
+  identity and colour only reinforces it.
 
   Two ramps, each stepped against its own surface rather than flipped: the
   light one runs white to navy, the dark one near-black to light blue. On
@@ -981,35 +1199,190 @@ AGREE_CSS = """
     --ag-0:#ffffff; --ag-1:#eaf1f7; --ag-2:#cfe0ee; --ag-3:#9dc2dd;
     --ag-4:#5b92c2; --ag-5:#2e6da2; --ag-6:#12507e;
     --ag-on-deep:#ffffff;
+    --agc-seed:#2a78d6; --agc-targetscan:#1baf7a; --agc-rnahybrid:#eda100;
+    --agc-mirtarbase:#e34948; --agc-scanmir:#008300;
+    --ag-chip-bg:#fcfcfb; --ag-chip-ink:#0b0b0b; --ag-chip-ring:rgba(11,11,11,.14);
   }
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
     --ag-0:#0e1113; --ag-1:#15242f; --ag-2:#1d3a52; --ag-3:#24506e;
     --ag-4:#35719a; --ag-5:#4b8fc0; --ag-6:#68a8dd;
     --ag-on-deep:#0e1113;
+    --agc-seed:#3987e5; --agc-targetscan:#199e70; --agc-rnahybrid:#c98500;
+    --agc-mirtarbase:#e66767; --agc-scanmir:#008300;
+    --ag-chip-bg:#1a1a19; --ag-chip-ink:#ffffff; --ag-chip-ring:rgba(255,255,255,.16);
   }}
   :root[data-theme="dark"]{
     --ag-0:#0e1113; --ag-1:#15242f; --ag-2:#1d3a52; --ag-3:#24506e;
     --ag-4:#35719a; --ag-5:#4b8fc0; --ag-6:#68a8dd;
     --ag-on-deep:#0e1113;
+    --agc-seed:#3987e5; --agc-targetscan:#199e70; --agc-rnahybrid:#c98500;
+    --agc-mirtarbase:#e66767; --agc-scanmir:#008300;
+    --ag-chip-bg:#1a1a19; --ag-chip-ink:#ffffff; --ag-chip-ring:rgba(255,255,255,.16);
   }
 
+  /* the map now has a lane per tool, so each one is named */
+  .lanehead{display:flex;justify-content:space-between;align-items:baseline;
+            font-family:'IBM Plex Mono',monospace;font-size:10px;
+            letter-spacing:.07em;text-transform:uppercase;color:var(--faint);
+            margin:10px 0 3px}
+  .lanehead span{letter-spacing:0;text-transform:none;font-size:10.5px}
+
+  /* scanMiR's non-canonical sites: present, and the weakest thing it
+     reports. Hollow rather than a fifth hue, which would need validating
+     for contrast and colour-vision separation. */
+  .tnc{background:transparent;box-shadow:inset 0 0 0 1.5px var(--faint)}
+
+  /* a site arrived at from the table below: marked long enough to find,
+     not long enough to nag */
+  @keyframes siteflash{
+    0%,100%{box-shadow:0 0 0 0 var(--sel-wash)}
+    50%{box-shadow:0 0 0 5px var(--sel-wash)}
+  }
+  #map .flash{outline:2px solid var(--sel);outline-offset:2px;
+              border-radius:2px;animation:siteflash .75s ease-in-out 6;z-index:5}
+  @media (prefers-reduced-motion:reduce){
+    #map .flash{animation:none}
+  }
+
+  /* the enriched-terms gene column: a preview, capped so one broad term
+     cannot push the p-value column off the screen */
+  .terms td.gsyms{font-size:11.5px;color:var(--muted);line-height:1.4;
+                  max-width:30ch}
+  .terms td.gsyms b{color:var(--ink);font-weight:600}
+  .terms td.gsyms .more{color:var(--faint);white-space:nowrap}
+
   #agtools{flex-wrap:wrap;margin-bottom:10px}
+  #agtools label{display:inline-flex;align-items:center;gap:5px}
+  /* the checkbox row doubles as the colour legend - a swatch beside a name
+     the reader already has to look at, rather than a second legend nobody
+     reads (dataviz skill: identity is never colour-alone, so the swatch
+     reinforces the checkbox's own text, it does not replace it) */
+  .agswatch{width:10px;height:10px;border-radius:50%;flex:none;
+            box-shadow:inset 0 0 0 1px var(--ag-chip-ring)}
   .agcap{max-width:none;margin:8px 0 0}
+
+  /* ---- the Venn / single-circle figure ----
+
+  Capped at 4 tools (agToolBoxes below enforces this in the picker): a Venn
+  reads by its shape as much as its numbers, and a 5th circle needs ellipses
+  and 31 regions, several too thin to read at all - see agreement.py's
+  VENN_MAX_SETS and manifests/agreement_design.md. Sized generously (760px)
+  because every region now carries a name-bearing chip, not just a number -
+  and because the SVG's own coordinates (and every chip/label size within
+  it) are untouched by this: a bigger box means everything in it, numbers
+  included, renders physically larger, not a different layout. */
+  .agvenn{display:block;width:100%;max-width:760px;height:auto;
+          margin:10px auto 0;overflow:visible}
+  .agshape{stroke:var(--surface);stroke-width:2px;fill-opacity:.55}
+  /* multiply reads as classic Venny colour-mixing on a light surface; on a
+     dark surface multiply only goes black, so overlaps lighten instead */
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .agshape{
+    mix-blend-mode:screen}}
+  :root[data-theme="dark"] .agshape{mix-blend-mode:screen}
+  :root, :root[data-theme="light"] .agshape{mix-blend-mode:multiply}
+  @media (prefers-reduced-motion:no-preference){
+    .agshape{transition:fill-opacity .15s}
+  }
+  .agshape.agdim{fill-opacity:.12}
+  /* miRTarBase is evidence, not prediction (see agreement.py's module
+     docstring) - a hatch on top of its own fill says so without spending a
+     second hue, and survives print/forced-colours where hue does not
+     (dataviz skill's texture channel) */
+  .agshape.agevid-tex{fill:url(#agHatch);stroke:none;fill-opacity:.5;
+                       pointer-events:none}
+
+  /* the tool name printed just outside its own circle - the halo is a
+     surface-coloured stroke under the fill (paint-order), not a computed
+     contrast colour, so it stays legible over whatever is behind it in
+     either theme without per-case tuning */
+  .agsetlabel{font-family:'IBM Plex Mono',monospace;font-size:14.5px;
+              font-weight:700;text-anchor:middle;pointer-events:none;
+              paint-order:stroke fill;stroke:var(--surface);
+              stroke-width:5.5px;stroke-linejoin:round}
+
+  /* Every region is a small card, not just a number: percentage, the raw
+     count, and - the part a reader used to have to trace overlapping
+     circles to get - a dot per tool actually in this region, coloured like
+     the tools legend above. A region nobody's gene ever landed in still
+     gets a card at 0%, exactly like the ones that did; a Venn missing a
+     slice reads as broken, not as "zero" (agreement.py now returns every
+     combination, not just the non-empty ones). */
+  .agchip{cursor:pointer}
+  .agchip rect{fill:var(--ag-chip-bg);stroke:var(--ag-chip-ring);
+               stroke-width:1px}
+  .agchip .agchip-pct{fill:var(--ag-chip-ink);font-family:'IBM Plex Mono',monospace;
+               font-weight:700;text-anchor:middle;dominant-baseline:central;
+               pointer-events:none;font-variant-numeric:tabular-nums}
+  .agchip .agchip-n{fill:var(--ag-chip-ink);opacity:.6;
+               font-family:'IBM Plex Mono',monospace;font-weight:500;
+               text-anchor:middle;dominant-baseline:central;
+               pointer-events:none;font-variant-numeric:tabular-nums}
+  .agchip .agchip-dot{pointer-events:none;stroke:var(--ag-chip-bg);
+               stroke-width:.75px}
+  .agchip:hover rect, .agchip:focus-visible rect{
+    stroke:var(--sel);stroke-width:2px}
+  .agchip:focus-visible{outline:none}
+  .agcapnote{display:block;font-size:11px;color:var(--faint);margin:2px 0 0}
+
+  /* ---- the UpSet-style list, five tools ---- */
   .agrows{display:grid;gap:3px;margin-top:4px}
-  .agrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;
-         align-items:center;font-size:12.5px;padding:2px 0;
+  .agrow{display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;
+         align-items:center;font-size:12.5px;padding:3px 0;
          border:0;background:none;color:inherit;text-align:left;
          font-family:inherit;cursor:pointer;width:100%}
   .agrow:hover .aglbl{text-decoration:underline}
-  .agrow .agn{font-variant-numeric:tabular-nums;color:var(--muted);
-              min-width:5ch;text-align:right}
-  .agrow .aglbl{color:var(--ink)}
-  .agrow .agsub{color:var(--faint);font-size:11px}
-  .agbar{height:9px;border-radius:2px;background:var(--surface-2);
+  .agrow .agdots{display:flex;gap:3px}
+  .agrow .agdot{width:8px;height:8px;border-radius:50%;flex:none}
+  .agrow .agdot.off{background:none!important;
+                     box-shadow:inset 0 0 0 1px var(--faint)}
+  .agrow .agn{font-variant-numeric:tabular-nums;color:var(--ink);
+              min-width:8ch;text-align:right}
+  .agrow .agn b{font-weight:600}
+  .agrow .agn .agcount{color:var(--faint);font-weight:400}
+  .agrow .aglbl{color:var(--muted);font-size:11.5px}
+  .agbar{height:7px;border-radius:2px;background:var(--surface-2);
          position:relative;overflow:hidden}
-  .agbar i{display:block;height:100%;border-radius:2px}
+  .agbar i{display:block;height:100%;border-radius:2px;background:var(--ag-4)}
   .agnone{color:var(--faint);font-size:12.5px;padding:6px 0}
   .agerr{color:var(--warn);font-size:12px}
+
+  /* ---- the click-through detail box ---- */
+  #agdetail{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .agdethead{display:flex;justify-content:space-between;align-items:baseline;
+             flex-wrap:wrap;gap:8px 16px;margin-bottom:4px}
+  .agdethead h3{font-size:13.5px;margin:0}
+  .agdethead h3 b{font-variant-numeric:tabular-nums}
+  .agdetclose{border:0;background:none;color:var(--faint);cursor:pointer;
+              font-size:16px;line-height:1;padding:2px 4px}
+  .agdetclose:hover{color:var(--ink)}
+  .agdetnote{color:var(--muted);font-size:12px;margin:2px 0 10px;max-width:none}
+  .agdetbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;
+            margin-bottom:8px}
+  .agdetbar .cols{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px;
+                  color:var(--muted)}
+  .agdetbar .cols label{display:inline-flex;align-items:center;gap:3px}
+  .agdetbtn{border:1px solid var(--line);background:var(--surface);
+            color:var(--ink);border-radius:4px;font-size:11.5px;
+            padding:3px 9px;cursor:pointer;font-family:inherit}
+  .agdetbtn:hover{border-color:var(--muted)}
+  .agdetbtn:disabled{opacity:.5;cursor:default}
+  .agtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  .agtable th{text-align:left;font-weight:500;color:var(--faint);
+              font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+              padding:3px 8px;border-bottom:1px solid var(--line)}
+  .agtable td{padding:3px 8px;border-bottom:1px solid var(--line-soft);
+              vertical-align:top}
+  .agtable tr.agtr{cursor:pointer}
+  .agtable tr.agtr:hover td{background:var(--surface-2)}
+  .agtable td.agsym{font-weight:600;color:var(--ink)}
+  .agtable td.agcell{color:var(--muted);font-variant-numeric:tabular-nums;
+                     white-space:nowrap}
+  .agtable td.agcell .agmiss{color:var(--faint)}
+  .agtable td.agmiss{color:var(--faint);text-align:center;padding:10px 8px}
+  .agdetmore{font-size:11.5px;color:var(--muted);background:none;border:0;
+             cursor:pointer;padding:6px 0;font-family:inherit}
+  .agdetmore:hover{color:var(--ink);text-decoration:underline}
+  .agdetstat{font-size:11.5px;color:var(--faint);margin-top:6px}
 """
 
 HEAD = """<!doctype html>
@@ -1026,10 +1399,46 @@ HEAD = """<!doctype html>
 <div class="wrap">
 
   <header class="masthead">
-    <div class="kicker" id="kicker"></div>
-    <h1 id="title">&nbsp;</h1>
-    <p class="sub2line" id="subtitle"></p>
-    <p class="sub" id="tagline"></p>
+    <div class="mh-inner">
+      <div class="brand-row">
+        <div class="brand-name-col">
+          <h1 id="title">&nbsp;</h1>
+          <p class="maker">An Epigen-BioinfoLab Product</p>
+        </div>
+        <span class="kicker" id="kicker"></span>
+      </div>
+      <p class="sub2line" id="subtitle"></p>
+      <p class="sub" id="tagline"></p>
+    </div>
+    <nav class="navrow" id="navRow">
+      <button type="button" class="navitem" data-target="querybox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+        New Search</button>
+      <button type="button" class="navitem" data-target="querybox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Query</button>
+      <button type="button" class="navitem" data-target="mapsection" data-gate="results" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Binding Map</button>
+      <button type="button" class="navitem" data-target="resulttable" data-gate="results" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="10" y1="4" x2="10" y2="20"/></svg>
+        The Result Table</button>
+      <button type="button" class="navitem" data-target="agree" data-gate="results" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Tool Agreement</button>
+      <button type="button" class="navitem" data-target="enrich" data-gate="results" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 C4 12,10 12,10 6"/><circle cx="10" cy="4" r="2"/><path d="M20 20 C20 14,15 14,15 9"/><circle cx="15" cy="7" r="2"/></svg>
+        Pathway Analysis</button>
+      <button type="button" class="navitem" data-target="netbox" data-gate="results" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><line x1="12" y1="7.4" x2="6.4" y2="17"/><line x1="12" y1="7.4" x2="17.6" y2="17"/><line x1="7.4" y1="19" x2="16.6" y2="19"/></svg>
+        Target Network</button>
+      <button type="button" class="navitem" data-select=".toolkey">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor"/></svg>
+        How The Tool Works</button>
+      <button type="button" class="navitem" data-select=".notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><polyline points="15 2 15 7 20 7"/></svg>
+        How To Read This Page</button>
+    </nav>
   </header>
 
   <section class="panel" id="querybox">
@@ -1053,6 +1462,8 @@ HEAD = """<!doctype html>
     <div class="panel-body" id="runlist"></div>
   </section>
 
+  <div id="guidesPreRun"></div>
+
   <div id="results" hidden>
 
     <div class="notice" id="prov"></div>
@@ -1063,6 +1474,46 @@ TAIL_JS = r"""
   /* ================== live data ================== */
 
   function el(id){ return document.getElementById(id); }
+
+  /* "How The Tool Works" and "How To Read This Page" are reference
+     material a first-time user should be able to reach before they've run
+     anything, not just after - but once a result exists they belong back
+     at the bottom, beside Target Network, where they've always lived. So
+     the two sections physically move: up beside New Search while #results
+     is hidden (nothing to show yet), back down to their usual spot the
+     moment a job's results are on screen. #guidesPreRun and #guidesHome
+     are the two fixed anchors that mark those spots. */
+  function positionGuides(preRun){
+    // The masthead's links to everything below #results (Binding Map, the
+    // table, Tool Agreement, Pathway Analysis, Target Network) are real
+    // <button disabled> elements while there's nothing there to jump to -
+    // gated here, the one place that already tracks whether #results is
+    // showing.
+    document.querySelectorAll('.navitem[data-gate="results"]').forEach(function(b){
+      b.disabled = preRun;
+    });
+    var tk = document.querySelector(".toolkey"),
+        nt = document.querySelector(".notes"),
+        anchor = el(preRun ? "guidesPreRun" : "guidesHome");
+    if (!tk || !nt || !anchor) return;
+    anchor.parentNode.insertBefore(tk, anchor.nextSibling);
+    tk.parentNode.insertBefore(nt, tk.nextSibling);
+  }
+  positionGuides(true);
+
+  // Each section link scrolls to its target rather than navigating - the
+  // whole page is one document. .toolkey/.notes move around (positionGuides
+  // above), so their targets are looked up by selector at click time, never
+  // cached, and always land on wherever the deck currently sits. Centered
+  // rather than pinned to the top, so the section you asked for is the one
+  // sitting in the middle of the screen, not a sliver at the very edge.
+  document.querySelectorAll(".navitem").forEach(function(b){
+    b.addEventListener("click", function(){
+      var t = b.dataset.target ? el(b.dataset.target)
+            : document.querySelector(b.dataset.select);
+      if (t) t.scrollIntoView({behavior: "smooth", block: "center"});
+    });
+  });
 
   function jsonOrThrow(r){
     return r.json().then(function(b){
@@ -1117,16 +1568,6 @@ TAIL_JS = r"""
     box.textContent = msg;
     box.hidden = false;
     el("runbtn").disabled = false;
-  }
-
-  /* ---------- the tool key, versions from /tools ---------- */
-  function toolkey(){
-    el("tkbody").innerHTML = TOOLKEY.map(function(t){
-      return '<tr' + (t[6] ? ' class="pending"' : "") + '><td><span class="tname">' +
-        t[0] + '<span class="tver">' + t[1] + "</span></span></td><td>" + t[2] +
-        '</td><td class="unit">' + t[3] + "</td><td>" + t[4] + "</td><td>" + t[5] +
-        "</td></tr>";
-    }).join("");
   }
 
   /* ---------- panels ---------- */
@@ -1339,8 +1780,11 @@ TAIL_JS = r"""
   }
 
   function loadPage(){
-    api("/jobs/" + JOBID + "/genes?sort=" + PAGE.sort + "&limit=" + PAGE.limit +
-        "&offset=" + PAGE.offset +
+    // Returned so a caller that needs to act only once the table has
+    // actually been repainted - focusGene()'s scroll, in particular - can
+    // chain onto it instead of firing immediately against stale content.
+    return api("/jobs/" + JOBID + "/genes?sort=" + PAGE.sort +
+        "&limit=" + PAGE.limit + "&offset=" + PAGE.offset +
         (PAGE.gene ? "&gene=" + encodeURIComponent(PAGE.gene) : "") +
         (PAGE.q ? "&q=" + encodeURIComponent(PAGE.q) : ""))
       .then(function(p){
@@ -1348,6 +1792,7 @@ TAIL_JS = r"""
         applyData(p);
         el("results").hidden = false;
         el("runbox").hidden = true;
+        positionGuides(false);
         render();
         pager();
         gsBoxes();
@@ -1375,6 +1820,7 @@ TAIL_JS = r"""
     el("qerr").hidden = true;
     el("runbtn").disabled = true;
     el("results").hidden = true;
+    positionGuides(true);
     MIRINFO = null;
     api("/mirnas/" + encodeURIComponent(mir))
       .then(function(m){ MIRINFO = m; })
@@ -1395,6 +1841,14 @@ TAIL_JS = r"""
   }
 
   /* ---------- toolbar ---------- */
+
+  // Shared by the small "← all genes" link and the big banner's own button -
+  // both undo the exact same PAGE.gene/PAGE.q filter the exact same way.
+  function clearGeneFocus(){
+    PAGE.gene = null; PAGE.q = ""; el("geneq").value = "";
+    el("geneqx").hidden = true; PAGE.offset = 0; loadPage();
+  }
+
   function pager(){
     var lo = PAGE.offset + 1, hi = Math.min(PAGE.offset + PAGE.limit, PAGE.total);
     el("pagelbl").textContent = PAGE.gene
@@ -1409,6 +1863,17 @@ TAIL_JS = r"""
     var back = el("ungene");
     back.hidden = !(PAGE.gene || PAGE.q);
     back.textContent = "← all genes";
+    // The big banner is narrower than that: PAGE.q can match many genes,
+    // and "showing X only" would be false for all of them. It only ever
+    // means what it says for a single-gene focus.
+    var gb = el("genebanner");
+    if (gb){
+      gb.hidden = !PAGE.gene;
+      if (PAGE.gene){
+        var sym = el("genebannersym");
+        if (sym) sym.textContent = PAGE.gene;
+      }
+    }
     pageNumbers();
   }
 
@@ -1481,13 +1946,19 @@ TAIL_JS = r"""
       'aria-haspopup="true" aria-expanded="false">Export ↓</button>' +
       '<div class="expmenu" id="expmenu" hidden>' +
       '<div class="exprow"><span>This view</span>' +
+      '<button type="button" class="expprimary" data-scope="view" ' +
+      'data-fmt="xlsx">Excel</button>' +
       '<button type="button" data-scope="view" data-fmt="tsv">TSV</button>' +
-      '<button type="button" data-scope="view" data-fmt="xlsx">Excel</button>' +
       '</div>' +
       '<div class="exprow"><span>Whole job</span>' +
+      '<button type="button" class="expprimary" data-scope="all" ' +
+      'data-fmt="xlsx">Excel</button>' +
       '<button type="button" data-scope="all" data-fmt="tsv">TSV</button>' +
-      '<button type="button" data-scope="all" data-fmt="xlsx">Excel</button>' +
       '</div>' +
+      '<p class="exphint">Excel opens as a formatted, ready-to-read table. ' +
+      'TSV is plain text for R or pandas — it will open in Excel too, but ' +
+      'unstyled and one row per stored record, so a job with several tools ' +
+      'looks sparse.</p>' +
       '<div class="expsep"><label class="expctl">Report genes ' +
       '<select id="repn">' +
       '<option value="25">top 25</option>' +
@@ -1546,10 +2017,27 @@ TAIL_JS = r"""
     d.innerHTML = '<button class="linkbtn" id="ungene" type="button" hidden></button>' +
                   '<span id="pagelbl"></span><span id="pgnums"></span>';
     bar.appendChild(d);
-    el("ungene").addEventListener("click", function(){
-      PAGE.gene = null; PAGE.q = ""; el("geneq").value = "";
-      el("geneqx").hidden = true; PAGE.offset = 0; loadPage();
-    });
+    el("ungene").addEventListener("click", clearGeneFocus);
+
+    // A prominent banner, not just the small "N only" text already in the
+    // pager line - clicking a gene from the agreement diagram (or the
+    // pathway panel, or the network view) filters this table down to one
+    // row, and a reader landing here mid-scroll has no other way to tell
+    // that what they are looking at is a single gene, not the whole table.
+    // Sits directly above the table itself, inside #results, so it is the
+    // first thing in view when focusGene() scrolls there.
+    var tw = document.querySelector("#results .tablewrap");
+    if (tw && tw.parentNode && !el("genebanner")){
+      var gb = document.createElement("div");
+      gb.id = "genebanner";
+      gb.className = "genebanner";
+      gb.hidden = true;
+      gb.innerHTML = "Showing <b id=\"genebannersym\"></b> only" +
+        " <button type=\"button\" class=\"linkbtn\" id=\"genebannerx\">" +
+        "show all genes</button>";
+      tw.parentNode.insertBefore(gb, tw);
+      el("genebannerx").addEventListener("click", clearGeneFocus);
+    }
 
     var sb = document.createElement("div");
     sb.className = "tsearch gsearch";
@@ -1656,7 +2144,23 @@ TAIL_JS = r"""
     return {query: q, boxes: boxes, body: o};
   }
 
-  function gsChanged(){
+  // Whether the enrichment currently shown (or about to be requested) came
+  // from a Tool Agreement region click rather than this panel's own
+  // tick-boxes. When true the boxes/regions/count are faded, because they
+  // were never read for that run and would otherwise read as if they had
+  // been. Cleared the instant the user genuinely touches a filter (a real
+  // DOM event, not the programmatic gsChanged() call every table reload
+  // already makes) or presses "Run GO and KEGG" themselves - either one
+  // means the panel and whatever is showing below agree again.
+  var GS_FROM_REGION = false;
+  function gsSetSource(fromRegion){
+    GS_FROM_REGION = !!fromRegion;
+    el("enrich").classList.toggle("gs-external", GS_FROM_REGION);
+    el("gsextnote").hidden = !GS_FROM_REGION;
+  }
+
+  function gsChanged(evt){
+    if (evt) gsSetSource(false);
     if (el("gs_ts")) el("gs_ts_c").hidden = el("gs_ts_v").value !== "cut";
     document.querySelectorAll("#enrich .gsrow").forEach(function(r){
       var cb = r.querySelector("input[type=checkbox]");
@@ -1716,6 +2220,7 @@ TAIL_JS = r"""
   function gsRun(){
     if (!JOBID) return;
     ENRSRC = null;
+    gsSetSource(false);
     el("gsrun").disabled = true;
     el("gsrun").textContent = "Starting\u2026";
     fetch("/jobs/" + JOBID + "/enrichment", {
@@ -1844,7 +2349,7 @@ TAIL_JS = r"""
 
     if (run.status === "failed"){
       el("enrichtabs").innerHTML = "";
-      el("termbody").innerHTML = '<tr><td colspan="4">' +
+      el("termbody").innerHTML = '<tr><td colspan="5">' +
         esc(run.error || "the run failed") + "</td></tr>";
       el("termcount").textContent = "";
       el("termmore").hidden = true;
@@ -1892,6 +2397,28 @@ TAIL_JS = r"""
         });
       }
     });
+    function termSymbols(t){
+      // The term's own driver genes, not the whole list. Searching by gene
+      // is only useful if you can see which gene matched, so a match is
+      // pulled to the front rather than left buried at position 40.
+      var syms = String(t.genes || "").split("/").filter(Boolean);
+      var q = (ENRQ || "").toUpperCase();
+      if (q) syms.sort(function(a, b){
+        var am = a.toUpperCase().indexOf(q) >= 0,
+            bm = b.toUpperCase().indexOf(q) >= 0;
+        return am === bm ? 0 : (am ? -1 : 1);
+      });
+      var SHOWN = 6;
+      var head = syms.slice(0, SHOWN).map(function(x){
+        return q && x.toUpperCase().indexOf(q) >= 0
+          ? "<b>" + esc(x) + "</b>" : esc(x);
+      }).join(", ");
+      // the full list is one click away in the expanded row, so the cell
+      // stays a preview rather than a wall
+      return head + (syms.length > SHOWN
+        ? '<span class="more"> +' + (syms.length - SHOWN) + " more</span>" : "");
+    }
+
     el("termbody").innerHTML = rows.length ? rows.map(function(t, i){
       return '<tr class="t" data-i="' + i + '">' +
         '<td class="caret">\u25b8</td>' +
@@ -1899,8 +2426,9 @@ TAIL_JS = r"""
         '<span class="tid">' + esc(t.term_id) + "</span></td>" +
         '<td class="num">' + t.k_in_term_and_list +
         (t.k_in_term_and_list === 1 ? " gene" : " genes") + "</td>" +
+        '<td class="gsyms">' + termSymbols(t) + "</td>" +
         '<td class="num">' + t.p_adjust.toExponential(1) + "</td></tr>";
-    }).join("") : ('<tr><td colspan="4">' + (run.status !== "done"
+    }).join("") : ('<tr><td colspan="5">' + (run.status !== "done"
         ? "waiting for the worker\u2026"
         : (ENRQ
            ? "No term in " + esc(SRCNAME[ENRSRC] || ENRSRC) + " matches \u201c" +
@@ -1986,8 +2514,19 @@ TAIL_JS = r"""
   function focusGene(sym){
     PAGE.gene = sym;
     PAGE.offset = 0;
-    loadPage();
-    el("results").scrollIntoView({behavior: "smooth", block: "start"});
+    // Waits for the table to actually hold this gene's row before scrolling
+    // to it - firing scrollIntoView immediately, against whatever was on
+    // screen before this fetch resolved, is what used to land the reader on
+    // #results' own first child instead: the Binding map panel sits above
+    // the results table inside that same div (see layout-source.html), so
+    // scrolling to "the top of #results" and scrolling to "the results
+    // table" were never the same thing. It also targets the table itself,
+    // not the whole #results div, for exactly that reason.
+    loadPage().then(function(){
+      var target = document.querySelector("#results .tablewrap") ||
+                   el("results");
+      target.scrollIntoView({behavior: "smooth", block: "start"});
+    });
   }
 
   function boot(){
@@ -2029,16 +2568,6 @@ TAIL_JS = r"""
             "</label>";
         }).join("") + "</div>";
       toolsChanged();
-
-      var map = {"Seed analyser": "seed", "RNAhybrid": "rnahybrid",
-                 "TargetScan": "targetscan", "miRTarBase": "mirtarbase",
-                 "scanMiR": "scanmir"};
-      TOOLKEY.forEach(function(row){
-        var n = map[row[0]];
-        if (n && TOOLMETA[n])
-          row[1] = (row[0] === "Seed analyser" ? "ours, v" : "") + TOOLMETA[n].version;
-      });
-      toolkey();
     }).catch(showErr);
   }
 
@@ -2072,7 +2601,7 @@ NETWORK_JS = """
             mirbg: "#f0a19b", mirline: "#bd4a42",
             valbg: "#9cc7e8", valline: "#2c6fa5",
             predbg: "#f7dd82", predline: "#c29a1e",
-            edge: "#9aa4ae", edgeshare: "#c4ccd4"};
+            edge: "#9aa4ae", edgeshare: v("--accent", "#12507e")};
   }
 
   function netStyleNode(n, P){
@@ -2121,7 +2650,8 @@ NETWORK_JS = """
       s.id = n.id; s.label = n.label; s.value = n.value;
       s.title = n.group === "mirna"
         ? n.label + " · " + n.accession + " · " + n.n_targets + " targets"
-        : n.label + " · " + n.n_tools + " of 4 tools" +
+        : n.label + " \u00b7 " + n.n_tools + " of " +
+          ((d.meta && d.meta.n_tools_run) || n.n_tools) + " tools" +
           (n.strong_functional ? " · " + n.strong_functional +
            " strong functional experiments" : "");
       return s;
@@ -2131,8 +2661,11 @@ NETWORK_JS = """
       var shared = e.kind === "shared_terms";
       return {id: "e" + i, from: e.from, to: e.to, value: e.value,
               title: e.title,
-              dashes: shared ? [2, 4] : false,
-              width: shared ? 1 : undefined,
+              // dashed rather than dotted, and 2px rather than 1: at
+              // one pixel in near-white the link was invisible against the
+              // panel, so the layer looked like it had not been drawn
+              dashes: shared ? [6, 4] : false,
+              width: shared ? 2 : undefined,
               // mid grey so the links carry structure without competing with
               // the coloured nodes or the labels drawn over them
               color: {color: shared ? P.edgeshare : P.edge,
@@ -2234,7 +2767,7 @@ NETWORK_JS = """
              n.context.toFixed(3)) +
       netRow("TargetScan PCT", n.pct == null ? null : n.pct) +
       netRow("scanMiR log Kd", n.log_kd == null ? null :
-             n.log_kd.toFixed(3) + (n.sm_site ? " · " + nesc(n.sm_site) : "") +
+             n.log_kd.toFixed(3) + (n.sm_site ? " \u00b7 " + nesc(n.sm_site) : "") +
              (n.n_sm > 1 ? " (best of " + n.n_sm + " sites)" : "")) +
       netRow("miRTarBase", n.strong_functional ? n.strong_functional +
              " strong functional experiments" : null) +
@@ -2274,6 +2807,9 @@ NETWORK_JS = """
         "&top_n=" + el("netn").value +
         "&min_shared=" + el("netmin").value)
       .then(function(d){
+        // a failed request and a failed draw are different problems and must
+        // not share a handler - one shared catch hid a thrown TypeError as
+        // "unavailable" for three rounds of debugging once already
         try {
           drawNetwork(d);
         } catch (err) {
@@ -2315,22 +2851,207 @@ AGREE_JS = r"""
   /* ================== tool agreement ==================
 
   The results table says what each tool found. This says how much the tools
-  overlap, and which genes sit where they disagree.
+  overlap, and which genes sit where they disagree: a real Venn diagram for
+  2-4 tools (VENN_LAYOUT), an UpSet-style list for all five (agreement.py's
+  VENN_MAX_SETS is the same cutoff the server used to pick a.display).
 
   Every number is computed over the same filtered rows the table is showing,
   and the caption states both the filters and the membership rule. A figure
   whose numbers quietly disagree with the table above it reads as a bug even
   when both are right. */
 
-  var AGREE = {all: null, picked: null, data: null};
+  var AGREE = {all: null, picked: null, data: null, detail: null};
+  var AGREE_LAST_KEY = null;
 
-  function agFillFor(n, max){
-    /* A count is magnitude, so it runs on one hue from the surface toward
-       the accent. Six steps: enough to rank regions by eye, few enough that
-       adjacent steps stay apart. */
-    if (!max) return "var(--ag-1)";
-    var i = Math.min(6, Math.max(1, Math.ceil((n / max) * 6)));
-    return "var(--ag-" + i + ")";
+  // Fixed order, fixed colour, never cycled - the CVD-safety mechanism the
+  // dataviz skill requires for a categorical palette. A tool's colour and
+  // its position in this list do not change when other tools are ticked or
+  // unticked, so "seed is blue" stays true across every render.
+  var CANON = ["seed", "targetscan", "rnahybrid", "mirtarbase", "scanmir"];
+  // The agreement figure's own default, independent of tool run order: one
+  // evidence source plus two independent predictors, rather than "whichever
+  // tools happen to run first" or "everything, until that hits the 4-cap".
+  var DEFAULT_PICK = ["mirtarbase", "rnahybrid", "scanmir"];
+  var TOOLHUE = {seed: "seed", targetscan: "targetscan", rnahybrid: "rnahybrid",
+                mirtarbase: "mirtarbase", scanmir: "scanmir"};
+
+  /* Every shape and every region-label position below was computed, not
+     eyeballed: a dense grid of points was tested against each candidate
+     layout of circles/ellipses, bucketed by which shapes contain each point,
+     and the bucket's own mean position kept as that region's label anchor -
+     which is also how "does every region actually have a visible area" was
+     checked (four congruent ellipses cannot be fully 4-fold symmetric and
+     still show a real Venn diagram; the search kept the layout whose
+     smallest of the 15 regions was largest). See manifests/agreement_design.md
+     for the search and the parameters it kept. Region keys are a bitmask
+     over this layout's own shape letters A/B/C/D, assigned to the picked
+     tools in CANON order - never to a fixed tool, since any 2-4 of the five
+     can be picked. */
+  // vb carries a 40-unit margin beyond the shapes on every side (unrelated
+  // to the grid-sampled shape/centroid coordinates, which are untouched) -
+  // room for the tool-name label that now sits just outside each circle.
+  var VENN_LAYOUT = {
+    1: {vb: [-40, -40, 320, 320],
+       shapes: {A: {type: "circle", cx: 120, cy: 120, r: 100}},
+       centroids: {1: [120, 120]}},
+    2: {vb: [-40, -40, 500, 380],
+       shapes: {A: {type: "circle", cx: 175, cy: 150, r: 110},
+                B: {type: "circle", cx: 255, cy: 150, r: 110}},
+       centroids: {1: [126.6, 150], 2: [303.4, 150], 3: [215, 150]}},
+    3: {vb: [-40, -40, 540, 460],
+       shapes: {A: {type: "circle", cx: 200, cy: 170, r: 120},
+                B: {type: "circle", cx: 280, cy: 170, r: 120},
+                C: {type: "circle", cx: 240, cy: 240, r: 120}},
+       centroids: {1: [134.9, 132.6], 2: [345.1, 132.6], 3: [240, 101.8],
+                   4: [240, 314.7], 5: [160.6, 239.1], 6: [319.4, 239.1],
+                   7: [240, 193.5]}},
+    4: {vb: [-40, -40, 780, 640],
+       shapes: {
+         A: {type: "ellipse", cx: 330, cy: 280, rx: 276.81, ry: 110.26, rot: -45.05},
+         B: {type: "ellipse", cx: 239.84, cy: 280, rx: 276.81, ry: 110.26, rot: -51.32},
+         C: {type: "ellipse", cx: 370, cy: 280, rx: 276.81, ry: 110.26, rot: 45.05},
+         D: {type: "ellipse", cx: 460.16, cy: 280, rx: 276.81, ry: 110.26, rot: 51.32}},
+       centroids: {1: [389.1, 266.0], 2: [129.0, 346.5], 3: [201.6, 379.6],
+                   4: [310.9, 266.0], 5: [350.0, 367.0], 6: [227.9, 178.3],
+                   7: [279.3, 278.1], 8: [571.0, 346.5], 9: [472.1, 178.3],
+                   10: [350.0, 86.9], 11: [402.4, 126.6], 12: [498.4, 379.6],
+                   13: [420.7, 278.1], 14: [297.6, 126.6], 15: [350.0, 207.8]}}
+  };
+  var LETTERS = ["A", "B", "C", "D"];
+
+  // Chip size steps down as circles pack tighter (n=4's slivers are ~1% of
+  // the figure - see the manifest), so the card never outgrows its region.
+  var CHIP = {
+    1: {w: 96, h: 58, pct: 16.5, n: 11, dotR: 3.6, dotGap: 10, pctY: -15, nY: 4, dotY: 20},
+    2: {w: 68, h: 48, pct: 13.5, n: 9.5, dotR: 3.1, dotGap: 8.4, pctY: -13, nY: 3, dotY: 17},
+    3: {w: 60, h: 44, pct: 12.5, n: 9, dotR: 2.8, dotGap: 7.6, pctY: -12, nY: 2, dotY: 15.5},
+    4: {w: 50, h: 38, pct: 11, n: 8, dotR: 2.3, dotGap: 6.4, pctY: -10, nY: 1.5, dotY: 13}
+  };
+
+  // Is (px,py) inside sh, inflated by margin on every side? Handles the
+  // rotated-ellipse case by rotating the point into the shape's own local
+  // frame first (the inverse of the SVG rotate() applied to draw it), so a
+  // circle (rot=0) and both ellipse tilts share one test.
+  function agPointInside(px, py, sh, margin){
+    var rx = (sh.type === "circle" ? sh.r : sh.rx) + margin;
+    var ry = (sh.type === "circle" ? sh.r : sh.ry) + margin;
+    var rad = (sh.rot || 0) * Math.PI / 180;
+    var dx = px - sh.cx, dy = py - sh.cy;
+    var lx = dx * Math.cos(rad) + dy * Math.sin(rad);
+    var ly = -dx * Math.sin(rad) + dy * Math.cos(rad);
+    return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) <= 1;
+  }
+
+  // Direction a shape's label walks outward along before any 2D search:
+  // for a circle, straight out from the cluster centre; for the 4-ellipse
+  // layout, out along the shape's OWN major axis, because two of the four
+  // sit on the same side of the cluster centre (see VENN_LAYOUT's rot) and
+  // straight-out-from-centre would start their labels the same way. No two
+  // of the four share a tilt, so each shape's own axis is still a distinct
+  // starting direction even then.
+  function agLabelDir(sh, cx0, cy0){
+    if (sh.type === "circle"){
+      var dx = sh.cx - cx0, dy = sh.cy - cy0;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      return {axx: dx / len, axy: dy / len, baseR: sh.r};
+    }
+    var rad = sh.rot * Math.PI / 180, ax = Math.cos(rad), ay = Math.sin(rad);
+    var toward = (sh.cx - cx0) * ax + (sh.cy - cy0) * ay;
+    var sign = toward < 0 ? -1 : 1;
+    return {axx: ax * sign, axy: ay * sign, baseR: sh.rx};
+  }
+
+  // .agsetlabel is a fixed monospace font (IBM Plex Mono, 700, 14.5px), so
+  // its box is measured once rather than read back from the DOM per label:
+  // 8.8px/char advance, and - since the SVG y attribute is the text
+  // BASELINE, not a centre - 13.4px of glyph above it and 3.1px below,
+  // both matching a real rendered getBBox() to a fraction of a pixel. A
+  // first version of this fix used a box symmetric around y instead, which
+  // under-covered the taller top half enough to still let a real label
+  // overlap a shape by several pixels in the tightly-packed 3-circle view.
+  function agLabelSize(text){ return {w: text.length * 8.8, top: 13.5, bot: 3.5}; }
+
+  // Is the label's whole box - not just its anchor point - clear of every
+  // shape? A single-point test (the anchor only) is what a first version
+  // of this fix used, and it was fine for the wide, sparse 4-ellipse
+  // layout, but the 3-circle default view packs its circles far closer
+  // (each pair's centres sit well inside the other's radius): a point
+  // 9px off a circle's edge is still comfortably INSIDE that circle once
+  // you account for the ~110px of text hanging off it either side of the
+  // anchor. Corners plus edge midpoints catch a shape boundary cutting
+  // through the box without needing full polygon clipping.
+  function agLabelClear(px, py, size, shapes, margin){
+    var hw = size.w / 2, top = size.top, bot = size.bot;
+    var pts = [[px, py], [px - hw, py - top], [px + hw, py - top],
+               [px - hw, py + bot], [px + hw, py + bot],
+               [px - hw, py], [px + hw, py], [px, py - top], [px, py + bot]];
+    for (var s = 0; s < shapes.length; s++){
+      for (var k = 0; k < pts.length; k++){
+        if (agPointInside(pts[k][0], pts[k][1], shapes[s], margin)) return false;
+      }
+    }
+    return true;
+  }
+
+  // Where a shape's own name goes. Starts at the shape's own edge, along
+  // its own axis, and searches outward - trying a handful of small angular
+  // detours at each distance before going further out - for the nearest
+  // point whose whole label box clears every shape's fill AND every
+  // already-placed label's box. Nearest-first keeps a label close to its
+  // own shape whenever possible; searching several angles at each distance
+  // (not just the one straight-out ray) is what makes this different from
+  // simply extending the old fixed +22px offset, and is what stops two
+  // labels that must both retreat from an overlap from just chasing each
+  // other outward along nearly-parallel rays without ever actually
+  // separating - the failure mode a first version of this fix hit, pushing
+  // labels off the edge of the figure entirely.
+  var LABEL_ANGLES = [0, 9, -9, 18, -18, 28, -28, 40, -40, 55, -55];
+  function agPlaceLabel(sh, dir, size, shapes, placed, vb){
+    var baseAngle = Math.atan2(dir.axy, dir.axx);
+    var maxDist = dir.baseR + 18 + 320;
+    var hw = size.w / 2;
+    for (var dist = dir.baseR + 18; dist <= maxDist; dist += 7){
+      for (var ai = 0; ai < LABEL_ANGLES.length; ai++){
+        var a = baseAngle + LABEL_ANGLES[ai] * Math.PI / 180;
+        var px = sh.cx + Math.cos(a) * dist, py = sh.cy + Math.sin(a) * dist;
+        // Every layout's viewBox already carries a 40-unit margin for
+        // exactly this label band, but a label that has to detour a long
+        // way around a crowded neighbour can still walk past it - check
+        // the box against the frame it will actually be drawn in, not
+        // just against the other shapes and labels.
+        if (px - hw < vb[0] || px + hw > vb[0] + vb[2] ||
+            py - size.top < vb[1] || py + size.bot > vb[1] + vb[3]) continue;
+        if (!agLabelClear(px, py, size, shapes, 4)) continue;
+        var clash = false;
+        for (var p = 0; p < placed.length; p++){
+          var q = placed[p];
+          var dx = Math.abs(px - q.x), dy = Math.abs(py - q.y);
+          var dyMin = py >= q.y ? (size.top + q.size.bot) : (size.bot + q.size.top);
+          if (dx < (size.w + q.size.w) / 2 + 6 && dy < dyMin + 6){
+            clash = true; break;
+          }
+        }
+        if (!clash) return [px, py];
+      }
+    }
+    // Every candidate in range failed (shouldn't happen at these n, but a
+    // future layout change could pack tighter) - fall back to the plain
+    // shape-only, anchor-only clearance so a label is always drawn
+    // somewhere sane rather than not being placed at all.
+    var dist2 = dir.baseR + 18, px2, py2, tries = 0;
+    do {
+      px2 = sh.cx + dir.axx * dist2; py2 = sh.cy + dir.axy * dist2;
+      dist2 += 6; tries++;
+    } while (tries < 60 && shapes.some(function(o){
+      return agPointInside(px2, py2, o, 9); }));
+    return [px2, py2];
+  }
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs){
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
   }
 
   function agLabel(names){
@@ -2358,85 +3079,345 @@ AGREE_JS = r"""
     return out;
   }
 
+  // Same three filters the results table itself applies (see exportRegions/
+  // show6/PAGE.q) - so the diagram, the detail box and the table above it
+  // can never quietly disagree about which rows they mean.
+  function agFilterQS(){
+    var p = [], regs = exportRegions();
+    if (regs.length < 3) p.push("regions=" + regs.join(","));
+    if (!show6) p.push("include_6mer=false");
+    if (PAGE.q) p.push("q=" + encodeURIComponent(PAGE.q));
+    return p;
+  }
+
+  // A Venn tops out at 4 circles (agreement.py's VENN_MAX_SETS - past that
+  // it needs ellipses and 31 regions, several too thin to read). Rather
+  // than fall back to a plain list once a job ran a 5th tool, the picker
+  // itself refuses a 5th tick: disable whatever is left unchecked once 4
+  // are checked, so the ceiling is visible, not just enforced.
+  function agSyncToolCap(box){
+    var boxes = [].slice.call(box.querySelectorAll("input"));
+    var n = boxes.filter(function(b){ return b.checked; }).length;
+    boxes.forEach(function(b){ b.disabled = !b.checked && n >= 4; });
+    var note = el("agcapnote");
+    if (note) note.hidden = n < 4;
+  }
+
   function agToolBoxes(a){
-    if (!AGREE.all) AGREE.all = a.tools.map(function(t){ return t.tool; });
     var box = el("agtools");
     if (box.dataset.built) return;
     box.dataset.built = "1";
     AGREE.all.forEach(function(name){
       var lab = document.createElement("label");
+      var sw = document.createElement("span");
+      sw.className = "agswatch";
+      sw.style.background = "var(--agc-" + (TOOLHUE[name] || "seed") + ")";
       var cb = document.createElement("input");
-      cb.type = "checkbox"; cb.value = name; cb.checked = true;
+      cb.type = "checkbox"; cb.value = name;
+      cb.checked = !AGREE.picked || AGREE.picked.indexOf(name) !== -1;
       cb.addEventListener("change", function(){
-        AGREE.picked = [].slice.call(box.querySelectorAll("input:checked"))
-                         .map(function(i){ return i.value; });
+        var checked = [].slice.call(box.querySelectorAll("input:checked"));
+        if (checked.length > 4){
+          // belt and braces: agSyncToolCap disables the box before this can
+          // normally fire, but a screen reader or a fast double-tap can
+          // still slip a change event through before the disable lands
+          cb.checked = false;
+          return;
+        }
+        AGREE.picked = checked.map(function(i){ return i.value; });
+        agSyncToolCap(box);
+        agCloseDetail();
         agreeLoad();
       });
       lab.appendChild(cb);
+      lab.appendChild(sw);
       lab.appendChild(document.createTextNode(" " + toolLabel(name)));
       box.appendChild(lab);
     });
+    if (AGREE.all.length > 4 && !el("agcapnote")){
+      var note = document.createElement("span");
+      note.id = "agcapnote";
+      note.className = "agcapnote";
+      note.hidden = true;
+      note.textContent = "The Venn shows at most 4 tools at once — untick " +
+        "one to add another.";
+      box.parentNode.insertBefore(note, box.nextSibling);
+    }
+    agSyncToolCap(box);
   }
 
-  function agRenderRows(a){
-    var max = 0;
-    a.regions.forEach(function(r){ if (r.n > max) max = r.n; });
+  /* Which tools this region includes, translated into a bitmask over the
+     CURRENT render's own A/B/C/D assignment - not a fixed tool-to-letter
+     map, since any 2-4 of the five tools can be the ones on screen. */
+  function agCode(letterOf, inc){
+    var code = 0;
+    inc.forEach(function(t){
+      var L = letterOf[t];
+      if (L) code |= (1 << LETTERS.indexOf(L));
+    });
+    return code;
+  }
+
+  function agRenderVenn(a, picked){
+    var n = picked.length, layout = VENN_LAYOUT[n];
+    var letterOf = {}, toolOf = {};
+    picked.forEach(function(t, i){ letterOf[t] = LETTERS[i]; toolOf[LETTERS[i]] = t; });
+
+    var svg = svgEl("svg", {viewBox: layout.vb.join(" "), class: "agvenn",
+                            role: "img",
+                            "aria-label": "Venn diagram of " +
+                              picked.map(toolLabel).join(", ")});
+    var defs = svgEl("defs", {});
+    var pat = svgEl("pattern", {id: "agHatch", width: 6, height: 6,
+                                patternUnits: "userSpaceOnUse",
+                                patternTransform: "rotate(45)"});
+    pat.appendChild(svgEl("rect", {width: 6, height: 6,
+                                   fill: "var(--agc-mirtarbase)",
+                                   "fill-opacity": .18}));
+    pat.appendChild(svgEl("line", {x1: 0, y1: 0, x2: 0, y2: 6,
+                                   stroke: "var(--agc-mirtarbase)",
+                                   "stroke-width": 2.4}));
+    defs.appendChild(pat);
+    svg.appendChild(defs);
+
+    var shapes = LETTERS.slice(0, n).map(function(L){ return layout.shapes[L]; });
+    var cx0 = shapes.reduce(function(s, sh){ return s + sh.cx; }, 0) / n;
+    var cy0 = shapes.reduce(function(s, sh){ return s + sh.cy; }, 0) / n;
+
+    LETTERS.slice(0, n).forEach(function(L){
+      var sh = layout.shapes[L], tool = toolOf[L];
+      var fill = "var(--agc-" + (TOOLHUE[tool] || "seed") + ")";
+      var el2;
+      if (sh.type === "circle"){
+        el2 = svgEl("circle", {cx: sh.cx, cy: sh.cy, r: sh.r,
+                               "class": "agshape", "data-tool": tool, fill: fill});
+      } else {
+        el2 = svgEl("ellipse", {cx: sh.cx, cy: sh.cy, rx: sh.rx, ry: sh.ry,
+                                transform: "rotate(" + sh.rot + " " + sh.cx +
+                                  " " + sh.cy + ")",
+                                "class": "agshape", "data-tool": tool, fill: fill});
+      }
+      svg.appendChild(el2);
+      // miRTarBase gets a hatch on top of its own fill, not instead of it -
+      // it is still one of the sets, just a visually distinct kind of one
+      // (see agreement.py: kind "evidence" vs "prediction").
+      if (tool === "mirtarbase"){
+        var tex = el2.cloneNode();
+        tex.setAttribute("class", "agshape agevid-tex");
+        tex.removeAttribute("fill");
+        svg.appendChild(tex);
+      }
+    });
+
+    // Every shape's own name, drawn in its own pass AFTER every shape is
+    // already on the canvas - not interleaved one-label-per-shape as the
+    // shapes themselves are added. With four big overlapping ellipses the
+    // union of the later ones (C, D) can easily cover the label anchor of
+    // an earlier one (A, B): interleaved, "Seed analyser" and "RNAhybrid"
+    // painted before C/D existed and then sat underneath them, unreadable
+    // regardless of the legibility halo. A label is now always the last
+    // thing painted at its position, so it is always on top of every
+    // shape's fill, whichever shapes happen to reach that point. Beyond
+    // paint order, each label also walks outward until it clears every
+    // shape's fill entirely, so a name sits in the open margin rather than
+    // over anyone's colour, its own circle included - and, once placed,
+    // any two labels that still overlap EACH OTHER (the two same-side
+    // ellipses' own axes are only ~6 degrees apart, so far enough out they
+    // converge) get nudged further apart below.
+    var placed = [];
+    LETTERS.slice(0, n).forEach(function(L){
+      var sh = layout.shapes[L], tool = toolOf[L];
+      var fill = "var(--agc-" + (TOOLHUE[tool] || "seed") + ")";
+      var name = toolLabel(tool), size = agLabelSize(name), lp;
+      if (n === 1){
+        lp = [sh.cx, sh.cy - sh.r - 20];
+      } else {
+        lp = agPlaceLabel(sh, agLabelDir(sh, cx0, cy0), size, shapes, placed, layout.vb);
+      }
+      var lbl = svgEl("text", {x: lp[0], y: lp[1], class: "agsetlabel",
+                               fill: fill});
+      lbl.textContent = name;
+      svg.appendChild(lbl);
+      placed.push({x: lp[0], y: lp[1], size: size});
+    });
+
+    var chip = CHIP[n];
+    a.regions.forEach(function(r){
+      var code = agCode(letterOf, r["in"]);
+      var pt = layout.centroids[code];
+      if (!pt) return;  // a region with no tool in the current picked set
+      // Empty regions still exist in the layout - the shape itself is still
+      // drawn, still coloured, still where it should be - only the chip
+      // (and its click target) is skipped, so a 4-tool figure isn't showing
+      // a dozen "0% (0)" cards nobody asked to see. agreement.py still
+      // returns every combination; this is display-only.
+      if (!r.n) return;
+      var g = svgEl("g", {class: "agchip", tabindex: "0", role: "button",
+                          "aria-label": r.label + " — " + r.n +
+                            " gene" + (r.n === 1 ? "" : "s") + " of the union, " +
+                            r.pct + "%",
+                          transform: "translate(" + pt[0] + "," + pt[1] + ")"});
+      g.appendChild(svgEl("rect", {x: -chip.w / 2, y: -chip.h / 2,
+                                   width: chip.w, height: chip.h, rx: 7}));
+      var pct = svgEl("text", {class: "agchip-pct", y: chip.pctY,
+                               style: "font-size:" + chip.pct + "px"});
+      pct.textContent = r.pct + "%";
+      g.appendChild(pct);
+      var cnt = svgEl("text", {class: "agchip-n", y: chip.nY,
+                               style: "font-size:" + chip.n + "px"});
+      cnt.textContent = "(" + r.n + ")";
+      g.appendChild(cnt);
+      // One dot per tool in this exact region, in the same fixed colour as
+      // its circle and its row in the tools legend - the answer to "how
+      // many, and which" without having to trace overlapping shapes.
+      var dotsW = (r["in"].length - 1) * chip.dotGap;
+      r["in"].forEach(function(t, i){
+        g.appendChild(svgEl("circle", {
+          class: "agchip-dot", r: chip.dotR,
+          cx: -dotsW / 2 + i * chip.dotGap, cy: chip.dotY,
+          fill: "var(--agc-" + (TOOLHUE[t] || "seed") + ")"}));
+      });
+      g.addEventListener("click", function(){ agOpenDetail(a, r); });
+      g.addEventListener("keydown", function(ev){
+        if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); agOpenDetail(a, r); }
+      });
+      svg.appendChild(g);
+    });
+
     var fig = el("agfig");
     fig.innerHTML = "";
-    if (!a.regions.length){
+    fig.appendChild(svg);
+    // Every chip can legitimately be skipped at once (every region empty
+    // under the current filters) - say so explicitly rather than leaving a
+    // diagram with shapes but no numbers on it, which reads as broken.
+    if (!a.regions.some(function(r){ return r.n; })){
+      var none = document.createElement("p");
+      none.className = "agnone";
+      none.textContent = "No gene was found by any of the selected tools " +
+        "under these filters.";
+      fig.appendChild(none);
+    }
+  }
+
+  function agRenderUpset(a){
+    var fig = el("agfig");
+    fig.innerHTML = "";
+    if (!a.regions.some(function(r){ return r.n; })){
       fig.innerHTML = '<p class="agnone">No gene was found by any of the ' +
                       'selected tools under these filters.</p>';
       return;
     }
+    var max = 0;
+    a.regions.forEach(function(r){ if (r.n > max) max = r.n; });
+    var order = CANON.filter(function(t){
+      return a.tools.some(function(x){ return x.tool === t; }); });
     var wrap = document.createElement("div");
     wrap.className = "agrows";
     a.regions.forEach(function(r){
+      if (!r.n) return;  // same declutter as the Venn chips: skip empty rows
       var row = document.createElement("button");
       row.type = "button"; row.className = "agrow";
       row.title = "Show these genes";
 
+      var dots = document.createElement("span");
+      dots.className = "agdots";
+      order.forEach(function(t){
+        var d = document.createElement("span");
+        var on = r["in"].indexOf(t) !== -1;
+        d.className = "agdot" + (on ? "" : " off");
+        if (on) d.style.background = "var(--agc-" + (TOOLHUE[t] || "seed") + ")";
+        d.title = toolLabel(t) + (on ? "" : " — not in this region");
+        dots.appendChild(d);
+      });
+
       var n = document.createElement("span");
-      n.className = "agn"; n.textContent = r.n;
+      n.className = "agn";
+      n.innerHTML = "<b>" + r.pct + "%</b> <span class=\"agcount\">(" + r.n + ")</span>";
 
       var bar = document.createElement("span");
       bar.className = "agbar";
       var fill = document.createElement("i");
       fill.style.width = Math.max(2, (r.n / max) * 100) + "%";
-      fill.style.background = agFillFor(r.n, max);
       bar.appendChild(fill);
 
       var lbl = document.createElement("span");
       lbl.className = "aglbl";
-      lbl.textContent = agLabel(r["in"]);
-      if (r.out && r.out.length){
-        var sub = document.createElement("span");
-        sub.className = "agsub";
-        sub.textContent = "  — and not " + r.out.map(toolLabel).join(", ");
-        lbl.appendChild(sub);
-      }
+      lbl.textContent = r.label;
 
-      row.appendChild(n); row.appendChild(bar); row.appendChild(lbl);
+      row.appendChild(dots); row.appendChild(n); row.appendChild(bar); row.appendChild(lbl);
+      row.addEventListener("click", function(){ agOpenDetail(a, r); });
       wrap.appendChild(row);
     });
     fig.appendChild(wrap);
   }
 
   function agreeRender(a){
+    if (!AGREE.all) AGREE.all = a.tools.map(function(t){ return t.tool; });
+    // The default view is miRTarBase + RNAhybrid + scanMiR - one evidence
+    // source and two independent predictors, picked over never showing
+    // every tool at once by default: a job that ran more than these three
+    // would otherwise default to all of them (straight past the 4-tool cap
+    // the picker enforces once you touch it) or, worse, to whichever four
+    // happen to sort first in CANON order. If none of the three ran, fall
+    // back to that CANON-order cap instead of leaving the choice to chance.
+    if (!AGREE.picked){
+      var def = DEFAULT_PICK.filter(function(t){
+        return AGREE.all.indexOf(t) !== -1; });
+      if (!def.length && AGREE.all.length > 4){
+        def = CANON.filter(function(t){
+          return AGREE.all.indexOf(t) !== -1; }).slice(0, 4);
+      }
+      if (def.length && def.length < AGREE.all.length){
+        AGREE.picked = def;
+        agreeLoad();
+        return;
+      }
+      // The job ran exactly this default set (or a subset of it, or none
+      // of the three and four-or-fewer tools total) - what just came back
+      // already answers it, no second round trip needed, but AGREE.picked
+      // still has to be set so the checkboxes reflect it correctly.
+      if (def.length) AGREE.picked = def;
+    }
     AGREE.data = a;
     agToolBoxes(a);
     el("agstate").textContent = a.n_genes + " genes  ·  " +
       a.tools.map(function(t){
         return toolLabel(t.tool) + " " + t.n_genes + (t.is_evidence ? "*" : "");
       }).join("  ·  ");
-    agRenderRows(a);
+    if (!a.n_genes){
+      el("agfig").innerHTML = '<p class="agnone">No gene was found by any ' +
+        'of the selected tools under these filters.</p>';
+    } else if (a.display === "upset"){
+      agRenderUpset(a);
+    } else {
+      var picked = CANON.filter(function(t){
+        return a.tools.some(function(x){ return x.tool === t; }); });
+      agRenderVenn(a, picked);
+    }
     el("agcap").textContent = agCaption(a);
     el("agree").hidden = false;
+    // a filter or tool change invalidates whatever region was open
+    if (AGREE.detail) agCloseDetail();
   }
 
   function agreeLoad(){
-    var qs = [];
+    var qs = agFilterQS();
     if (AGREE.picked && AGREE.picked.length)
       qs.push("tools=" + AGREE.picked.join(","));
+    var key = JOBID + "?" + qs.join("&");
+    // loadPage() calls this on every reload - including ones that have
+    // nothing to do with the agreement figure, like turning a page, sorting,
+    // or focusing one gene in the results table - so that a real change to
+    // the region/6mer/search filters this figure also reads is never
+    // missed. But agreeRender() closes whatever region detail is open on
+    // every render ("a filter or tool change invalidates it"), which used
+    // to fire on those unrelated reloads too: click a gene inside an open
+    // region's table, and the table you clicked in would vanish out from
+    // under you. Skipping a request identical to the one already answered
+    // fixes that without touching the real invalidation - a genuine filter
+    // or tool change always produces a different key.
+    if (key === AGREE_LAST_KEY && AGREE.data) return;
+    AGREE_LAST_KEY = key;
     api("/jobs/" + JOBID + "/agreement" + (qs.length ? "?" + qs.join("&") : ""))
       .then(function(a){
         /* A render bug and a request the server refused are different
@@ -2454,8 +3435,201 @@ AGREE_JS = r"""
       })
       .catch(function(err){
         console.warn("agreement: not available", err);
+        AGREE_LAST_KEY = null;  // not answered - worth trying again next time
         el("agree").hidden = true;
       });
+  }
+
+  /* ---------------- the click-through detail box ---------------- */
+
+  var AGDET_PAGE = 40;
+
+  function agCloseDetail(){
+    AGREE.detail = null;
+    var box = el("agdetail");
+    box.hidden = true;
+    box.innerHTML = "";
+  }
+
+  function agGenesURL(region, limit, offset){
+    var qs = agFilterQS();
+    qs.push("in=" + region["in"].join(","));
+    if (region.out && region.out.length) qs.push("out=" + region.out.join(","));
+    qs.push("limit=" + limit, "offset=" + offset);
+    return "/jobs/" + JOBID + "/agreement/genes?" + qs.join("&");
+  }
+
+  function agCellFor(g, tool){
+    var d = g.tools[tool];
+    if (!d) return '<span class="agmiss">—</span>';
+    var bits = [];
+    if (d.best_site_type) bits.push(esc(d.best_site_type));
+    if (d.best_score != null) bits.push(Number(d.best_score).toFixed(2));
+    if (d.status) bits.push(esc(d.status));
+    if (d.n_sites > 1) bits.push("(" + d.n_sites + " sites)");
+    return bits.length ? bits.join(" · ") : '<span class="agmiss">—</span>';
+  }
+
+  function agRenderGeneTable(region, cols){
+    var st = AGREE.detail;
+    var t = document.createElement("table");
+    t.className = "agtable";
+    var thead = "<thead><tr><th>Gene</th>" + cols.map(function(c){
+      return "<th>" + esc(toolLabel(c)) + "</th>"; }).join("") + "</tr></thead>";
+    var rows = st.genes.length ? st.genes.map(function(g){
+      return '<tr class="agtr" data-sym="' + esc(g.symbol) + '"><td class="agsym">' +
+        esc(g.symbol) + '</td>' + cols.map(function(c){
+          return '<td class="agcell">' + agCellFor(g, c) + '</td>'; }).join("") +
+        '</tr>';
+    }).join("") : ('<tr><td colspan="' + (cols.length + 1) + '" class="agmiss">' +
+      "No gene matched this exact combination under the current filters." +
+      "</td></tr>");
+    t.innerHTML = thead + "<tbody>" + rows + "</tbody>";
+    t.querySelectorAll("tr.agtr").forEach(function(tr){
+      tr.addEventListener("click", function(){ focusGene(tr.dataset.sym); });
+    });
+    var old = el("agdettable");
+    old.innerHTML = "";
+    old.appendChild(t);
+    el("agdetmore").hidden = st.genes.length >= st.n_genes;
+    el("agdetstat").textContent = st.genes.length + " of " + st.n_genes +
+      " gene" + (st.n_genes === 1 ? "" : "s") + " shown";
+  }
+
+  function agLoadMoreGenes(region, cols){
+    var st = AGREE.detail;
+    api(agGenesURL(region, AGDET_PAGE, st.genes.length)).then(function(r){
+      st.genes = st.genes.concat(r.genes);
+      agRenderGeneTable(region, cols);
+    }).catch(function(e){ console.warn("agreement: genes page failed", e); });
+  }
+
+  function agExportCSV(region){
+    // Tab-separated, not comma: the same reason api.py's own _tsv() gives -
+    // a gene description or a status string can carry a comma, and on a
+    // machine whose regional settings use something other than comma as
+    // the list separator, Excel opens a comma file as one giant column
+    // regardless of quoting. A tab has neither problem, which is also why
+    // this now shares an extension with the exports built server-side.
+    function cell(v){
+      if (v == null) return "";
+      return String(v).replace(/[\t\r\n]/g, " ");
+    }
+    var st = AGREE.detail, cols = st.cols;
+    api(agGenesURL(region, 20000, 0)).then(function(r){
+      var head = ["Gene", "Entrez"].concat(cols.map(toolLabel));
+      var lines = [head.join("\t")];
+      r.genes.forEach(function(g){
+        var row = [cell(g.symbol), cell(g.entrez)].concat(cols.map(function(c){
+          var d = g.tools[c];
+          if (!d) return "";
+          var bits = [d.best_site_type, d.best_score, d.status]
+            .filter(function(x){ return x != null; });
+          return cell(bits.join(" / "));
+        }));
+        lines.push(row.join("\t"));
+      });
+      var blob = new Blob([lines.join("\n")],
+        {type: "text/tab-separated-values"});
+      var a2 = document.createElement("a");
+      a2.href = URL.createObjectURL(blob);
+      a2.download = "agreement_" + region["in"].join("+") + ".tsv";
+      a2.click();
+      URL.revokeObjectURL(a2.href);
+    }).catch(function(e){ console.warn("agreement: export failed", e); });
+  }
+
+  function agRunEnrichment(region){
+    var btn = el("agdetenrich");
+    btn.disabled = true;
+    btn.textContent = "Fetching genes…";
+    // The full list - not just the shown page - is fetched here, lazily, on
+    // the click that actually needs it: eagerly pulling every gene for
+    // every region someone merely looks at would mean fetching up to
+    // 20,000 rows just in case, for a button most clicks on this diagram
+    // will never press.
+    api(agGenesURL(region, 20000, 0)).then(function(full){
+      btn.textContent = "Starting…";
+      return fetch("/jobs/" + JOBID + "/enrichment", {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({genes: full.genes.map(function(g){ return g.entrez; }),
+                              included: region["in"], excluded: region.out || []})
+      });
+    }).then(function(r){
+      return r.json().then(function(j){
+        if (!r.ok) throw new Error((j.detail && j.detail.message) ||
+                                   "the request was refused");
+        return j;
+      });
+    }).then(function(j){
+      el("enrich").hidden = false;
+      gsSetSource(true);
+      watchRun(j.run_id);
+      el("enrich").scrollIntoView({behavior: "smooth", block: "start"});
+    }).catch(function(e){
+      btn.textContent = (e && e.message) || "could not start";
+    }).then(function(){
+      setTimeout(function(){
+        btn.disabled = false; btn.textContent = "Run enrichment on these genes";
+      }, 1500);
+    });
+  }
+
+  function agOpenDetail(a, region){
+    var box = el("agdetail");
+    var cols = region["in"].slice();
+    AGREE.detail = {region: region, genes: [], n_genes: region.n, cols: cols};
+    box.hidden = false;
+    box.innerHTML =
+      '<div class="agdethead"><h3>' + esc(region.label) +
+      ' — <b>' + region.n + '</b> gene' + (region.n === 1 ? "" : "s") +
+      ' (' + region.pct + '%)</h3>' +
+      '<button type="button" class="agdetclose" aria-label="Close">×</button></div>' +
+      '<p class="agdetnote">' + esc(region.note) + '</p>' +
+      '<div class="agdetbar">' +
+      '<span class="cols">' + cols.map(function(c){
+        return '<label><input type="checkbox" checked value="' + esc(c) +
+          '"> ' + esc(toolLabel(c)) + '</label>'; }).join("") + '</span>' +
+      '<button type="button" class="agdetbtn" id="agdetexport">Export table (TSV)</button>' +
+      '<button type="button" class="agdetbtn" id="agdetenrich">Run enrichment on these genes</button>' +
+      '</div>' +
+      '<div id="agdettable"></div>' +
+      '<button type="button" class="agdetmore" id="agdetmore" hidden>Show more genes</button>' +
+      '<p class="agdetstat" id="agdetstat"></p>';
+
+    box.querySelector(".agdetclose").addEventListener("click", agCloseDetail);
+    box.querySelector("#agdetexport").addEventListener("click", function(){
+      agExportCSV(region);
+    });
+    box.querySelector("#agdetenrich").addEventListener("click", function(){
+      agRunEnrichment(region);
+    });
+    box.querySelectorAll(".cols input").forEach(function(cb){
+      cb.addEventListener("change", function(){
+        var on = [].slice.call(box.querySelectorAll(".cols input:checked"))
+                    .map(function(i){ return i.value; });
+        // keep table columns in the region's own tool order, not click order
+        AGREE.detail.cols = region["in"].filter(function(t){
+          return on.indexOf(t) !== -1; });
+        agRenderGeneTable(region, AGREE.detail.cols);
+      });
+    });
+    el("agdetmore").addEventListener("click", function(){
+      agLoadMoreGenes(region, AGREE.detail.cols);
+    });
+
+    api(agGenesURL(region, AGDET_PAGE, 0)).then(function(r){
+      AGREE.detail.genes = r.genes;
+      AGREE.detail.n_genes = r.n_genes;
+      agRenderGeneTable(region, cols);
+    }).catch(function(e){
+      box.innerHTML = '<p class="agerr">Could not load these genes. ' +
+        'The console has the details.</p>';
+      console.error("agreement: region_genes failed", e);
+    });
+
+    box.scrollIntoView({behavior: "smooth", block: "nearest"});
   }
 """
 

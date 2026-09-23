@@ -197,6 +197,9 @@ def build(con, job_id, sort="gene", top_n=50, enrichment_run=None,
         "edges": edges,
         "meta": {
             "sort": sort, "top_n": int(top_n),
+            # how many tools this job actually ran, so the page never has to
+            # hardcode "of 4 tools" and be wrong the next time one is added
+            "n_tools_run": sum(1 for t in st["tools"] if t["status"] == "ok"),
             "genes_shown": len(nodes), "genes_total": total,
             "truncated": len(nodes) < total,
             "enrichment_run": enrichment_run,
