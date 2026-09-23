@@ -9,7 +9,7 @@ the report use.
 Two kinds of edge, and they mean different things:
 
   miRNA -> gene   this tool predicted or found evidence for this target.
-                  Width is how many of the four tools agree, which is the
+                  Width is how many of the five tools agree, which is the
                   only honest cross-tool number available: their scores are
                   on different scales and are never combined.
 
@@ -40,14 +40,15 @@ TERM_SIZE_CAP = 12
 MAX_PAIR_EDGES = 400
 
 TOOL_LABEL = {"seed": "seed analyser", "rnahybrid": "RNAhybrid",
-              "targetscan": "TargetScan", "mirtarbase": "miRTarBase"}
+              "targetscan": "TargetScan", "mirtarbase": "miRTarBase",
+              "scanmir": "scanMiR"}
 
 
 def _tools_for(rows):
     """Which tools reported anything at all for this gene, in a fixed order."""
     present = {r["tool"] for r in rows}
-    return [t for t in ("seed", "rnahybrid", "targetscan", "mirtarbase")
-            if t in present]
+    return [t for t in ("seed", "rnahybrid", "targetscan", "mirtarbase",
+                        "scanmir") if t in present]
 
 
 def _gene_node(symbol, rows):
@@ -55,6 +56,12 @@ def _gene_node(symbol, rows):
     g = report.summarise(rows)
     tools = _tools_for(rows)
     seed, rh, ts, mt = g["seed"], g["rh"], g["ts"], g["mt"]
+    # summarise() predates scanMiR and ignores its rows, so the best site is
+    # taken here. Lowest log Kd wins - the tool's own direction, the same
+    # rule ranking.py uses, so the panel and the table agree.
+    sm = [r for r in rows if r["tool"] == "scanmir"]
+    best_sm = min(sm, key=lambda r: (r["score"] is None, r["score"])) \
+        if sm else None
     mx = (mt or {}).get("extra") or {}
     strong = mx.get("strong_functional")
     return {
@@ -76,6 +83,9 @@ def _gene_node(symbol, rows):
         "context": ts["score"] if ts else None,
         "pct": ((ts or {}).get("extra") or {}).get("aggregate_pct"),
         "strong_functional": strong,
+        "log_kd": best_sm["score"] if best_sm else None,
+        "sm_site": best_sm["site_type"] if best_sm else None,
+        "n_sm": len(sm),
     }
 
 

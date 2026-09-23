@@ -64,7 +64,17 @@ for _a, _b in [("<h2>Binding map", "<h2>Binding Map"),
 
 # the pathway-analysis panel goes between the table and the notes
 _notes = keep.index('<div class="notes">')
-keep = keep[:_notes] + """<section class="panel" id="enrich">
+keep = keep[:_notes] + """<section class="panel" id="agree" hidden>
+    <h2>Tool Agreement<em id="agstate"></em></h2>
+    <div class="panel-body">
+      <div class="fgroup" id="agtools"><span>Tools</span></div>
+      <div id="agfig"></div>
+      <p class="say agcap" id="agcap"></p>
+      <div id="agdetail" hidden></div>
+    </div>
+  </section>
+
+  <section class="panel" id="enrich">
     <h2>Pathway Analysis<em id="gscount">nothing selected</em></h2>
     <div class="panel-body">
       <div class="gsgrid" id="gsboxes"></div>
@@ -180,9 +190,13 @@ keep = keep[:_n] + _tk + "\n\n  " + keep[_n:]
 # that will never exist is worse than no column.
 for _a, _b in [
     ('<th colspan="1" class="gsep">Not yet built</th>',
-     '<th colspan="1" class="gsep">Not yet built</th>'),
-    ('<span class="hn">ML model \u00b7 miRanda</span><span class="hu">later phases</span>',
-     '<span class="hn">ML model</span><span class="hu">Phase 9</span>'),
+     '<th colspan="2" class="gsep">scanMiR</th>'),
+    ('<th class="colsep"><div class="hcell"><span class="hn">ML model \u00b7 miRanda'
+     '</span><span class="hu">later phases</span></div></th>',
+     '<th class="colsep"><div class="hcell"><span class="hn">Best site</span>'
+     '<span class="hu">type \u00b7 position</span></div></th>'
+     '<th><div class="hcell"><span class="hn">log Kd</span>'
+     '<span class="hu">affinity \u2193</span></div></th>'),
     ('<span class="hu">kcal/mol \u00b7 bar 0 to \u221235</span>',
      '<span class="hu">kcal/mol</span>'),
     ('<span class="hu">bar 0 to \u22121</span>',
@@ -235,7 +249,7 @@ a = "  var MIR = {name:"
 b = "  var SITE_RANK="
 assert script.count(a) == 1 and script.count(b) == 1
 script = script[:script.index(a)] + """  var MIR = null, RUN = null;
-  var TX = {}, SEED = [], RH = [], TS = {}, MT = {};
+  var TX = {}, SEED = [], RH = [], TS = {}, MT = {}, SMS = [];
 
 """ + script[script.index(b):]
 
@@ -316,7 +330,28 @@ script = script[:script.index(a)] + '''  function ran(t){ return RAN[t] === true
       : (ran("mirtarbase")
           ? none() + '<span class="say">Not reported in miRTarBase</span>'
           : nrun())) + "</td>");
-    cells.push('<td class="colsep">' + nbuilt() + "</td>");
+    // scanMiR, in two cells like TargetScan: what and where, then how
+    // tightly. An empty cell means one of three different things and they
+    // must not look alike - the tool was not run, it ran and found nothing,
+    // or it has no model for this miRNA (scanMiRData is built on miRBase 22
+    // and 243 human miRNAs had their seed revised in Release 23).
+    var sm = bestSm(g), nSm = smOf(g).length;
+    var smRun = ((JOBST && JOBST.tools) || []).filter(
+      function(t){ return t.tool === "scanmir"; })[0];
+    var smNoModel = !!(smRun && smRun.message &&
+      /no usable model|seed was revised|no scanMiR KdModel/i.test(smRun.message));
+    var smEmpty = !ran("scanmir") ? nrun() : (smNoModel ? ncov() : none());
+    cells.push('<td class="colsep">' + (sm
+      ? '<span class="site' + (SITE_CLASS[sm[2]] ? " " + SITE_CLASS[sm[2]] : "") +
+        '">' + sm[2] + "</span>" +
+        '<span class="sub2">' + sm[3].toLocaleString() + "\u2013" +
+        sm[4].toLocaleString() + (sm[1] ? " \u00b7 " + RL[sm[1]] : "") + "</span>"
+      : smEmpty) + "</td>");
+    cells.push('<td class="num">' + (sm
+      ? sm[5].toFixed(3) + meter(Math.min(1, Math.abs(sm[5]) / 5)) +
+        (nSm > 1 ? '<span class="say">best&nbsp;of&nbsp;' + nSm +
+                   " sites</span>" : "")
+      : smEmpty) + "</td>");
     return '<tr class="generow' + (sel === g ? " sel" : "") + '" data-g="' + g +
            '">' + cells.join("") + "</tr>";
   }
@@ -845,6 +880,138 @@ POLISH_CSS = """
   .mapbody, .maphint{font-size:13.5px}
 """
 
+# ---- scanMiR in the per-site detail table ----------------------------------
+# The expanded row lists every stored site for a gene. scanMiR measures
+# position, so it belongs there beside the seed analyser and RNAhybrid - and
+# seeing the three side by side is the point: they agree on PDCD4's 8mer and
+# disagree about which PTEN site is strongest.
+a = "  function overlaps(s,r){"
+assert script.count(a) == 1
+script = script.replace(a, """  function smOf(g){
+    return SMS.filter(function(m){
+      // a site with no region of its own is never hidden by a region box
+      return m[0] === g && (m[1] == null || regOn[m[1]]);
+    });
+  }
+  function bestSm(g){
+    var a = smOf(g);
+    // lowest log Kd wins - the tool's own direction, the same rule
+    // ranking.py applies server-side, so the column and the sort agree
+    return a.length ? a.slice().sort(function(x, y){ return x[5] - y[5]; })[0]
+                    : null;
+  }
+
+""" + a, 1)
+
+# one more column in the detail table, so the expanded row must span one more
+a = '<td colspan="9">'
+assert script.count(a) == 1
+script = script.replace(a, '<td colspan="10">', 1)
+
+a, b = "  function rawSites(g){", "  function order(){"
+assert script.count(a) == 1 and script.count(b) == 1
+script = script[:script.index(a)] + r"""  function rawSites(g){
+    var rows = [];
+    seedOf(g).forEach(function(s){
+      var ov = rhOf(g).filter(function(r){return overlaps(s,r);})[0];
+      rows.push({tool:"seed", region:s[1], site:s[2], a:s[3], b:s[4],
+                 dg:null, kd:null, k:"seed|"+s[3],
+                 note: ov ? "inside RNAhybrid duplex "+ov[2]+"–"+ov[3] : ""});
+    });
+    rhOf(g).forEach(function(r){
+      var ov = seedOf(g).filter(function(s){return overlaps(s,r);})[0];
+      rows.push({tool:"rnahybrid", region:r[1], site:null, a:r[2], b:r[3],
+                 dg:r[4], kd:null, k:"rh|"+r[2],
+                 note: ov ? "contains "+ov[2]+" seed site "+ov[3]+"–"+ov[4] : ""});
+    });
+    smOf(g).forEach(function(m){
+      // scanMiR reports every site as an 8 nt window whatever its type, so a
+      // 6mer's coordinates sit one nucleotide before the seed analyser's.
+      // The agreement note therefore tests for overlap, never equality.
+      var ov = seedOf(g).filter(function(s){
+        return s[3] <= m[4] && s[4] >= m[3]; })[0];
+      rows.push({tool:"scanmir", region:m[1], site:m[2], a:m[3], b:m[4],
+                 dg:null, kd:m[5], k:"sm|"+m[3],
+                 note: ov ? "overlaps "+ov[2]+" seed site "+ov[3]+"–"+ov[4] : ""});
+    });
+    rows.sort(function(a,b){return a.a-b.a;});
+
+    var body = rows.map(function(x){
+      return '<tr class="clickable'+(selSite===x.k?" sitesel":"")+'" data-k="'+x.k+'">'+
+        "<td>"+toolLabel(x.tool)+"</td>"+
+        "<td>"+(x.region?'<span class="region '+RC[x.region]+'">'+RL[x.region]+
+                         "</span>":none())+"</td>"+
+        "<td>"+(x.site?'<span class="site'+(SITE_CLASS[x.site]?" "+SITE_CLASS[x.site]:"")+
+                       '">'+x.site+"</span>":none())+"</td>"+
+        '<td class="num">'+x.a.toLocaleString()+"–"+x.b.toLocaleString()+"</td>"+
+        '<td class="num">'+(x.dg===null?none():x.dg.toFixed(1))+"</td>"+
+        '<td class="num">'+(x.kd===null?none():x.kd.toFixed(3))+"</td>"+
+        '<td class="agree">'+(x.note?"↔ "+x.note:"")+"</td></tr>";
+    }).join("");
+
+    var nAgree = rows.filter(function(x){return x.note;}).length;
+    if (!rows.length)
+      return '<div class="dethead">No tool that measures position found a site in '+g+
+             " with the current filters.</div>";
+
+    return '<div class="dethead">'+rows.length+" record"+(rows.length===1?"":"s")+" for "+g+
+      ", one row each, exactly as stored — from the three tools that measure position."+
+      (nAgree?" The Agreement column marks where two tools point at overlapping nucleotides.":"")+
+      " TargetScan and miRTarBase report one value for the whole gene, so they have no row here.</div>"+
+      '<table class="sites"><thead><tr><th>Tool</th><th>Region</th><th>Site</th>'+
+      "<th>Position</th><th>ΔG</th><th>log Kd</th><th>Agreement</th></tr></thead><tbody>"+
+      body+"</tbody></table>";
+  }
+
+""" + script[script.index(b):]
+
+
+AGREE_CSS = """
+  /* ---- tool agreement ----
+
+  Region fills encode a count, which is magnitude, so they run on one hue
+  from the surface toward the accent - never a hue per region. Identity
+  comes from the labels, so nothing here depends on telling colours apart.
+
+  Two ramps, each stepped against its own surface rather than flipped: the
+  light one runs white to navy, the dark one near-black to light blue. On
+  the top two steps the fill is too dark (light mode) or too light (dark)
+  for ink at 3:1, so text sitting on those flips to --ag-on-deep. */
+  :root, :root[data-theme="light"]{
+    --ag-0:#ffffff; --ag-1:#eaf1f7; --ag-2:#cfe0ee; --ag-3:#9dc2dd;
+    --ag-4:#5b92c2; --ag-5:#2e6da2; --ag-6:#12507e;
+    --ag-on-deep:#ffffff;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ag-0:#0e1113; --ag-1:#15242f; --ag-2:#1d3a52; --ag-3:#24506e;
+    --ag-4:#35719a; --ag-5:#4b8fc0; --ag-6:#68a8dd;
+    --ag-on-deep:#0e1113;
+  }}
+  :root[data-theme="dark"]{
+    --ag-0:#0e1113; --ag-1:#15242f; --ag-2:#1d3a52; --ag-3:#24506e;
+    --ag-4:#35719a; --ag-5:#4b8fc0; --ag-6:#68a8dd;
+    --ag-on-deep:#0e1113;
+  }
+
+  #agtools{flex-wrap:wrap;margin-bottom:10px}
+  .agcap{max-width:none;margin:8px 0 0}
+  .agrows{display:grid;gap:3px;margin-top:4px}
+  .agrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;
+         align-items:center;font-size:12.5px;padding:2px 0;
+         border:0;background:none;color:inherit;text-align:left;
+         font-family:inherit;cursor:pointer;width:100%}
+  .agrow:hover .aglbl{text-decoration:underline}
+  .agrow .agn{font-variant-numeric:tabular-nums;color:var(--muted);
+              min-width:5ch;text-align:right}
+  .agrow .aglbl{color:var(--ink)}
+  .agrow .agsub{color:var(--faint);font-size:11px}
+  .agbar{height:9px;border-radius:2px;background:var(--surface-2);
+         position:relative;overflow:hidden}
+  .agbar i{display:block;height:100%;border-radius:2px}
+  .agnone{color:var(--faint);font-size:12.5px;padding:6px 0}
+  .agerr{color:var(--warn);font-size:12px}
+"""
+
 HEAD = """<!doctype html>
 <html lang="en">
 <head>
@@ -889,7 +1056,8 @@ HEAD = """<!doctype html>
   <div id="results" hidden>
 
     <div class="notice" id="prov"></div>
-""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS + NETWORK_CSS + POLISH_CSS)
+""" % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS + NETWORK_CSS + POLISH_CSS
+        + AGREE_CSS)
 
 TAIL_JS = r"""
   /* ================== live data ================== */
@@ -964,7 +1132,7 @@ TAIL_JS = r"""
   /* ---------- panels ---------- */
   var TOOLLABEL = {seed: "Seed analyser", rnahybrid: "RNAhybrid",
                    targetscan: "TargetScan", mirtarbase: "miRTarBase",
-                   "ml model": "ML model"};
+                   scanmir: "scanMiR", "ml model": "ML model"};
   function toolLabel(t){ return TOOLLABEL[String(t).toLowerCase()] || t; }
 
   function runTable(){
@@ -980,8 +1148,6 @@ TAIL_JS = r"""
         (t.n_genes == null ? "—" : t.n_genes.toLocaleString()) + '</td><td class="n">' +
         (t.seconds == null ? "—" : t.seconds.toFixed(2)) + "</td></tr>";
     });
-    rows.push('<tr class="pending"><td>ML model</td><td>not built</td>' +
-              '<td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>');
     return '<table class="runs"><thead><tr><th>Tool</th><th>Version</th>' +
       '<th class="n">Records</th><th class="n">Genes</th><th class="n">Seconds</th>' +
       "</tr></thead><tbody>" + rows.join("") + "</tbody></table>";
@@ -1019,7 +1185,7 @@ TAIL_JS = r"""
 
   /* ---------- turn API rows into what the renderers expect ---------- */
   function applyData(p){
-    TX = {}; SEED = []; RH = []; TS = {}; MT = {}; GENES = [];
+    TX = {}; SEED = []; RH = []; TS = {}; MT = {}; SMS = []; GENES = [];
     p.genes.forEach(function(g){
       var cds = null;
       g.regions.forEach(function(r){ if (r.region === "CDS") cds = [r.start, r.end]; });
@@ -1035,6 +1201,9 @@ TAIL_JS = r"""
         var e = r.extra || {};
         TS[r.symbol] = [r.score, e.sites_conserved || 0,
                         e.aggregate_pct == null ? null : e.aggregate_pct];
+      } else if (r.tool === "scanmir"){
+        SMS.push([r.symbol, r.region, r.site_type, r.pos_start, r.pos_end,
+                  r.score]);
       } else if (r.tool === "mirtarbase"){
         var x = r.extra || {};
         MT[r.symbol] = {t: x.status, sf: x.strong_functional || 0,
@@ -1183,6 +1352,7 @@ TAIL_JS = r"""
         pager();
         gsBoxes();
         netReload();
+        agreeLoad();
       }).catch(showErr);
   }
 
@@ -1849,7 +2019,8 @@ TAIL_JS = r"""
       // a pre-ticked box is a decision made on their behalf that they may
       // never notice they did not make.
       var TOOLTITLE = {seed: "Seed Analysis", rnahybrid: "RNAhybrid",
-                       targetscan: "TargetScan", mirtarbase: "miRTarBase"};
+                       targetscan: "TargetScan", mirtarbase: "miRTarBase",
+                       scanmir: "scanMiR"};
       el("f_tools").innerHTML = '<span>Tools</span><div class="toolpick">' +
         tools.map(function(t){
           return '<label class="tp"><input type="checkbox" value="' + t.name +
@@ -1860,7 +2031,8 @@ TAIL_JS = r"""
       toolsChanged();
 
       var map = {"Seed analyser": "seed", "RNAhybrid": "rnahybrid",
-                 "TargetScan": "targetscan", "miRTarBase": "mirtarbase"};
+                 "TargetScan": "targetscan", "miRTarBase": "mirtarbase",
+                 "scanMiR": "scanmir"};
       TOOLKEY.forEach(function(row){
         var n = map[row[0]];
         if (n && TOOLMETA[n])
@@ -2061,6 +2233,9 @@ NETWORK_JS = """
       netRow("TargetScan context++", n.context == null ? null :
              n.context.toFixed(3)) +
       netRow("TargetScan PCT", n.pct == null ? null : n.pct) +
+      netRow("scanMiR log Kd", n.log_kd == null ? null :
+             n.log_kd.toFixed(3) + (n.sm_site ? " · " + nesc(n.sm_site) : "") +
+             (n.n_sm > 1 ? " (best of " + n.n_sm + " sites)" : "")) +
       netRow("miRTarBase", n.strong_functional ? n.strong_functional +
              " strong functional experiments" : null) +
       "</dl><button class='linkbtn' id='netgene' type='button'>" +
@@ -2098,8 +2273,19 @@ NETWORK_JS = """
     api("/jobs/" + JOBID + "/network?sort=" + PAGE.sort +
         "&top_n=" + el("netn").value +
         "&min_shared=" + el("netmin").value)
-      .then(drawNetwork)
+      .then(function(d){
+        try {
+          drawNetwork(d);
+        } catch (err) {
+          console.error("network: draw failed", err);
+          el("netbox").hidden = false;
+          el("netstate").textContent = "could not be drawn";
+          el("netinfo").textContent = (err && err.message) ||
+            "see the console for details";
+        }
+      })
       .catch(function(e){
+        console.warn("network: request failed", e);
         el("netbox").hidden = false;
         el("netstate").textContent = "unavailable";
         el("netinfo").textContent = (e && e.message) || "could not load";
@@ -2125,6 +2311,171 @@ NETWORK_JS = """
   }
 """
 
+AGREE_JS = r"""
+  /* ================== tool agreement ==================
+
+  The results table says what each tool found. This says how much the tools
+  overlap, and which genes sit where they disagree.
+
+  Every number is computed over the same filtered rows the table is showing,
+  and the caption states both the filters and the membership rule. A figure
+  whose numbers quietly disagree with the table above it reads as a bug even
+  when both are right. */
+
+  var AGREE = {all: null, picked: null, data: null};
+
+  function agFillFor(n, max){
+    /* A count is magnitude, so it runs on one hue from the surface toward
+       the accent. Six steps: enough to rank regions by eye, few enough that
+       adjacent steps stay apart. */
+    if (!max) return "var(--ag-1)";
+    var i = Math.min(6, Math.max(1, Math.ceil((n / max) * 6)));
+    return "var(--ag-" + i + ")";
+  }
+
+  function agLabel(names){
+    if (!names.length) return "no tool";
+    if (names.length === 1) return toolLabel(names[0]) + " only";
+    var nice = names.map(toolLabel);
+    return nice.slice(0, -1).join(", ") + " and " + nice[nice.length - 1];
+  }
+
+  function agCaption(a){
+    var f = a.filters || {}, bits = [];
+    if (f.regions)
+      bits.push(f.regions.length ? "regions " + f.regions.join(", ")
+                                 : "every region box unticked");
+    if (f.include_6mer === false) bits.push("seed 6mer sites excluded");
+    if (f.q) bits.push("gene search “" + f.q + "”");
+    var out = "A gene counts as found by a tool when that tool reported at " +
+              "least one row for it";
+    if (a.membership && a.membership.scanmir_canonical_only)
+      out += ", except scanMiR, which counts canonical sites only — at " +
+             "its default threshold it reports a site on most of the " +
+             "transcriptome, so any-site membership would say nothing";
+    out += ". " + (bits.length ? "Filters applied: " + bits.join("; ") + "."
+                               : "No filters applied.");
+    return out;
+  }
+
+  function agToolBoxes(a){
+    if (!AGREE.all) AGREE.all = a.tools.map(function(t){ return t.tool; });
+    var box = el("agtools");
+    if (box.dataset.built) return;
+    box.dataset.built = "1";
+    AGREE.all.forEach(function(name){
+      var lab = document.createElement("label");
+      var cb = document.createElement("input");
+      cb.type = "checkbox"; cb.value = name; cb.checked = true;
+      cb.addEventListener("change", function(){
+        AGREE.picked = [].slice.call(box.querySelectorAll("input:checked"))
+                         .map(function(i){ return i.value; });
+        agreeLoad();
+      });
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(" " + toolLabel(name)));
+      box.appendChild(lab);
+    });
+  }
+
+  function agRenderRows(a){
+    var max = 0;
+    a.regions.forEach(function(r){ if (r.n > max) max = r.n; });
+    var fig = el("agfig");
+    fig.innerHTML = "";
+    if (!a.regions.length){
+      fig.innerHTML = '<p class="agnone">No gene was found by any of the ' +
+                      'selected tools under these filters.</p>';
+      return;
+    }
+    var wrap = document.createElement("div");
+    wrap.className = "agrows";
+    a.regions.forEach(function(r){
+      var row = document.createElement("button");
+      row.type = "button"; row.className = "agrow";
+      row.title = "Show these genes";
+
+      var n = document.createElement("span");
+      n.className = "agn"; n.textContent = r.n;
+
+      var bar = document.createElement("span");
+      bar.className = "agbar";
+      var fill = document.createElement("i");
+      fill.style.width = Math.max(2, (r.n / max) * 100) + "%";
+      fill.style.background = agFillFor(r.n, max);
+      bar.appendChild(fill);
+
+      var lbl = document.createElement("span");
+      lbl.className = "aglbl";
+      lbl.textContent = agLabel(r["in"]);
+      if (r.out && r.out.length){
+        var sub = document.createElement("span");
+        sub.className = "agsub";
+        sub.textContent = "  — and not " + r.out.map(toolLabel).join(", ");
+        lbl.appendChild(sub);
+      }
+
+      row.appendChild(n); row.appendChild(bar); row.appendChild(lbl);
+      wrap.appendChild(row);
+    });
+    fig.appendChild(wrap);
+  }
+
+  function agreeRender(a){
+    AGREE.data = a;
+    agToolBoxes(a);
+    el("agstate").textContent = a.n_genes + " genes  ·  " +
+      a.tools.map(function(t){
+        return toolLabel(t.tool) + " " + t.n_genes + (t.is_evidence ? "*" : "");
+      }).join("  ·  ");
+    agRenderRows(a);
+    el("agcap").textContent = agCaption(a);
+    el("agree").hidden = false;
+  }
+
+  function agreeLoad(){
+    var qs = [];
+    if (AGREE.picked && AGREE.picked.length)
+      qs.push("tools=" + AGREE.picked.join(","));
+    api("/jobs/" + JOBID + "/agreement" + (qs.length ? "?" + qs.join("&") : ""))
+      .then(function(a){
+        /* A render bug and a request the server refused are different
+           failures and must not share a handler: catching both in one place
+           once hid a thrown TypeError as "nothing to show" for three
+           rounds of debugging. */
+        try {
+          agreeRender(a);
+        } catch (err) {
+          console.error("agreement: render failed", err);
+          el("agfig").innerHTML = '<p class="agerr">This section could not ' +
+            'be drawn. The console has the details.</p>';
+          el("agree").hidden = false;
+        }
+      })
+      .catch(function(err){
+        console.warn("agreement: not available", err);
+        el("agree").hidden = true;
+      });
+  }
+"""
+
+
+def _tail_with(extra):
+    """Put `extra` inside TAIL_JS's IIFE, not after it.
+
+    The page's whole script is wrapped in (function(){ "use strict"; ... })();
+    so api, el, JOBID and toolLabel are private to it. Code appended after
+    the closing brace lands in global scope - still callable by name from
+    inside, because function declarations hoist to globalThis - and then
+    throws "api is not defined" the first time it runs. That surfaced
+    through showErr as a red box on the page with nothing in the console,
+    which is a slow thing to debug. Hence this helper rather than a "+".
+    """
+    close = "\n})();\n"
+    i = TAIL_JS.rindex(close)
+    return TAIL_JS[:i] + "\n" + extra + TAIL_JS[i:]
+
+
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(HEAD + keep + """  </div>
 
@@ -2134,7 +2485,7 @@ OUT.write_text(HEAD + keep + """  </div>
 
 <script src="vendor/vis-network.min.js"></script>
 <script>
-""" + script + NETWORK_JS + TAIL_JS + """</script>
+""" + script + NETWORK_JS + _tail_with(AGREE_JS) + """</script>
 </body>
 </html>
 """)
