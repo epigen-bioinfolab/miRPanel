@@ -4,7 +4,7 @@
 
 # **miRPanel**
 
-> **Signature-driven Transcriptome Alignment for Repurposing**
+> **Integrated Platform for microRNA Target Prediction and Downstream Functional Analysis**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
