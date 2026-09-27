@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="resources/logo.png" width="160"/>
+  <img src="miRPanel_Logo.png" width="160"/>
 </p>
 
 # **miRPanel**
