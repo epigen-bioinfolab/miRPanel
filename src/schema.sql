@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS transcripts (
     cds_end       INTEGER,
     biotype       TEXT NOT NULL,
     species       TEXT NOT NULL,
+    canonical     INTEGER NOT NULL DEFAULT 0,
     sequence      TEXT NOT NULL
 );
 
@@ -62,6 +63,7 @@ CREATE INDEX IF NOT EXISTS ix_tx_base      ON transcripts(refseq_base);
 CREATE INDEX IF NOT EXISTS ix_tx_ens       ON transcripts(ensembl_base);
 CREATE INDEX IF NOT EXISTS ix_tx_entrez    ON transcripts(entrez);
 CREATE INDEX IF NOT EXISTS ix_tx_symbol    ON transcripts(symbol);
+CREATE INDEX IF NOT EXISTS ix_tx_species   ON transcripts(species, canonical);
 CREATE INDEX IF NOT EXISTS ix_alias        ON gene_aliases(alias);
 
 -- One row per mature miRNA, keyed by miRBase accession (stable across releases).
