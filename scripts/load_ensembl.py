@@ -56,6 +56,18 @@ def _open(path):
     return gzip.open(path, "rt") if path.endswith(".gz") else open(path)
 
 
+def _ns(key, ident):
+    """Namespace a primary key for an uploaded organism, else leave it.
+
+    Shipped species keep their real identifiers, so nothing about the
+    five changes. Only an upload gets a prefix, and only on the columns
+    that must be unique across the whole table.
+    """
+    if not sp.is_upload(key):
+        return ident
+    return key[len(sp.UPLOAD_PREFIX):] + "|" + ident
+
+
 def _attrs(field):
     """GTF column 9 to a dict. 'tag' repeats, so tags are collected."""
     out, tags = {}, []
@@ -281,14 +293,24 @@ def build(key, fasta_path, gtf_path, keep_noncoding=False):
             continue
 
         gene_base = (rec["gene"] or "").split(".")[0]
+        full = base + ("." + rec["version"] if rec["version"] else "")
         rows.append({
-            "refseq":       base + ("." + rec["version"]
-                                    if rec["version"] else ""),
+            # transcripts.refseq and genes.entrez are primary keys across
+            # the WHOLE table, not per species. A user uploading an
+            # organism this installation already has - or re-uploading
+            # their own - would otherwise collide with the existing rows
+            # and the load would fail partway through. Their keys are
+            # therefore namespaced with the upload's own id.
+            #
+            # refseq_base, ensembl and ensembl_base keep the original
+            # identifiers, so someone who pastes ENSOCUT00000008772 still
+            # finds their transcript: those lookups are species-scoped
+            # already and do not need to be unique globally.
+            "refseq":       _ns(key, full),
             "refseq_base":  base,
-            "ensembl":      base + ("." + rec["version"]
-                                    if rec["version"] else ""),
+            "ensembl":      full,
             "ensembl_base": base,
-            "entrez":       gene_base,          # see module docstring
+            "entrez":       _ns(key, gene_base),  # see module docstring
             "symbol":       rec["symbol"],
             "length":       len(seq),
             "cds_start":    cds_start,
@@ -350,16 +372,27 @@ def load(con, key, rows, fasta_path, gtf_path):
                         (r["entrez"], r["symbol"], r["gene_ensembl"],
                          r["gene_base"], key))
 
-    s = sp.get(key)
+    # A user-uploaded organism is not a registry species, so there is no
+    # assembly or release to name. Provenance records what is actually
+    # true of it - that a person supplied these two files - rather than
+    # inventing a version string.
+    if sp.is_upload(key):
+        version = "user upload"
+        url = None
+        notes = ("transcripts and annotation supplied by the user; "
+                 "canonical transcripts only; entrez column holds the "
+                 "annotation's own gene id")
+    else:
+        version = "Ensembl %s (%s)" % (sp.ENSEMBL_RELEASE,
+                                       sp.get(key)["assembly"])
+        url = sp.fasta_url(key)
+        notes = ("canonical transcripts only; entrez column holds the "
+                 "Ensembl gene id (no Entrez mapping for this species)")
     con.execute(
         "INSERT OR REPLACE INTO data_sources (name, version, url, "
         "downloaded_on, bytes, sha256, notes) VALUES (?,?,?,?,?,NULL,?)",
-        (sp.source_name(key),
-         "Ensembl %s (%s)" % (sp.ENSEMBL_RELEASE, s["assembly"]),
-         sp.fasta_url(key), date.today().isoformat(),
-         os.path.getsize(fasta_path) + os.path.getsize(gtf_path),
-         "canonical transcripts only; entrez column holds the Ensembl "
-         "gene id (no Entrez mapping for this species)"))
+        (sp.source_name(key), version, url, date.today().isoformat(),
+         os.path.getsize(fasta_path) + os.path.getsize(gtf_path), notes))
     con.commit()
 
 
@@ -367,7 +400,10 @@ def load(con, key, rows, fasta_path, gtf_path):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("species", choices=sorted(sp.SPECIES))
+    # Not restricted to the registry: an "upload:<id>" key is valid too,
+    # which is what makes this script usable for debugging a user's
+    # upload by hand.
+    p.add_argument("species")
     p.add_argument("--fasta", required=True)
     p.add_argument("--gtf", required=True)
     p.add_argument("--db", default="data/processed/mirna.db")
@@ -377,6 +413,10 @@ def main():
     p.add_argument("--keep-noncoding", action="store_true",
                    help="keep pseudogenes and other CDS-less transcripts")
     args = p.parse_args()
+    try:
+        sp.get(args.species)
+    except ValueError as exc:
+        sys.exit(str(exc))
 
     rows, problems, counts = build(args.species, args.fasta, args.gtf,
                                    args.keep_noncoding)

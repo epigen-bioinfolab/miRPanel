@@ -317,3 +317,40 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE INDEX IF NOT EXISTS idx_reports_job    ON reports(job_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
+
+-- One row per organism a user supplied themselves. miRPanel ships five
+-- organisms; this is for a sixth that nobody loaded, where the user
+-- brings the transcript sequences and the annotation.
+--
+-- Unlike enrichment runs and reports, these ARE deleted. They are not
+-- scientific artefacts - they are a copy of files the user already has,
+-- held only long enough to answer their questions. last_used_at is
+-- touched whenever a job reads the upload, so the sweep measures idle
+-- time rather than age: somebody reading results for three hours does
+-- not lose the data underneath them.
+CREATE TABLE IF NOT EXISTS uploads (
+    upload_id    TEXT PRIMARY KEY,
+    label        TEXT NOT NULL,     -- what the user calls the organism
+    created_at   TEXT NOT NULL,
+    started_at   TEXT,
+    finished_at  TEXT,
+    last_used_at TEXT,
+    status       TEXT NOT NULL,     -- queued | running | ready | failed
+    error        TEXT,
+
+    fasta_name   TEXT NOT NULL,     -- the filenames the user uploaded
+    gtf_name     TEXT NOT NULL,
+    fasta_path   TEXT NOT NULL,     -- where they were put on disk
+    gtf_path     TEXT NOT NULL,
+    fasta_sha256 TEXT,
+    gtf_sha256   TEXT,
+    bytes        INTEGER,
+
+    n_transcripts INTEGER,          -- what the parse produced
+    n_regions     INTEGER,
+    n_skipped     INTEGER,
+    seconds       REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_uploads_status ON uploads(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_uploads_idle   ON uploads(last_used_at);

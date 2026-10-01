@@ -117,8 +117,43 @@ DEFAULT = "human"
 PRELOADED = ("human",)
 
 
-def get(key):
+#: An organism the user supplied themselves, keyed "upload:<id>". These
+#: are not in SPECIES - they exist only for as long as the upload does -
+#: but get() answers for them anyway, so targets.py, resolve.py, the
+#: orchestrator and the API all keep working without knowing uploads
+#: exist. Nothing in this codebase hardcodes the five keys, which is
+#: what makes that possible.
+UPLOAD_PREFIX = "upload:"
+
+
+def is_upload(key):
+    return isinstance(key, str) and key.startswith(UPLOAD_PREFIX)
+
+
+def upload_record(key, label=None):
+    """A species record for an uploaded organism.
+
+    Only seed analysis and RNAhybrid are offered, and that is not a
+    temporary limitation: scanMiR needs a species-specific KdModel
+    collection, and TargetScan and miRTarBase are per-species published
+    datasets. None of the three can exist for an organism nobody has
+    built them for. The two that remain compute from sequence alone and
+    work on anything.
+    """
+    return {"common": label or "Uploaded organism",
+            "latin": "", "taxid": None,
+            "mirbase": "",                 # no miRBase prefix to assume
+            "source": "Upload",
+            "assembly": "supplied by the user",
+            "ensembl": None, "scanmir": "none",
+            "orgdb": None, "kegg": None,
+            "tools": ("seed", "rnahybrid")}
+
+
+def get(key, label=None):
     """The record for one species, or ValueError naming the valid keys."""
+    if is_upload(key):
+        return upload_record(key, label)
     try:
         return SPECIES[key]
     except KeyError:
@@ -214,6 +249,19 @@ def unsupported_reason(key, tool):
     """One plain sentence for the UI, or None if the tool is fine."""
     if supports(key, tool):
         return None
+    if is_upload(key):
+        # Permanent, not pending: all three need a dataset or a model
+        # built for one named organism, and nobody has built one for an
+        # organism this tool has never seen.
+        return {
+            "scanmir": "scanMiR needs affinity models trained for one "
+                       "named organism, so it cannot assess an uploaded "
+                       "one.",
+            "targetscan": "TargetScan publishes predictions per organism, "
+                          "so it has nothing for an uploaded one.",
+            "mirtarbase": "miRTarBase holds published experiments per "
+                          "organism, so it has nothing for an uploaded one.",
+        }.get(tool, "%s cannot run on an uploaded organism." % tool)
     s = get(key)
     if tool == "scanmir" and s["mirbase"] not in SCANMIR_SPECIES:
         return ("scanMiR has no affinity models for %s, and they cannot be "
@@ -237,6 +285,8 @@ def source_name(key):
     data_sources.name is a PRIMARY KEY, so every species needs its own
     row name. Human keeps the existing bare 'MANE' row untouched.
     """
+    if is_upload(key):
+        return "Upload-" + key[len(UPLOAD_PREFIX):]
     if key == "human":
         return "MANE"
     return "Ensembl-" + key
@@ -251,6 +301,11 @@ def prefix_ok(key, mirna_name):
     user may have typed an accession or a raw sequence.
     """
     want = get(key)["mirbase"]
+    if not want:
+        # An uploaded organism has no miRBase prefix of its own, so no
+        # name can be "wrong" for it. The user is expected to paste a
+        # sequence or a miRNA from a related species on purpose.
+        return True
     head = mirna_name.strip().lower()[:4]
     if len(head) < 4 or head[3] != "-":
         return True

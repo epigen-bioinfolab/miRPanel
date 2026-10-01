@@ -13,6 +13,7 @@ import db
 import enrichment as E
 import orchestrator as O
 import report as RP
+import uploads as U
 
 DB = "data/processed/mirna.db"
 IDLE = 2.0
@@ -22,14 +23,35 @@ IDLE = 2.0
 # not exist yet.
 con = db.connect(DB)
 
-for what, n in (("job", O.requeue_stale(con)),
+for what, n in (("upload", U.requeue_stale(con)),
+                ("job", O.requeue_stale(con)),
                 ("enrichment", E.requeue_stale(con)),
                 ("report", RP.requeue_stale(con))):
     if n:
         print(O.now(), "requeued", n, "stale", what + "(s)", flush=True)
+
+# Uploaded organisms are deleted once nobody has used them for a day.
+# They are not scientific artefacts like enrichment runs and reports -
+# they are a copy of files the user already has, and keeping every
+# one forever would accumulate other people's genomes for no benefit.
+swept = U.sweep(con)
+if swept:
+    print(O.now(), "swept", swept, "idle upload(s)", flush=True)
 print(O.now(), "worker started, polling every %.0fs" % IDLE, flush=True)
 
 while True:
+    up = U.next_queued(con)
+    if up is not None:
+        print(O.now(), "reading", up, flush=True)
+        try:
+            n = U.execute(con, up)
+            print(O.now(), "done   ", up, n, "transcripts", flush=True)
+        except Exception as exc:
+            # execute() has already recorded a readable reason on the
+            # row; the user sees that, not this line.
+            print(O.now(), "failed ", up, exc, flush=True)
+        continue
+
     job = O.next_queued(con)
     if job is not None:
         print(O.now(), "running", job, flush=True)

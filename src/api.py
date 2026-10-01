@@ -3,7 +3,8 @@ import json
 import os
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import (Depends, FastAPI, File, Form, HTTPException, Query,
+                     UploadFile)
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -22,6 +23,7 @@ import report as R
 import resolve
 import species as sp
 import targets as T
+import uploads as U
 import xlsx_export
 from tools import registry
 
@@ -50,6 +52,91 @@ def list_tools():
     metas = [m.META for m in registry.load().values()]
     metas.sort(key=lambda meta: meta["name"])
     return {"tools": metas}
+
+
+def _check_species(con, key):
+    """422 unless this species can actually be searched right now.
+
+    For an upload this also touches last_used_at, so an organism
+    somebody is actively working with is not swept out from under
+    them mid-session."""
+    if sp.is_upload(key):
+        up = U.get(con, key[len(sp.UPLOAD_PREFIX):])
+        if up is None:
+            raise HTTPException(404, {"error": "upload_not_found",
+                                      "species": key,
+                                      "message": "That uploaded organism "
+                                      "no longer exists. Uploads are "
+                                      "removed after %d hours of disuse."
+                                      % U.SWEEP_HOURS})
+        if up["status"] != "ready":
+            raise HTTPException(409, {"error": "upload_not_ready",
+                                      "species": key,
+                                      "status": up["status"],
+                                      "message": up["error"] or
+                                      "That upload is still being read."})
+        U.touch(con, key)
+        return
+    try:
+        sp.get(key)
+    except ValueError as e:
+        raise HTTPException(422, {"error": "unknown_species",
+                                  "query": key, "message": str(e)})
+
+
+@app.post("/uploads", status_code=202)
+# A plain def, not async: every other route here is sync, and
+# FastAPI runs those in a threadpool. An async route runs on the
+# event loop instead, where the SQLite connection that get_con
+# built in a worker thread cannot legally be used - SQLite binds a
+# connection to its creating thread. UploadFile.file is a plain
+# file object, so nothing here actually needs awaiting.
+def post_upload(label: str = Form(...),
+                      fasta: UploadFile = File(...),
+                      gtf: UploadFile = File(...),
+                      con=Depends(get_con)):
+    """Accept an organism the user supplies themselves.
+
+    Both files are required. A cDNA FASTA alone carries no CDS
+    boundary, and without one every transcript would be treated as
+    pure 3'UTR and the region filters would have nothing to filter
+    on - so a FASTA-only upload would silently produce worse answers
+    rather than obviously failing.
+
+    Parsing takes tens of seconds, so this queues and returns an id
+    to poll, like every other slow thing in this tool."""
+    upload_id = U.create_streamed(con, label,
+                                  fasta.filename, fasta.file,
+                                  gtf.filename, gtf.file)
+    return U.get(con, upload_id)
+
+
+@app.get("/uploads")
+def list_uploads(con=Depends(get_con)):
+    """Every upload, newest first - the ready ones and the rest."""
+    rows = [r[0] for r in con.execute(
+        "SELECT upload_id FROM uploads ORDER BY created_at DESC")]
+    return {"uploads": [U.get(con, r) for r in rows],
+            "sweep_hours": U.SWEEP_HOURS}
+
+
+@app.get("/uploads/{upload_id}")
+def read_upload(upload_id: str, con=Depends(get_con)):
+    """Status of one upload. Polled while it is being read."""
+    up = U.get(con, upload_id)
+    if up is None:
+        raise HTTPException(404, {"error": "upload_not_found",
+                                  "upload_id": upload_id})
+    return up
+
+
+@app.delete("/uploads/{upload_id}", status_code=204)
+def delete_upload(upload_id: str, con=Depends(get_con)):
+    """Remove an upload now rather than waiting for the sweep."""
+    if U.get(con, upload_id) is None:
+        raise HTTPException(404, {"error": "upload_not_found",
+                                  "upload_id": upload_id})
+    U.delete(con, upload_id)
 
 
 @app.get("/species")
@@ -87,7 +174,32 @@ def list_species(con=Depends(get_con)):
                 {"tool": t, "reason": sp.unsupported_reason(key, t)}
                 for t in every if not sp.supports(key, t)],
         })
-    return {"default": sp.DEFAULT, "species": out}
+    # Ready uploads are listed as organisms in their own right, so
+    # the picker needs no separate concept of them. They carry the
+    # user's own label and the two tools that can run on an organism
+    # nobody built datasets for.
+    for up in U.ready(con):
+        key = up["species"]
+        rec = sp.get(key, up["label"])
+        out.append({
+            "key": key,
+            "common": up["label"],
+            "latin": "",
+            "assembly": rec["assembly"],
+            "source": "Upload",
+            "mirbase": "",
+            "transcripts": up["n_transcripts"] or 0,
+            "loaded": True,
+            "upload_id": up["upload_id"],
+            "uploaded_at": up["finished_at"],
+            "fasta_url": None, "gtf_url": None, "files": None,
+            "tools": [t for t in every if sp.supports(key, t)],
+            "tools_unavailable": [
+                {"tool": t, "reason": sp.unsupported_reason(key, t)}
+                for t in every if not sp.supports(key, t)],
+        })
+    return {"default": sp.DEFAULT, "species": out,
+            "upload_sweep_hours": U.SWEEP_HOURS}
 
 
 class JobRequest(BaseModel):
@@ -103,11 +215,7 @@ class JobRequest(BaseModel):
 @app.post("/jobs", status_code=202)
 def post_job(req: JobRequest, con=Depends(get_con)):
     """Queue one miRNA. The worker runs it; poll GET /jobs/{job_id}."""
-    try:
-        sp.get(req.species)
-    except ValueError as e:
-        raise HTTPException(422, {"error": "unknown_species",
-                                  "query": req.species, "message": str(e)})
+    _check_species(con, req.species)
     m = resolve.resolve_mirna(con, req.mirna, req.species)
     if not m:
         raise HTTPException(404, {"error": "mirna_not_found", "query": req.mirna,
@@ -271,11 +379,7 @@ def read_gene(gene: str, species: str = sp.DEFAULT, con=Depends(get_con)):
     Scoped to one organism: gene symbols collide across species, so an
     unscoped lookup of PTEN would match human and mouse both and report
     the gene as ambiguous."""
-    try:
-        sp.get(species)
-    except ValueError as e:
-        raise HTTPException(422, {"error": "unknown_species",
-                                  "query": species, "message": str(e)})
+    _check_species(con, species)
     g = resolve.resolve_gene(con, gene, species)
     if not g or "entrez" not in g:
         raise HTTPException(404, {"error": "gene_not_found", "query": gene,
