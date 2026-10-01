@@ -21,10 +21,78 @@ form - "mouse" or "mmu" - so callers that already pass a miRBase code
 keep working untouched.
 """
 
+import hashlib
+
 import species as sp
 
 COLS = "accession, name, seed, species, sequence"
 MCOLS = "m.accession, m.name, m.seed, m.species, m.sequence"
+
+#: A mature miRNA typed as bare sequence rather than as a name. Needed
+#: because an organism the user uploads may not be in miRBase at all,
+#: and then there is no name to look up - the sequence is the only
+#: identifier that exists.
+RAW_BASES = set("ACGUT")
+RAW_MIN, RAW_MAX = 16, 30
+
+
+def _looks_like_sequence(key):
+    """Is this a bare nucleotide sequence rather than a name?
+
+    No miRNA name or MIMAT accession is 16+ characters drawn only from
+    ACGUT, so the test cannot swallow an identifier by accident.
+    """
+    k = "".join(key.split()).upper()
+    return RAW_MIN <= len(k) <= RAW_MAX and set(k) <= RAW_BASES
+
+
+def _synthetic(text, rna, species):
+    """A record for a sequence miRBase does not have.
+
+    The accession is derived from the sequence itself, so the same
+    sequence always gets the same id and two jobs on it are comparable.
+    The name IS the sequence: this miRNA has no other name, and writing
+    one in would invent information. Seed is positions 2-8 as DNA,
+    matching how miRBase rows are stored here (sequence in RNA, seed in
+    DNA) - a mismatch there would make every seed search quietly find
+    nothing.
+    """
+    dna = rna.replace("U", "T")
+    return {"input": text,
+            "matched_by": "raw sequence (not in miRBase)",
+            "accession": "SEQ:" + hashlib.sha1(dna.encode()).hexdigest()[:12],
+            "name": rna,
+            "seed": dna[1:8],
+            "species": species,
+            "sequence": rna}
+
+
+def resolve_sequence(con, text, species=sp.DEFAULT):
+    """Resolve a bare mature sequence, or None if it is not one.
+
+    miRBase is consulted first: someone who pastes let-7a's sequence
+    should get let-7a, with its real accession and its real name, not an
+    anonymous record. Only a sequence genuinely absent from miRBase gets
+    a synthetic one.
+    """
+    rna = "".join(text.split()).upper().replace("T", "U")
+    if not _looks_like_sequence(text):
+        return None
+    rows = con.execute("SELECT " + COLS + " FROM mirnas WHERE sequence=?",
+                       (rna,)).fetchall()
+    if rows:
+        code = _mirbase_code(species)
+        # Conserved miRNAs are sequence-identical across organisms, so
+        # one sequence can match many rows. Prefer this job's species;
+        # otherwise take the first and say which it was.
+        same = [r for r in rows if r[3] == code]
+        a, n, s, spc, q = (same or rows)[0]
+        return {"input": text,
+                "matched_by": "sequence" if same
+                              else "sequence (%s record)" % spc,
+                "accession": a, "name": n, "seed": s,
+                "species": spc, "sequence": q}
+    return _synthetic(text, rna, _mirbase_code(species))
 
 
 def _clean(text):
@@ -81,6 +149,11 @@ def resolve_mirna(con, text, species=sp.DEFAULT):
     key = _clean(text)
     if not key:
         return None
+    # Checked before the name steps: a bare sequence can never be a
+    # name, so this cannot shadow a real identifier, and for an uploaded
+    # organism it is the only input that works at all.
+    if _looks_like_sequence(key):
+        return resolve_sequence(con, key, species)
     code = _mirbase_code(species)
     tries = [key]
     if key.split("-")[0].lower() not in _species_codes(con):
