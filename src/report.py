@@ -21,6 +21,7 @@ import config
 import provenance
 import ranking
 import svg as SVG
+import species as sp
 
 # Every column an aggregated gene row needs, fetched once for all the genes
 # that made the cut rather than per gene.
@@ -187,30 +188,54 @@ def summarise(rows):
 
 # --------------------------------------------------------------- render
 
-def _geometry(con, symbols):
-    """MANE Select transcript length and region bounds, per gene symbol."""
+def _tx_label(species):
+    """What "one transcript per gene" is called for this organism.
+
+    MANE Select exists only for human. Everything else is scanned
+    against Ensembl canonical transcripts, which play the same role but
+    are not the same thing and must not be called by the same name."""
+    try:
+        rec = sp.get(species or sp.DEFAULT)
+    except ValueError:
+        return "canonical"
+    return "MANE Select" if rec["source"] == "MANE" else "Ensembl canonical"
+
+
+def legend(label):
+    """The legend, naming the transcript set this job actually used."""
+    return LEGEND_TMPL.replace("{TX}", label)
+
+
+def _geometry(con, symbols, species=None):
+    """Canonical transcript length and region bounds, per gene symbol.
+
+    Scoped to one organism for two reasons: a non-human transcript has
+    no MANE row at all, and gene symbols collide across species, so an
+    unscoped query could return the wrong organism's geometry."""
     import targets as T
     if not symbols:
         return {}
     qs = ",".join("?" * len(symbols))
     rows = con.execute("SELECT symbol, refseq, length FROM transcripts "
                        "WHERE symbol IN (" + qs + ") AND "
-                       "mane_status='MANE Select'", list(symbols)).fetchall()
+                       "canonical=1 AND species=?",
+                       list(symbols) + [species or sp.DEFAULT]).fetchall()
     regs = T.regions(con, [r[1] for r in rows])
     return {r[0]: {"refseq": r[1], "length": r[2],
                    "regions": sorted(regs.get(r[1], []), key=lambda x: x[1])}
             for r in rows}
 
 
-def _maps_section(con, syms, by_gene, limit):
+def _maps_section(con, syms, by_gene, limit, species=None):
     """A binding map for the best-supported genes, in the report's own order."""
     if not limit or not syms:
         return ""
     shown = syms[:int(limit)]
-    geom = _geometry(con, shown)
+    geom = _geometry(con, shown, species)
     out = ["<h2>Binding sites</h2>",
-           "<p class='note'>One transcript per picture &mdash; the MANE "
-           "Select transcript that was scanned &mdash; drawn to scale. A "
+           "<p class='note'>One transcript per picture &mdash; the "
+           + _tx_label(species) +
+           " transcript that was scanned &mdash; drawn to scale. A "
            "position only means anything against the sequence it was measured "
            "on. The two lanes are kept apart on purpose: the seed analyser "
            "reports a category at a point, RNAhybrid reports an energy over a "
@@ -460,7 +485,7 @@ def _enrichment_section(con, run_id, cap=20):
     return "".join(out)
 
 
-LEGEND = """
+LEGEND_TMPL = """
 <h2>How to read this</h2>
 <p class="note">Each column is one tool reporting on its own scale. Nothing in
 this document combines two tools into a single score, because their scales
@@ -468,7 +493,7 @@ measure different things and averaging them would invent a number none of
 them reported.</p>
 <table><thead><tr><th>Column</th><th>What it is</th>
 <th>Which way is better</th></tr></thead><tbody>
-<tr><td><b>Gene</b></td><td>Symbol, and beneath it the MANE Select transcript
+<tr><td><b>Gene</b></td><td>Symbol, and beneath it the {TX} transcript
 that was scanned. Every position in the row is measured along that
 transcript.</td><td class="none">—</td></tr>
 <tr><td><b>Regions</b></td><td>Which parts of the transcript had any hit at
@@ -535,7 +560,7 @@ def render(con, report_id):
     parts.append("<h2>Tools run</h2>")
     parts.append(_tools_table(st))
 
-    parts.append(LEGEND)
+    parts.append(legend(_tx_label(p.get("species"))))
 
     parts.append("<h2>Genes</h2>")
     parts.append(_gene_table(syms, by_gene) if syms else
@@ -547,7 +572,8 @@ def render(con, report_id):
 
     if syms:
         parts.append(_maps_section(con, syms, by_gene,
-                                   spec.get("maps_for", 10)))
+                                   spec.get("maps_for", 10),
+                                   p.get("species")))
 
     if rep["enrichment_run"]:
         parts.append(_enrichment_section(con, rep["enrichment_run"],
