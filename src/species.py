@@ -81,10 +81,10 @@ SPECIES = {
         # bug in the loader.
         "assembly":  "OryCun2.0",     # confirmed for Ensembl 116
         "ensembl":   "oryctolagus_cuniculus",
-        "scanmir":   "build",         # no shipped models: getKdModel()
+        "scanmir":   "none",          # see SCANMIR_SPECIES below
         "orgdb":     None,            # no rabbit OrgDb exists -> no GO
         "kegg":      "ocu",
-        "tools":     ("seed", "rnahybrid", "scanmir"),
+        "tools":     ("seed", "rnahybrid"),
     },
     "fly": {
         "common":    "Drosophila",
@@ -101,12 +101,12 @@ SPECIES = {
         # actually requested.
         "gtf_release": "63",
         "ensembl":   "drosophila_melanogaster",
-        "scanmir":   "build",
+        "scanmir":   "none",          # see SCANMIR_SPECIES below
         "orgdb":     "org.Dm.eg.db",
         "kegg":      "dme",
         # TargetScanFly is release 7.2, not 8.0 - a real version
         # mismatch that provenance must report honestly if loaded.
-        "tools":     ("seed", "rnahybrid", "scanmir"),
+        "tools":     ("seed", "rnahybrid"),
     },
 }
 
@@ -196,11 +196,29 @@ NOT_LOADED = {
 }
 
 
+#: The only species scanMiR can assess. scanMiRData ships KdModel
+#: collections for these three and no others.
+#:
+#: These cannot be extended. A KdModel is a table of 12-mer dissociation
+#: constants, and scanMiR's getKdModel() takes that table as its first,
+#: required argument - it does not derive one from a sequence. The table
+#: comes out of the convolutional network of McGeary et al. (2019),
+#: which is a separate Python program and not part of the R package. So
+#: a rabbit or fly miRNA has no model and cannot be given one here, and
+#: scanMiR reports N.A. for those species rather than a number borrowed
+#: from another organism's model.
+SCANMIR_SPECIES = ("hsa", "mmu", "rno")
+
+
 def unsupported_reason(key, tool):
     """One plain sentence for the UI, or None if the tool is fine."""
     if supports(key, tool):
         return None
     s = get(key)
+    if tool == "scanmir" and s["mirbase"] not in SCANMIR_SPECIES:
+        return ("scanMiR has no affinity models for %s, and they cannot be "
+                "built without the published CNN that generated them."
+                % s["common"].lower())
     pending = NOT_LOADED.get(key, {}).get(tool)
     if pending:
         return pending
