@@ -16,6 +16,7 @@ file and the page that produced it can never claim different releases.
 import datetime
 
 import config
+import species as sp
 
 
 def _sanitise(v):
@@ -72,9 +73,23 @@ def results(con, st, filters=None, order=None):
             _line("query_matched_by", p["matched_by"])]
     # Which transcripts were scanned is not a detail: a 9-gene job and a
     # transcriptome-wide job produce files that look identical otherwise.
+    # Which transcript set, in the organism's own terms: MANE Select is
+    # human-only, and every other species is scanned against Ensembl
+    # canonical transcripts instead. Read from species.py rather than
+    # written here, so a new organism cannot inherit a stale sentence.
+    sp_key = p.get("species") or sp.DEFAULT
+    try:
+        rec = sp.get(sp_key)
+        whole = "whole %s transcriptome (every %s transcript)" % (
+            rec["common"].lower(),
+            "MANE Select" if rec["source"] == "MANE"
+            else "Ensembl canonical")
+    except ValueError:
+        whole = "whole transcriptome (one transcript per gene)"
+    out.append(_line("species", sp_key))
     out.append(_line("target_set",
                      "%d requested genes" % len(p["genes"]) if p.get("genes")
-                     else "whole transcriptome (every MANE Select transcript)"))
+                     else whole))
     # Per tool, including the ones that failed. A tool missing from this list
     # was never asked for; a tool listed as 'failed' found nothing because it
     # broke, which is not the same as finding nothing.
