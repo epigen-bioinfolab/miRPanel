@@ -1445,6 +1445,8 @@ HEAD = """<!doctype html>
     <h2>New Search<em></em></h2>
     <div class="panel-body">
       <form class="qform" id="qform">
+        <label class="f f-sp"><span>Organism</span>
+          <select id="f_species"></select></label>
         <label class="f"><span>miRNA</span>
           <input type="text" id="f_mirna" placeholder="hsa-miR-21-5p or MIMAT0000076" autocomplete="off"></label>
         <label class="f"><span>Genes (optional)</span>
@@ -1453,6 +1455,7 @@ HEAD = """<!doctype html>
         <button class="go" id="runbtn" type="submit" disabled>Run</button>
         <span class="say" id="toolhint">Select at least one analysis method.</span>
       </form>
+      <div class="notice spnotice" id="f_spnotice" hidden></div>
       <div class="notice err" id="qerr" hidden></div>
     </div>
   </section>
@@ -1468,7 +1471,20 @@ HEAD = """<!doctype html>
 
     <div class="notice" id="prov"></div>
 """ % (style, EXTRA_CSS + REDESIGN_CSS + EXPORT_CSS + NETWORK_CSS + POLISH_CSS
-        + AGREE_CSS)
+        + AGREE_CSS + """
+/* Organism picker. The select inherits the form's own field styling;
+   only what has no existing equivalent is defined here. */
+.qform .f-sp select{font:inherit;padding:.45rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:13rem}
+/* A tool with no data for the chosen organism is dimmed AND disabled,
+   never hidden: someone looking for TargetScan should find it and read
+   why it cannot run, not wonder where it went. */
+.toolpick .tp-off{opacity:.45}
+.toolpick .tp-off .tps{font-style:italic}
+.spnotice{line-height:1.6}
+.spnotice ul.splinks{margin:.5rem 0 0;padding-left:1.1rem}
+.spnotice ul.splinks li{margin:.25rem 0}
+.spnotice code{font-size:.92em;word-break:break-all}
+""")
 
 TAIL_JS = r"""
   /* ================== live data ================== */
@@ -1521,13 +1537,19 @@ TAIL_JS = r"""
       return b;
     });
   }
-  function api(path){ return fetch(path).then(jsonOrThrow); }
+  function api(path){
+    if (CURSP && /^\/(genes|mirnas)\//.test(path))
+      path += (path.indexOf("?") < 0 ? "?" : "&") +
+              "species=" + encodeURIComponent(CURSP);
+    return fetch(path).then(jsonOrThrow);
+  }
   function post(path, body){
     return fetch(path, {method: "POST", headers: {"Content-Type": "application/json"},
                         body: JSON.stringify(body)}).then(jsonOrThrow);
   }
 
   var TOOLMETA = {}, MIRINFO = null, JOBID = null, JOBST = null, POLL = null;
+  var SPECIES = [], TOOLS = [], CURSP = "human";
   var RAN = {};
   var PAGE = {limit: 10, offset: 0, sort: "seed", total: 0, q: ""};
   var GTIMER = null;
@@ -1827,6 +1849,7 @@ TAIL_JS = r"""
       .catch(function(){ /* the POST below reports the real error */ })
       .then(function(){
         return post("/jobs", {mirna: mir,
+                              species: CURSP,
                               genes: genes.length ? genes : null,
                               tools: tools.length ? tools : null});
       })
@@ -2529,11 +2552,114 @@ TAIL_JS = r"""
     });
   }
 
+  /* ---------- organism ----------
+     One control drives three things: which transcriptome is searched,
+     which miRBase prefix a bare name is completed with, and which
+     tools have data to run. It is built from GET /species rather than
+     from a list in this page, so the set of organisms lives in exactly
+     one place (src/species.py) and cannot drift. */
+
+  var TOOLTITLE = {seed: "Seed Analysis", rnahybrid: "RNAhybrid",
+                   targetscan: "TargetScan", mirtarbase: "miRTarBase",
+                   scanmir: "scanMiR"};
+
+  function spesc(s){
+    return String(s == null ? "" : s).replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function curSpecies(){
+    for (var i = 0; i < SPECIES.length; i++)
+      if (SPECIES[i].key === CURSP) return SPECIES[i];
+    return null;
+  }
+
+  // The full sentence stays in the label's title attribute; this is
+  // only what fits on one line beside the tool's name.
+  function shortWhy(why){
+    if (/not loaded/i.test(why)) return "not loaded in this installation";
+    if (/no standalone/i.test(why)) return "not loaded in this installation";
+    return "no data for this organism";
+  }
+
+  function renderTools(){
+    var s = curSpecies(), reason = {};
+    ((s && s.tools_unavailable) || []).forEach(function(u){
+      reason[u.tool] = u.reason;
+    });
+    // An organism whose transcripts were never loaded has nothing to
+    // search, so every box is off until its files are uploaded.
+    var notLoaded = s && !s.loaded
+      ? s.common + " transcripts are not loaded yet."  : null;
+    el("f_tools").innerHTML = '<span>Tools</span><div class="toolpick">' +
+      TOOLS.map(function(t){
+        var why = notLoaded || reason[t.name];
+        return '<label class="tp' + (why ? " tp-off" : "") + '"' +
+          (why ? ' title="' + spesc(why) + '"' : "") + '>' +
+          '<input type="checkbox" value="' + t.name + '"' +
+          (why ? " disabled" : "") + '>' +
+          '<span class="tpn">' + spesc(TOOLTITLE[t.name] || t.name) +
+          "</span>" +
+          '<span class="tps">' +
+          spesc(why ? shortWhy(why) : (t.question || "")) +
+          "</span></label>";
+      }).join("") + "</div>";
+    toolsChanged();
+  }
+
+  function speciesChanged(){
+    var s = curSpecies(), n = el("f_spnotice");
+    if (!s) return;
+    el("f_mirna").placeholder =
+      "miRNA name or MIMAT accession (" + s.mirbase + " assumed)";
+    el("f_genes").placeholder = s.loaded
+      ? "empty = whole transcriptome (" + s.transcripts.toLocaleString() +
+        " genes)"
+      : "empty = whole transcriptome";
+    if (s.loaded || !s.fasta_url){
+      n.hidden = true;
+    } else {
+      // Both files, always. A cDNA FASTA alone carries no CDS
+      // boundary, and without it scanMiR treats the whole transcript
+      // as 3'UTR and the region filters have nothing to filter on.
+      n.hidden = false;
+      n.innerHTML =
+        "<b>" + spesc(s.common) + "</b> is not loaded in this " +
+        "installation. Download both files from Ensembl (" +
+        spesc(s.assembly) + "), then upload them:" +
+        '<ul class="splinks">' +
+        '<li><a href="' + spesc(s.fasta_url) + '">' +
+        '<code>' + spesc(s.files[0]) + '</code></a> &mdash; ' +
+        'transcript sequences</li>' +
+        '<li><a href="' + spesc(s.gtf_url) + '">' +
+        '<code>' + spesc(s.files[1]) + '</code></a> &mdash; ' +
+        'gene annotation, which carries the CDS boundaries</li></ul>';
+    }
+    renderTools();
+  }
+
+  function buildSpecies(){
+    var sel = el("f_species");
+    sel.innerHTML = SPECIES.map(function(s){
+      return '<option value="' + spesc(s.key) + '"' +
+        (s.key === CURSP ? " selected" : "") + ">" + spesc(s.common) +
+        (s.loaded ? "" : " \u2014 not loaded") + "</option>";
+    }).join("");
+    sel.addEventListener("change", function(){
+      CURSP = sel.value;
+      speciesChanged();
+    });
+    speciesChanged();
+  }
+
   function boot(){
     wire();
     netWire();
-    Promise.all([api("/about"), api("/tools")]).then(function(r){
+    Promise.all([api("/about"), api("/tools"), api("/species")])
+      .then(function(r){
       var about = r[0], tools = r[1].tools;
+      SPECIES = r[2].species || [];
+      CURSP = r[2]["default"] || "human";
       document.title = about.name;
       el("title").textContent = about.name;
       el("tagline").textContent = about.description;
@@ -2557,17 +2683,10 @@ TAIL_JS = r"""
       // Nothing is ticked. These are analysis methods the user chooses, and
       // a pre-ticked box is a decision made on their behalf that they may
       // never notice they did not make.
-      var TOOLTITLE = {seed: "Seed Analysis", rnahybrid: "RNAhybrid",
-                       targetscan: "TargetScan", mirtarbase: "miRTarBase",
-                       scanmir: "scanMiR"};
-      el("f_tools").innerHTML = '<span>Tools</span><div class="toolpick">' +
-        tools.map(function(t){
-          return '<label class="tp"><input type="checkbox" value="' + t.name +
-            '"><span class="tpn">' + (TOOLTITLE[t.name] || t.name) + "</span>" +
-            '<span class="tps">' + (t.question || "") + "</span>" +
-            "</label>";
-        }).join("") + "</div>";
-      toolsChanged();
+      // Rebuilt whenever the organism changes, not once at startup:
+      // which tools have data depends on the species.
+      TOOLS = tools;
+      buildSpecies();
     }).catch(showErr);
   }
 
