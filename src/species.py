@@ -57,7 +57,9 @@ SPECIES = {
         "taxid":     "10116",
         "mirbase":   "rno",
         "source":    "Ensembl",
-        "assembly":  "mRatBN7.2",     # VERIFY against release 116
+        # GRCr8, not the older mRatBN7.2 - Ensembl moved to the new rat
+        # assembly, and the old name 404s on release 116.
+        "assembly":  "GRCr8",
         "ensembl":   "rattus_norvegicus",
         "scanmir":   "shipped",
         "orgdb":     "org.Rn.eg.db",
@@ -90,7 +92,14 @@ SPECIES = {
         "taxid":     "7227",
         "mirbase":   "dme",
         "source":    "Ensembl",
-        "assembly":  "BDGP6.54",      # VERIFY: suffix moves per release
+        "assembly":  "BDGP6.54",
+        # Drosophila is annotated by Ensembl Genomes, which numbers its
+        # releases separately: Ensembl Genomes 63 is the counterpart to
+        # Ensembl 116, and the GTF filename carries 63. The cDNA FASTA
+        # has no release number in its name, so only the GTF is affected
+        # - which is exactly how this was missed until the links were
+        # actually requested.
+        "gtf_release": "63",
         "ensembl":   "drosophila_melanogaster",
         "scanmir":   "build",
         "orgdb":     "org.Dm.eg.db",
@@ -140,7 +149,7 @@ def gtf_url(key):
     s = get(key)
     return "%s/gtf/%s/%s.%s.%s.gtf.gz" % (
         _FTP, s["ensembl"], s["latin"].replace(" ", "_"), s["assembly"],
-        ENSEMBL_RELEASE)
+        s.get("gtf_release", ENSEMBL_RELEASE))
 
 
 def files(key):
