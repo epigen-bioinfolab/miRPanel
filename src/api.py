@@ -20,6 +20,7 @@ import provenance
 import ranking
 import report as R
 import resolve
+import species as sp
 import targets as T
 import xlsx_export
 from tools import registry
@@ -51,26 +52,73 @@ def list_tools():
     return {"tools": metas}
 
 
+@app.get("/species")
+def list_species(con=Depends(get_con)):
+    """Every organism this installation can analyse.
+
+    The dropdown builds itself from this, so the list of organisms
+    exists in exactly one place (src/species.py) rather than being
+    repeated in the page. `loaded` is read from the database, not
+    declared, so an organism whose transcripts were never loaded
+    cannot be offered as if it were ready.
+
+    `tools_unavailable` carries the reason per tool, so the page can
+    grey a column and say why instead of showing an empty one.
+    """
+    loaded = T.counts(con)
+    every = sorted(registry.load())
+    out = []
+    for key in sp.SPECIES:
+        rec = sp.get(key)
+        out.append({
+            "key": key,
+            "common": rec["common"],
+            "latin": rec["latin"],
+            "assembly": rec["assembly"],
+            "source": rec["source"],
+            "mirbase": rec["mirbase"],
+            "transcripts": loaded.get(key, 0),
+            "loaded": loaded.get(key, 0) > 0,
+            "fasta_url": None if key in sp.PRELOADED else sp.fasta_url(key),
+            "gtf_url": None if key in sp.PRELOADED else sp.gtf_url(key),
+            "files": None if key in sp.PRELOADED else list(sp.files(key)),
+            "tools": [t for t in every if sp.supports(key, t)],
+            "tools_unavailable": [
+                {"tool": t, "reason": sp.unsupported_reason(key, t)}
+                for t in every if not sp.supports(key, t)],
+        })
+    return {"default": sp.DEFAULT, "species": out}
+
+
 class JobRequest(BaseModel):
     """What a client sends to start a job."""
     mirna: str = Field(..., min_length=2, description="name or MIMAT accession")
     tools: Optional[List[str]] = None
     genes: Optional[List[str]] = None
     batch_id: Optional[str] = None
+    species: str = Field(sp.DEFAULT,
+                         description="organism key, from GET /species")
 
 
 @app.post("/jobs", status_code=202)
 def post_job(req: JobRequest, con=Depends(get_con)):
     """Queue one miRNA. The worker runs it; poll GET /jobs/{job_id}."""
-    m = resolve.resolve_mirna(con, req.mirna)
+    try:
+        sp.get(req.species)
+    except ValueError as e:
+        raise HTTPException(422, {"error": "unknown_species",
+                                  "query": req.species, "message": str(e)})
+    m = resolve.resolve_mirna(con, req.mirna, req.species)
     if not m:
-        raise HTTPException(404, {"error": "mirna_not_found", "query": req.mirna})
+        raise HTTPException(404, {"error": "mirna_not_found", "query": req.mirna,
+                                  "species": req.species})
     if "accession" not in m:
         raise HTTPException(409, {"error": "mirna_ambiguous", "query": req.mirna,
                                   "candidates": m.get("candidates", [])})
     try:
         job_id = orchestrator.create_job(con, req.mirna, tools=req.tools,
-                                         genes=req.genes, batch_id=req.batch_id)
+                                         genes=req.genes, batch_id=req.batch_id,
+                                         species=req.species)
     except ValueError as e:
         raise HTTPException(422, {"error": "bad_request", "message": str(e)})
     return orchestrator.job_status(con, job_id)
@@ -202,22 +250,37 @@ def about(con=Depends(get_con)):
     here, so neither is hard-coded in the page."""
     rows = con.execute("SELECT name, version, url, downloaded_on, notes "
                        "FROM data_sources ORDER BY name").fetchall()
+    loaded = T.counts(con)
     return {"name": config.TOOL_NAME, "version": config.TOOL_VERSION,
             "description": config.TOOL_DESCRIPTION,
             "subtitle": config.TOOL_SUBTITLE,
+            "species_loaded": [
+                {"key": k, "common": sp.get(k)["common"],
+                 "assembly": sp.get(k)["assembly"], "transcripts": n}
+                for k, n in sorted(loaded.items())],
             "data_sources": [{"name": r[0], "version": r[1], "url": r[2],
                               "downloaded_on": r[3], "notes": r[4]}
                              for r in rows]}
 
 
 @app.get("/genes/{gene}")
-def read_gene(gene: str, con=Depends(get_con)):
-    """The MANE Select transcript for one gene: its length and its region
-    boundaries. The binding map draws itself from this."""
-    g = resolve.resolve_gene(con, gene)
+def read_gene(gene: str, species: str = sp.DEFAULT, con=Depends(get_con)):
+    """The canonical transcript for one gene: its length and its region
+    boundaries. The binding map draws itself from this.
+
+    Scoped to one organism: gene symbols collide across species, so an
+    unscoped lookup of PTEN would match human and mouse both and report
+    the gene as ambiguous."""
+    try:
+        sp.get(species)
+    except ValueError as e:
+        raise HTTPException(422, {"error": "unknown_species",
+                                  "query": species, "message": str(e)})
+    g = resolve.resolve_gene(con, gene, species)
     if not g or "entrez" not in g:
-        raise HTTPException(404, {"error": "gene_not_found", "query": gene})
-    hits = T.targets_for(con, [g["entrez"]])
+        raise HTTPException(404, {"error": "gene_not_found", "query": gene,
+                                  "species": species})
+    hits = T.targets_for(con, [g["entrez"]], species)
     if not hits:
         raise HTTPException(404, {"error": "no_mane_transcript", "query": gene,
                                   "entrez": g["entrez"]})
@@ -230,10 +293,14 @@ def read_gene(gene: str, con=Depends(get_con)):
 
 
 @app.get("/mirnas/{query}")
-def read_mirna(query: str, con=Depends(get_con)):
+def read_mirna(query: str, species: str = sp.DEFAULT, con=Depends(get_con)):
     """Resolve one miRNA and return what the query panel shows: accession,
-    mature sequence, seed, and its TargetScan family if it has one."""
-    m = resolve.resolve_mirna(con, query)
+    mature sequence, seed, and its TargetScan family if it has one.
+
+    `species` only decides which prefix a bare name is completed with:
+    "miR-21a-5p" becomes mmu-miR-21a-5p for mouse. A fully-qualified
+    name from any organism still resolves."""
+    m = resolve.resolve_mirna(con, query, species)
     if not m:
         raise HTTPException(404, {"error": "mirna_not_found", "query": query})
     if "accession" not in m:
@@ -308,9 +375,20 @@ def read_genes(job_id: str,
         d = dict(zip(RESULT_COLS, r))
         d["extra"] = json.loads(d["extra"]) if d["extra"] else None
         out.append(d)
-    geom = con.execute("SELECT entrez, symbol, refseq, length FROM transcripts "
-                       "WHERE symbol IN (" + qs + ") AND mane_status='MANE Select'",
-                       syms).fetchall()
+    # The transcripts this job actually used, read back from the result
+    # rows rather than re-derived from symbols plus a MANE filter. Two
+    # reasons the old form broke once a second species existed: a
+    # non-human transcript has no MANE row at all, so the binding map
+    # came back empty; and symbols collide, so a shared symbol could
+    # return the other organism's geometry. refseq is the primary key,
+    # so this is exact.
+    refs = sorted({d["refseq"] for d in out if d.get("refseq")})
+    geom = []
+    if refs:
+        rqs = ",".join("?" * len(refs))
+        geom = con.execute("SELECT entrez, symbol, refseq, length "
+                           "FROM transcripts WHERE refseq IN (" + rqs + ")",
+                           refs).fetchall()
     regs = T.regions(con, [g[2] for g in geom])
     order_index = {s: i for i, s in enumerate(syms)}
     genes = [{"entrez": g[0], "symbol": g[1], "refseq": g[2], "length": g[3],

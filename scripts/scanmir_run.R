@@ -8,11 +8,25 @@
 # Nothing here decides policy. Thresholds and flags arrive as arguments so the
 # Python side owns them and records them in provenance.
 #
-# The model is chosen by SEQUENCE, not by name. scanMiRData was built on
-# miRBase 22; 864 of its 2,656 human models carry a name that Release 23 has
-# since changed, and 243 carry a seed that Release 23 has revised. Matching on
-# the mature sequence sidesteps both: a model is used only when it was built
-# for the molecule actually being queried.
+# The model is chosen by SEQUENCE, not by name, WITHIN one species'
+# collection. scanMiRData was built on miRBase 22; 864 of its 2,656 human
+# models carry a name that Release 23 has since changed, and 243 carry a seed
+# that Release 23 has revised. Matching on the mature sequence sidesteps both:
+# a model is used only when it was built for the molecule actually queried.
+#
+# WHY THE COLLECTION IS AN ARGUMENT
+# ---------------------------------
+# This used to be a hardcoded getKdModels("hsa"). Once mouse transcripts were
+# loaded, a mouse job still loaded the human collection - and because
+# mmu-miR-21a-5p and hsa-miR-21-5p are sequence-identical, the sequence match
+# SUCCEEDED and the run reported "ok" while provenance recorded a human model
+# for a mouse job. Sequence-identical orthologues make that failure invisible
+# in the results and visible only in provenance. The collection is now chosen
+# by the queried miRNA's own miRBase code.
+#
+# scanMiRData ships hsa, mmu and rno only. Any other species gets an honest
+# NO_COLLECTION status, which the interface renders as N.A. - never a number
+# computed from another organism's model.
 
 suppressPackageStartupMessages({
   library(scanMiR)
@@ -24,7 +38,7 @@ suppressPackageStartupMessages({
 a <- commandArgs(trailingOnly = TRUE)
 if (length(a) < 7) {
   stop("usage: scanmir_run.R <tx.tsv> <mirna_name> <mirna_seq> <out_sites.tsv> ",
-       "<out_agg.tsv> <maxlogkd_utr> <maxlogkd_orf> [shadow]")
+       "<out_agg.tsv> <maxlogkd_utr> <maxlogkd_orf> [shadow] [species]")
 }
 tx_path   <- a[1]
 mir_name  <- a[2]
@@ -34,13 +48,22 @@ out_agg   <- a[5]
 kd_utr    <- as.numeric(a[6])
 kd_orf    <- as.numeric(a[7])
 shadow    <- if (length(a) >= 8) as.integer(a[8]) else 0L
+coll      <- if (length(a) >= 9 && nzchar(a[9])) a[9] else "hsa"
 
 fail <- function(code, msg) {
   cat(sprintf("STATUS\t%s\t%s\n", code, msg))
   quit(save = "no", status = 0)
 }
 
-mods <- getKdModels("hsa")
+# The three collections scanMiRData actually ships.
+AVAILABLE <- c("hsa", "mmu", "rno")
+if (!(coll %in% AVAILABLE)) {
+  fail("NO_COLLECTION",
+       sprintf("scanMiRData ships affinity models for %s only; none for %s",
+               paste(AVAILABLE, collapse = ", "), coll))
+}
+
+mods <- getKdModels(coll)
 
 # --- choose the model ------------------------------------------------------
 modseq <- vapply(mods, function(x) toupper(gsub("U", "T", as.character(x$mirseq)[1])),
@@ -65,7 +88,8 @@ if (length(exact) >= 1) {
   }
   how <- "name match, 3' end differs from miRBase R23"
 } else {
-  fail("NO_MODEL", sprintf("no scanMiR KdModel for %s", mir_name))
+  fail("NO_MODEL", sprintf("no scanMiR KdModel for %s in the %s collection",
+                           mir_name, coll))
 }
 
 # --- scan ------------------------------------------------------------------
@@ -97,6 +121,7 @@ if (nrow(sites) == 0) {
   fwrite(data.table(refseq = character(), repression = numeric()),
          out_agg, sep = "\t")
   cat(sprintf("STATUS\tOK\t%s\n", how))
+  cat("COLLECTION\t", coll, "\n", sep = "")
   cat("MODEL\t", names(mods)[if (length(exact)) exact[1] else which(names(mods) == mir_name)],
       "\n", sep = "")
   cat("SITES\t0\nTRANSCRIPTS\t0\n")
@@ -122,6 +147,7 @@ ag[, refseq := as.character(refseq)]
 fwrite(ag, out_agg, sep = "\t")
 
 cat(sprintf("STATUS\tOK\t%s\n", how))
+cat("COLLECTION\t", coll, "\n", sep = "")
 cat("MODEL\t", as.character(km$name), "\n", sep = "")
 cat("MODEL_SEQ\t", as.character(km$mirseq), "\n", sep = "")
 cat("CONSERVATION\t", as.character(km$conservation), "\n", sep = "")

@@ -89,11 +89,19 @@ def run(con, mirna, tgts, opts=None, progress=None):
     kd_orf = float(opts.get("max_log_kd_orf", MAX_LOG_KD_ORF))
     shadow = int(opts.get("shadow", SHADOW))
 
+    # Which scanMiRData collection to load, from the queried miRNA's
+    # own miRBase code. This was hardcoded "hsa", which made a mouse
+    # job silently score against human models: mmu-miR-21a-5p and
+    # hsa-miR-21-5p are sequence-identical, so the sequence match
+    # succeeded and only provenance showed the mistake.
+    collection = (mirna.get("species") or "hsa").lower()
+
     prov = {"tool": "scanmir", "version": META["version"],
             "params": {"max_log_kd_utr": kd_utr, "max_log_kd_orf": kd_orf,
                        "shadow": shadow, "keep_match_seq": True,
                        "coef_utr": 0, "coef_orf": 0,
-                       "orf_length": "cds_end"}}
+                       "orf_length": "cds_end",
+                       "collection": collection}}
 
     # A revised seed is checked here as well as in the runner. The flag was
     # derived independently from the miRBase v22 -> v23 diff and agrees with
@@ -126,7 +134,8 @@ def run(con, mirna, tgts, opts=None, progress=None):
         agg_p = os.path.join(work, "agg.tsv")
         proc = subprocess.run(
             ["Rscript", RUNNER, tx, mirna["name"], mirna["sequence"],
-             sites_p, agg_p, str(kd_utr), str(kd_orf), str(shadow)],
+             sites_p, agg_p, str(kd_utr), str(kd_orf), str(shadow),
+             collection],
             capture_output=True, text=True)
         if proc.returncode != 0:
             raise RuntimeError("scanMiR runner failed: %s"
