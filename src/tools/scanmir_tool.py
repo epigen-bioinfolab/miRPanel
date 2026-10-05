@@ -23,8 +23,9 @@ repression estimate is carried in `extra` rather than competing as a second
 score, because it is strongly length-dependent (Spearman rho -0.60 against
 transcript length) and would rank long transcripts above well-targeted ones.
 """
-import json, os, shutil, subprocess, tempfile
+import json, os, re, shutil, subprocess, tempfile
 
+import kdmodel
 import targets as T
 from tools.registry import record
 
@@ -132,16 +133,39 @@ def run(con, mirna, tgts, opts=None, progress=None):
 
         sites_p = os.path.join(work, "sites.tsv")
         agg_p = os.path.join(work, "agg.tsv")
-        proc = subprocess.run(
-            ["Rscript", RUNNER, tx, mirna["name"], mirna["sequence"],
-             sites_p, agg_p, str(kd_utr), str(kd_orf), str(shadow),
-             collection],
-            capture_output=True, text=True)
-        if proc.returncode != 0:
-            raise RuntimeError("scanMiR runner failed: %s"
-                               % (proc.stderr.strip()[:300] or "no stderr"))
 
-        st = _status(proc.stdout)
+        def _scan(model_path=""):
+            p = subprocess.run(
+                ["Rscript", RUNNER, tx, mirna["name"], mirna["sequence"],
+                 sites_p, agg_p, str(kd_utr), str(kd_orf), str(shadow),
+                 collection, model_path],
+                capture_output=True, text=True)
+            if p.returncode != 0:
+                raise RuntimeError("scanMiR runner failed: %s"
+                                   % (p.stderr.strip()[:300] or "no stderr"))
+            return p, _status(p.stdout)
+
+        proc, st = _scan()
+
+        # scanMiRData covers human, mouse and rat. For anything else -
+        # rabbit, fly, an uploaded organism - there is no shipped model,
+        # so we build one from the published CNN and scan again. A built
+        # model is cached, so this cost is paid once per miRNA.
+        if st.get("STATUS") in ("NO_COLLECTION", "NO_MODEL", "SEED_CHANGED"):
+            try:
+                built = kdmodel.build(
+                    mirna["sequence"],
+                    name=re.sub(r"[^A-Za-z0-9]", "_", mirna["name"]))
+            except kdmodel.CNNUnavailable as exc:
+                return {"records": [], "provenance": prov,
+                        "warnings": ["scanMiRData has no model for %s, and "
+                                     "one could not be built: %s"
+                                     % (mirna["name"], exc)]}
+            prov["params"]["model_source"] = "generated"
+            proc, st = _scan(built)
+        else:
+            prov["params"]["model_source"] = "scanMiRData"
+
         if st.get("STATUS") != "OK":
             # A missing or outdated model is not a failure of the run: it is
             # the honest answer "this tool cannot assess this miRNA", which the

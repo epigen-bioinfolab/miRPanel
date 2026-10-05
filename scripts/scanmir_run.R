@@ -38,7 +38,8 @@ suppressPackageStartupMessages({
 a <- commandArgs(trailingOnly = TRUE)
 if (length(a) < 7) {
   stop("usage: scanmir_run.R <tx.tsv> <mirna_name> <mirna_seq> <out_sites.tsv> ",
-       "<out_agg.tsv> <maxlogkd_utr> <maxlogkd_orf> [shadow] [species]")
+       "<out_agg.tsv> <maxlogkd_utr> <maxlogkd_orf> [shadow] [species] ",
+       "[model.rds]")
 }
 tx_path   <- a[1]
 mir_name  <- a[2]
@@ -49,14 +50,27 @@ kd_utr    <- as.numeric(a[6])
 kd_orf    <- as.numeric(a[7])
 shadow    <- if (length(a) >= 8) as.integer(a[8]) else 0L
 coll      <- if (length(a) >= 9 && nzchar(a[9])) a[9] else "hsa"
+# A model built on demand from the McGeary CNN, for a miRNA
+# scanMiRData does not ship. Empty means use the shipped collection.
+model_rds <- if (length(a) >= 10 && nzchar(a[10])) a[10] else ""
 
 fail <- function(code, msg) {
   cat(sprintf("STATUS\t%s\t%s\n", code, msg))
   quit(save = "no", status = 0)
 }
 
-# The three collections scanMiRData actually ships.
+# --- choose the model ------------------------------------------------------
+# Two routes. A model built from the CNN is handed in directly. Otherwise
+# we look in the collection scanMiRData ships for this species.
 AVAILABLE <- c("hsa", "mmu", "rno")
+
+if (nzchar(model_rds)) {
+  km <- readRDS(model_rds)
+  how <- "generated from the McGeary CNN for this exact sequence"
+  coll <- "generated"
+  mods <- NULL
+  exact <- integer(0)
+} else {
 if (!(coll %in% AVAILABLE)) {
   fail("NO_COLLECTION",
        sprintf("scanMiRData ships affinity models for %s only; none for %s",
@@ -65,7 +79,6 @@ if (!(coll %in% AVAILABLE)) {
 
 mods <- getKdModels(coll)
 
-# --- choose the model ------------------------------------------------------
 modseq <- vapply(mods, function(x) toupper(gsub("U", "T", as.character(x$mirseq)[1])),
                  character(1))
 
@@ -90,6 +103,7 @@ if (length(exact) >= 1) {
 } else {
   fail("NO_MODEL", sprintf("no scanMiR KdModel for %s in the %s collection",
                            mir_name, coll))
+}
 }
 
 # --- scan ------------------------------------------------------------------
@@ -122,8 +136,8 @@ if (nrow(sites) == 0) {
          out_agg, sep = "\t")
   cat(sprintf("STATUS\tOK\t%s\n", how))
   cat("COLLECTION\t", coll, "\n", sep = "")
-  cat("MODEL\t", names(mods)[if (length(exact)) exact[1] else which(names(mods) == mir_name)],
-      "\n", sep = "")
+  cat("MODEL\t", as.character(km$name), "\n", sep = "")
+  cat("MODEL_SEQ\t", as.character(km$mirseq), "\n", sep = "")
   cat("SITES\t0\nTRANSCRIPTS\t0\n")
   quit(save = "no", status = 0)
 }

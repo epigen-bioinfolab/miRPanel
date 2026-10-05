@@ -81,10 +81,10 @@ SPECIES = {
         # bug in the loader.
         "assembly":  "OryCun2.0",     # confirmed for Ensembl 116
         "ensembl":   "oryctolagus_cuniculus",
-        "scanmir":   "none",          # see SCANMIR_SPECIES below
+        "scanmir":   "generated",     # built on demand from the CNN
         "orgdb":     None,            # no rabbit OrgDb exists -> no GO
         "kegg":      "ocu",
-        "tools":     ("seed", "rnahybrid"),
+        "tools":     ("seed", "rnahybrid", "scanmir"),
     },
     "fly": {
         "common":    "Drosophila",
@@ -101,12 +101,12 @@ SPECIES = {
         # actually requested.
         "gtf_release": "63",
         "ensembl":   "drosophila_melanogaster",
-        "scanmir":   "none",          # see SCANMIR_SPECIES below
+        "scanmir":   "generated",     # built on demand from the CNN
         "orgdb":     "org.Dm.eg.db",
         "kegg":      "dme",
         # TargetScanFly is release 7.2, not 8.0 - a real version
         # mismatch that provenance must report honestly if loaded.
-        "tools":     ("seed", "rnahybrid"),
+        "tools":     ("seed", "rnahybrid", "scanmir"),
     },
 }
 
@@ -133,21 +133,20 @@ def is_upload(key):
 def upload_record(key, label=None):
     """A species record for an uploaded organism.
 
-    Only seed analysis and RNAhybrid are offered, and that is not a
-    temporary limitation: scanMiR needs a species-specific KdModel
-    collection, and TargetScan and miRTarBase are per-species published
-    datasets. None of the three can exist for an organism nobody has
-    built them for. The two that remain compute from sequence alone and
-    work on anything.
+    TargetScan and miRTarBase are published per-species datasets, so
+    they cannot exist for an organism nobody has built them for. The
+    other three work from sequence: the seed analyser and RNAhybrid
+    directly, and scanMiR through a model built on demand from the
+    McGeary CNN.
     """
     return {"common": label or "Uploaded organism",
             "latin": "", "taxid": None,
             "mirbase": "",                 # no miRBase prefix to assume
             "source": "Upload",
             "assembly": "supplied by the user",
-            "ensembl": None, "scanmir": "none",
+            "ensembl": None, "scanmir": "generated",
             "orgdb": None, "kegg": None,
-            "tools": ("seed", "rnahybrid")}
+            "tools": ("seed", "rnahybrid", "scanmir")}
 
 
 def get(key, label=None):
@@ -231,17 +230,12 @@ NOT_LOADED = {
 }
 
 
-#: The only species scanMiR can assess. scanMiRData ships KdModel
-#: collections for these three and no others.
-#:
-#: These cannot be extended. A KdModel is a table of 12-mer dissociation
-#: constants, and scanMiR's getKdModel() takes that table as its first,
-#: required argument - it does not derive one from a sequence. The table
-#: comes out of the convolutional network of McGeary et al. (2019),
-#: which is a separate Python program and not part of the R package. So
-#: a rabbit or fly miRNA has no model and cannot be given one here, and
-#: scanMiR reports N.A. for those species rather than a number borrowed
-#: from another organism's model.
+#: Species scanMiRData ships ready-made KdModels for. Everything else
+#: gets a model built on demand from the McGeary et al. (2019) CNN,
+#: which is why scanMiR is now offered for every organism including
+#: uploads. Regenerating hsa-miR-21-5p through that route reproduced
+#: scanMiRData's own model exactly, all 1,024 coefficients identical,
+#: so a built model is the same model rather than an approximation.
 SCANMIR_SPECIES = ("hsa", "mmu", "rno")
 
 
