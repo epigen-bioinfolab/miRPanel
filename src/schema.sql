@@ -339,6 +339,7 @@ CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
 CREATE TABLE IF NOT EXISTS uploads (
     upload_id    TEXT PRIMARY KEY,
     label        TEXT NOT NULL,     -- what the user calls the organism
+    latin        TEXT,              -- scientific name, for finding annotation
     created_at   TEXT NOT NULL,
     started_at   TEXT,
     finished_at  TEXT,

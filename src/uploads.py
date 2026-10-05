@@ -14,15 +14,21 @@ keys, and no part of this codebase hardcodes the five.
 
 WHAT AN UPLOADED ORGANISM CAN RUN
 ---------------------------------
-Seed analysis and RNAhybrid, and that is permanent rather than pending.
-scanMiR needs a species-specific KdModel collection built from the
-McGeary CNN; TargetScan and miRTarBase are published per-species
-datasets. None can exist for an organism nobody built them for. The two
-that remain compute from sequence alone and work on anything.
+Seed analysis, RNAhybrid and scanMiR. The first two work from sequence
+directly; scanMiR works through a model built on demand from the
+McGeary CNN. TargetScan and miRTarBase are published per-species
+datasets and cannot exist for an organism nobody built them for.
 
-The miRNA is the other half of that problem: an organism outside
-miRBase has no miRNA names either, which is why resolve.py accepts a
-bare mature sequence.
+The miRNA is the other half: an organism outside miRBase has no miRNA
+names either, which is why resolve.py accepts a bare mature sequence.
+
+THE SCIENTIFIC NAME
+-------------------
+Optional, and only used for enrichment. AnnotationHub carries GO
+databases for roughly two thousand species, searched by scientific
+name, so "Xenopus tropicalis" buys the user GO and KEGG. Without a name
+the files still load and prediction still works; only enrichment is
+unavailable, and it says why.
 
 WHY UPLOADS ARE DELETED AND OTHER THINGS ARE NOT
 ------------------------------------------------
@@ -45,10 +51,27 @@ from datetime import datetime, timedelta
 
 import species as sp
 
-UPLOAD_DIR = "data/uploads"
+#: Where uploaded files are kept. Deliberately OUTSIDE the project
+#: directory by default.
+#:
+#: These are other people's files, not part of the application, and
+#: anything that watches or copies the project will pick them up: a
+#: `git add -A` would commit a stranger's genome, and uvicorn --reload
+#: restarted the server mid-upload because WatchFiles saw 35 MB appear
+#: under data/ - which is how this was found. Override with
+#: MIRPANEL_UPLOAD_DIR to put them on a different disk.
+UPLOAD_DIR = os.environ.get(
+    "MIRPANEL_UPLOAD_DIR",
+    os.path.join(os.path.expanduser("~"), ".mirpanel", "uploads"))
 
 #: Hours of no use after which an upload and its files are removed.
 SWEEP_HOURS = 24
+
+#: An upload whose files never finished arriving. Rows are written
+#: before the files, so a crash mid-transfer leaves a `queued` row with
+#: nothing behind it; the sweep clears those on a much shorter clock
+#: than the idle one, since nobody is waiting on them.
+ABANDONED_HOURS = 2
 
 #: A GTF with no canonical transcripts at all is not an Ensembl GTF, or
 #: is a fragment. Parsing it produces nothing and the user should be
@@ -95,7 +118,8 @@ def species_key(upload_id):
     return sp.UPLOAD_PREFIX + upload_id
 
 
-def create_streamed(con, label, fasta_name, fasta_fh, gtf_name, gtf_fh):
+def create_streamed(con, label, fasta_name, fasta_fh, gtf_name, gtf_fh,
+                    latin=None):
     """Like create(), but copies from open file objects.
 
     A cDNA FASTA can be well over a hundred megabytes. Reading one into
@@ -104,73 +128,95 @@ def create_streamed(con, label, fasta_name, fasta_fh, gtf_name, gtf_fh):
     HTTP layer uses this; create() stays for scripts and tests, where
     the files are small or already in hand.
     """
-    label = " ".join(str(label or "").split()) or "Uploaded organism"
-    upload_id = "up_" + uuid.uuid4().hex[:12]
-    folder = os.path.join(UPLOAD_DIR, upload_id)
-    os.makedirs(folder, exist_ok=True)
-
-    paths = []
-    for name, fh in ((fasta_name, fasta_fh), (gtf_name, gtf_fh)):
-        path = os.path.join(folder, os.path.basename(name))
-        with open(path, "wb") as out:
-            shutil.copyfileobj(fh, out, 1 << 20)
-        paths.append(path)
-    fasta_path, gtf_path = paths
-
-    con.execute(
-        "INSERT INTO uploads (upload_id, label, created_at, last_used_at, "
-        "status, fasta_name, gtf_name, fasta_path, gtf_path, fasta_sha256, "
-        "gtf_sha256, bytes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (upload_id, label, now(), now(), "queued",
-         os.path.basename(fasta_name), os.path.basename(gtf_name),
-         fasta_path, gtf_path, _sha256(fasta_path), _sha256(gtf_path),
-         os.path.getsize(fasta_path) + os.path.getsize(gtf_path)))
-    con.commit()
+    upload_id, folder, fasta_path, gtf_path = _reserve(
+        con, label, fasta_name, gtf_name, latin)
+    try:
+        for path, fh in ((fasta_path, fasta_fh), (gtf_path, gtf_fh)):
+            with open(path, "wb") as out:
+                shutil.copyfileobj(fh, out, 1 << 20)
+    except Exception:
+        # The row exists, so the mess is findable and removable rather
+        # than being megabytes on disk that nothing points at.
+        delete(con, upload_id)
+        raise
+    _arrived(con, upload_id, fasta_path, gtf_path)
     return upload_id
 
 
-def create(con, label, fasta_name, fasta_bytes, gtf_name, gtf_bytes):
+def _reserve(con, label, fasta_name, gtf_name, latin=None):
+    """Claim an id and write the row BEFORE any bytes are stored.
+
+    The row comes first so that nothing can exist on disk without
+    something in the database pointing at it. The original order -
+    files, then row - left 35 MB orphaned every time a transfer was
+    interrupted, removable only by hand, because nothing recorded that
+    the folder was ever created.
+
+    The row is marked 'arriving' rather than 'queued': the worker must
+    not try to parse files that are still being written.
+    """
+    label = " ".join(str(label or "").split()) or "Uploaded organism"
+    latin = " ".join(str(latin or "").split())
+    upload_id = "up_" + uuid.uuid4().hex[:12]
+    folder = os.path.join(UPLOAD_DIR, upload_id)
+    fasta_path = os.path.join(folder, os.path.basename(fasta_name))
+    gtf_path = os.path.join(folder, os.path.basename(gtf_name))
+
+    con.execute(
+        "INSERT INTO uploads (upload_id, label, latin, created_at, "
+        "last_used_at, status, fasta_name, gtf_name, fasta_path, gtf_path) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (upload_id, label, latin or None, now(), now(), "arriving",
+         os.path.basename(fasta_name), os.path.basename(gtf_name),
+         fasta_path, gtf_path))
+    con.commit()
+    os.makedirs(folder, exist_ok=True)
+    return upload_id, folder, fasta_path, gtf_path
+
+
+def _arrived(con, upload_id, fasta_path, gtf_path):
+    """Both files are fully written: checksum them and queue the parse."""
+    con.execute(
+        "UPDATE uploads SET status='queued', fasta_sha256=?, gtf_sha256=?, "
+        "bytes=? WHERE upload_id=?",
+        (_sha256(fasta_path), _sha256(gtf_path),
+         os.path.getsize(fasta_path) + os.path.getsize(gtf_path), upload_id))
+    con.commit()
+
+
+def create(con, label, fasta_name, fasta_bytes, gtf_name, gtf_bytes,
+           latin=None):
     """Store both files and queue the parse. Returns the upload id.
 
     Parsing a vertebrate transcriptome takes tens of seconds, so this
     queues like every other slow thing in the tool rather than holding
     an HTTP request open.
     """
-    label = " ".join(str(label or "").split()) or "Uploaded organism"
-    upload_id = "up_" + uuid.uuid4().hex[:12]
-    folder = os.path.join(UPLOAD_DIR, upload_id)
-    os.makedirs(folder, exist_ok=True)
-
-    fasta_path = os.path.join(folder, os.path.basename(fasta_name))
-    gtf_path = os.path.join(folder, os.path.basename(gtf_name))
-    with open(fasta_path, "wb") as fh:
-        fh.write(fasta_bytes)
-    with open(gtf_path, "wb") as fh:
-        fh.write(gtf_bytes)
-
-    con.execute(
-        "INSERT INTO uploads (upload_id, label, created_at, last_used_at, "
-        "status, fasta_name, gtf_name, fasta_path, gtf_path, fasta_sha256, "
-        "gtf_sha256, bytes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (upload_id, label, now(), now(), "queued",
-         os.path.basename(fasta_name), os.path.basename(gtf_name),
-         fasta_path, gtf_path, _sha256(fasta_path), _sha256(gtf_path),
-         len(fasta_bytes) + len(gtf_bytes)))
-    con.commit()
+    upload_id, folder, fasta_path, gtf_path = _reserve(
+        con, label, fasta_name, gtf_name, latin)
+    try:
+        for path, data in ((fasta_path, fasta_bytes), (gtf_path, gtf_bytes)):
+            with open(path, "wb") as fh:
+                fh.write(data)
+    except Exception:
+        delete(con, upload_id)
+        raise
+    _arrived(con, upload_id, fasta_path, gtf_path)
     return upload_id
 
 
 def get(con, upload_id):
     row = con.execute(
-        "SELECT upload_id, label, created_at, started_at, finished_at, "
-        "last_used_at, status, error, fasta_name, gtf_name, bytes, "
-        "n_transcripts, n_regions, n_skipped, seconds "
+        "SELECT upload_id, label, latin, created_at, started_at, "
+        "finished_at, last_used_at, status, error, fasta_name, gtf_name, "
+        "bytes, n_transcripts, n_regions, n_skipped, seconds "
         "FROM uploads WHERE upload_id=?", (upload_id,)).fetchone()
     if row is None:
         return None
-    cols = ("upload_id", "label", "created_at", "started_at", "finished_at",
-            "last_used_at", "status", "error", "fasta_name", "gtf_name",
-            "bytes", "n_transcripts", "n_regions", "n_skipped", "seconds")
+    cols = ("upload_id", "label", "latin", "created_at", "started_at",
+            "finished_at", "last_used_at", "status", "error", "fasta_name",
+            "gtf_name", "bytes", "n_transcripts", "n_regions", "n_skipped",
+            "seconds")
     out = dict(zip(cols, row))
     out["species"] = species_key(upload_id)
     return out
@@ -307,17 +353,27 @@ def delete(con, upload_id):
     shutil.rmtree(os.path.join(UPLOAD_DIR, upload_id), ignore_errors=True)
 
 
-def sweep(con, hours=SWEEP_HOURS):
+def sweep(con, hours=SWEEP_HOURS, abandoned_hours=ABANDONED_HOURS):
     """Delete uploads nobody has used for `hours`. Returns how many.
 
     Idle time, not age: last_used_at is touched every time a job reads
-    the upload.
+    the upload, so somebody reading their results for three hours does
+    not lose the data underneath them.
+
+    Rows still 'arriving' are swept on a much shorter clock. Those are
+    transfers that were interrupted - the browser closed, the
+    connection dropped - and nobody is waiting on them. Keeping them a
+    full day would just hold disk for a file that will never finish.
     """
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat(
-        timespec="seconds")
-    stale = [r[0] for r in con.execute(
-        "SELECT upload_id FROM uploads WHERE "
-        "COALESCE(last_used_at, created_at) < ?", (cutoff,))]
+    def _older_than(h, extra=""):
+        cut = (datetime.now() - timedelta(hours=h)).isoformat(
+            timespec="seconds")
+        return [r[0] for r in con.execute(
+            "SELECT upload_id FROM uploads WHERE "
+            "COALESCE(last_used_at, created_at) < ?" + extra, (cut,))]
+
+    stale = (_older_than(hours, " AND status != 'arriving'")
+             + _older_than(abandoned_hours, " AND status = 'arriving'"))
     for upload_id in stale:
         delete(con, upload_id)
     return len(stale)

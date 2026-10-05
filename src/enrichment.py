@@ -237,10 +237,20 @@ def execute(con, run_id):
     jp = con.execute("SELECT params FROM jobs WHERE job_id=?",
                      (row[2],)).fetchone()
     species = orchestrator.job_species(json.loads(jp[0])) if jp else sp.DEFAULT
-    rec = sp.get(species)
+    # An uploaded organism carries its scientific name on the upload
+    # rather than in the registry, and that name is what AnnotationHub
+    # is searched by.
+    latin = None
+    if sp.is_upload(species):
+        import uploads
+        up = uploads.get(con, species[len(sp.UPLOAD_PREFIX):])
+        latin = up and up.get("latin")
+    rec = sp.get(species, latin=latin)
     if not rec["orgdb"] and not rec["latin"]:
-        raise RuntimeError("no annotation is available for %s, so GO and "
-                           "KEGG cannot be run" % species)
+        raise RuntimeError("GO and KEGG need an annotation database, and "
+                           "none can be found without a scientific name "
+                           "for this organism. Re-upload it giving the "
+                           "species name, for example Xenopus tropicalis.")
 
     bg = background(con, species)[0]
     # Symbols travel alongside the ids: R picks whichever key maps best

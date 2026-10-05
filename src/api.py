@@ -94,6 +94,7 @@ def _check_species(con, key):
 def post_upload(label: str = Form(...),
                       fasta: UploadFile = File(...),
                       gtf: UploadFile = File(...),
+                      latin: str = Form(""),
                       con=Depends(get_con)):
     """Accept an organism the user supplies themselves.
 
@@ -105,9 +106,12 @@ def post_upload(label: str = Form(...),
 
     Parsing takes tens of seconds, so this queues and returns an id
     to poll, like every other slow thing in this tool."""
+    # The scientific name is optional and only used to find an
+    # annotation database for enrichment. Without it the files still
+    # load and prediction still works.
     upload_id = U.create_streamed(con, label,
                                   fasta.filename, fasta.file,
-                                  gtf.filename, gtf.file)
+                                  gtf.filename, gtf.file, latin)
     return U.get(con, upload_id)
 
 

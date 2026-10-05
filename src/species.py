@@ -130,7 +130,7 @@ def is_upload(key):
     return isinstance(key, str) and key.startswith(UPLOAD_PREFIX)
 
 
-def upload_record(key, label=None):
+def upload_record(key, label=None, latin=None):
     """A species record for an uploaded organism.
 
     TargetScan and miRTarBase are published per-species datasets, so
@@ -140,7 +140,7 @@ def upload_record(key, label=None):
     McGeary CNN.
     """
     return {"common": label or "Uploaded organism",
-            "latin": "", "taxid": None,
+            "latin": latin or "", "taxid": None,
             "mirbase": "",                 # no miRBase prefix to assume
             "source": "Upload",
             "assembly": "supplied by the user",
@@ -149,10 +149,10 @@ def upload_record(key, label=None):
             "tools": ("seed", "rnahybrid", "scanmir")}
 
 
-def get(key, label=None):
+def get(key, label=None, latin=None):
     """The record for one species, or ValueError naming the valid keys."""
     if is_upload(key):
-        return upload_record(key, label)
+        return upload_record(key, label, latin)
     try:
         return SPECIES[key]
     except KeyError:
