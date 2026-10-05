@@ -288,6 +288,14 @@ CREATE TABLE IF NOT EXISTS enrichment_terms (
     PRIMARY KEY (run_id, source, term_id)
 );
 
+
+-- Which key the ids were mapped through, and how much of the
+-- background survived it. Human maps completely through Entrez;
+-- organisms with thinner annotation do not, and a result that does
+-- not say so reads as covering more than it did.
+--   id_key TEXT
+--   mapped_fraction REAL
+
 CREATE INDEX IF NOT EXISTS idx_enr_terms_run ON enrichment_terms(run_id, p_adjust);
 CREATE INDEX IF NOT EXISTS idx_enr_runs_job  ON enrichment_runs(job_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_enr_runs_hash ON enrichment_runs(job_id, spec_hash);

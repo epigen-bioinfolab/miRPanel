@@ -26,6 +26,8 @@ import hashlib
 import json
 import os
 import subprocess
+
+import species as sp
 import sys
 import time
 import uuid
@@ -95,23 +97,32 @@ def spec_hash(spec):
         json.dumps(normalise(spec), sort_keys=True).encode()).hexdigest()[:12]
 
 
-def background(con):
+def background(con, species=None):
     """The genes that could have been selected, and which release they are.
 
     Refuses to guess. An enrichment whose background cannot be traced to a
     named release is not reproducible, and a p-value that cannot be traced is
     not worth storing.
+
+    Returns (id, symbol) pairs rather than bare ids, because the stored id
+    is an Ensembl one for every organism except human, and R has to try
+    more than one key to map it.
     """
-    genes = [r[0] for r in con.execute(
-        "SELECT DISTINCT entrez FROM transcripts WHERE mane_status='MANE Select'")]
-    row = con.execute("SELECT name, version FROM data_sources "
-                      "WHERE upper(name) LIKE '%MANE%' ORDER BY name").fetchone()
+    species = species or sp.DEFAULT
+    rows = con.execute(
+        "SELECT DISTINCT t.entrez, t.symbol FROM transcripts t "
+        "WHERE t.canonical=1 AND t.species=?", (species,)).fetchall()
+    if not rows:
+        raise RuntimeError("no canonical transcripts loaded for %s" % species)
+
+    row = con.execute(
+        "SELECT name, version FROM data_sources WHERE name=?",
+        (sp.source_name(species),)).fetchone()
     if not row:
-        raise RuntimeError("no MANE row in data_sources: refusing to run an "
-                           "enrichment whose background has no release")
-    if not genes:
-        raise RuntimeError("no MANE Select transcripts loaded")
-    return genes, row[0], row[1]
+        raise RuntimeError("no data_sources row for %s: refusing to run an "
+                           "enrichment whose background has no release"
+                           % species)
+    return rows, row[0], row[1]
 
 
 def _read_meta(path):
@@ -181,11 +192,17 @@ def create(con, job_id, spec):
         sel["sentence"] = "%d gene%s found %s" % (
             sel["count"], "" if sel["count"] == 1 else "s", label)
 
-    bg, bg_source, bg_version = background(con)
-    finished = con.execute("SELECT finished_at FROM jobs WHERE job_id=?",
-                           [job_id]).fetchone()
+    finished = con.execute("SELECT finished_at, params FROM jobs "
+                           "WHERE job_id=?", [job_id]).fetchone()
     if finished is None:
         raise ValueError("no such job: %s" % job_id)
+
+    # The background belongs to the organism the job ran on. Asking for
+    # the human one regardless meant a rabbit run was stored as having
+    # tested 19,363 human genes against MANE v1.5.
+    import orchestrator
+    species = orchestrator.job_species(json.loads(finished[1]))
+    bg, bg_source, bg_version = background(con, species)
 
     run_id = "enr_" + uuid.uuid4().hex[:12]
     con.execute(
@@ -209,13 +226,28 @@ def execute(con, run_id):
     The slow half. Reads the gene list the request already fixed, so this can
     run minutes or hours later and still test the same genes.
     """
-    row = con.execute("SELECT gene_ids, n_genes FROM enrichment_runs "
+    row = con.execute("SELECT gene_ids, n_genes, job_id FROM enrichment_runs "
                       "WHERE run_id=?", [run_id]).fetchone()
     if row is None:
         raise ValueError("no such enrichment run: %s" % run_id)
     genes = row[0].split(",")
     n_selected = row[1]
-    bg = background(con)[0]
+
+    import orchestrator
+    jp = con.execute("SELECT params FROM jobs WHERE job_id=?",
+                     (row[2],)).fetchone()
+    species = orchestrator.job_species(json.loads(jp[0])) if jp else sp.DEFAULT
+    rec = sp.get(species)
+    if not rec["orgdb"] and not rec["latin"]:
+        raise RuntimeError("no annotation is available for %s, so GO and "
+                           "KEGG cannot be run" % species)
+
+    bg = background(con, species)[0]
+    # Symbols travel alongside the ids: R picks whichever key maps best
+    # for this organism, which is the Ensembl id for mouse and the alias
+    # for rabbit.
+    sym = dict(con.execute(
+        "SELECT entrez, symbol FROM genes WHERE species=?", (species,)))
     con.execute("UPDATE enrichment_runs SET status='running', started_at=? "
                 "WHERE run_id=?", [_now(), run_id])
     con.commit()
@@ -225,23 +257,36 @@ def execute(con, run_id):
     bp = os.path.join(TMP, "%s_background.txt" % run_id)
     op = os.path.join(TMP, "%s.tsv" % run_id)
     mp = os.path.join(TMP, "%s_meta.tsv" % run_id)
-    open(gp, "w").write("\n".join(str(g) for g in genes) + "\n")
-    open(bp, "w").write("\n".join(str(g) for g in bg) + "\n")
+    open(gp, "w").write("".join(
+        "%s\t%s\n" % (g, sym.get(g, "")) for g in genes))
+    open(bp, "w").write("".join(
+        "%s\t%s\n" % (g, s or "") for g, s in bg))
 
     t0 = time.time()
     try:
-        p = subprocess.run(["Rscript", RSCRIPT, gp, bp, op, mp],
+        p = subprocess.run(["Rscript", RSCRIPT, gp, bp, op, mp,
+                            rec["orgdb"] or "", rec["latin"] or "",
+                            rec["kegg"] or ""],
                            capture_output=True, text=True)
         if p.returncode != 0:
             raise RuntimeError("Rscript failed (%d): %s"
                                % (p.returncode, p.stderr.strip()[-500:]))
         meta = _read_meta(mp)
-        # R reads the file itself and de-duplicates; if it ended up testing a
-        # different number of genes than we selected, the stored gene_ids would
-        # not be the list that produced these p-values.
-        if _int(meta, "n_genes") != n_selected:
-            raise RuntimeError("R tested %s genes but %d were selected"
-                               % (meta.get("n_genes"), n_selected))
+        # How the ids were mapped and how much of the background made it.
+        # Human is always 100% through Entrez; rabbit is nearer two thirds
+        # through aliases, and that has to be visible in the result.
+        con.execute(
+            "UPDATE enrichment_runs SET id_key=?, mapped_fraction=? "
+            "WHERE run_id=?",
+            (meta.get("id_key"), meta.get("mapped_fraction"), run_id))
+        # R reads the file itself and de-duplicates. n_input is what it was
+        # handed; n_genes is what survived mapping to Entrez, which is lower
+        # for organisms whose annotation is incomplete. The first must match
+        # what we selected, or the stored gene_ids are not the list that
+        # produced these p-values. The second is reported, not enforced.
+        if _int(meta, "n_input") != n_selected:
+            raise RuntimeError("R was given %s genes but %d were selected"
+                               % (meta.get("n_input"), n_selected))
         terms = _read_terms(op, run_id)
         con.executemany(
             "INSERT OR REPLACE INTO enrichment_terms (run_id, source, term_id, "
