@@ -2348,7 +2348,7 @@ TAIL_JS = r"""
     // ontology annotates a different part of it - 17,116 for GO:BP against
     // 8,516 for KEGG - so the number that actually divides changes per tab.
     el("enrichhead").textContent = run.rule_sentence +
-      " were tested against a MANE Select background of " +
+      " were tested against a background of " +
       run.n_background.toLocaleString() + " genes.";
 
     var bits = [run.background_source + " " + run.background_version];

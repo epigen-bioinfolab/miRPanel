@@ -83,7 +83,12 @@ def normalise(spec):
             if v == "all":
                 continue
         elif k == "genes":
-            v = sorted(set(int(g) for g in v))
+            # Ids are text: Entrez for human, Ensembl for everything
+            # else. Numeric ones still sort numerically, so the hash
+            # does not change for existing human runs.
+            v = sorted(set(str(g).strip() for g in v if str(g).strip()),
+                       key=lambda g: (0, int(g), "") if g.isdigit()
+                                     else (1, 0, g))
         elif k in ("in", "out"):
             v = sorted(str(x) for x in v)
         else:

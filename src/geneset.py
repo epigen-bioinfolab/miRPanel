@@ -58,7 +58,12 @@ def select(con, job_id, spec):
     Returns the gene ids, the count, and each rule written out in words.
     """
     if spec.get("genes") is not None:
-        genes = sorted(set(int(g) for g in spec["genes"]))
+        # Ids are text: Entrez for human, Ensembl for every other
+        # organism. Numeric ones still sort numerically.
+        genes = sorted(set(str(g).strip() for g in spec["genes"]
+                           if str(g).strip()),
+                       key=lambda g: (0, int(g), "") if g.isdigit()
+                                     else (1, 0, g))
         return {"genes": genes, "count": len(genes), "rules": [],
                 "match": spec.get("match") or "all",
                 "sentence": "%d gene%s" % (len(genes),

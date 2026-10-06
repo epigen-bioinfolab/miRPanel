@@ -546,7 +546,7 @@ class EnrichmentRequest(BaseModel):
     mirtarbase: Optional[str] = None
     regions: Optional[List[str]] = None
     match: str = Field("all", pattern="^(all|any)$")
-    genes: Optional[List[int]] = None
+    genes: Optional[List[str]] = None
     included: Optional[List[str]] = None
     excluded: Optional[List[str]] = None
 
