@@ -1040,4 +1040,87 @@ def read_report(report_id: str, con=Depends(get_con)):
 
 # Mounted last: it claims "/", so every real endpoint must be declared above.
 WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
+# ── batches ────────────────────────────────────────────────────────────
+# Several miRNAs in one request. Each becomes an ordinary job, so every
+# existing view keeps working; the batch only adds the comparison
+# between them.
+import batch as B
+
+
+class BatchRequest(BaseModel):
+    mirnas: List[str]
+    tools: Optional[List[str]] = None
+    genes: Optional[List[str]] = None
+    species: Optional[str] = None
+
+
+@app.post("/batches", status_code=202)
+def post_batch(req: BatchRequest, con=Depends(get_con)):
+    species = req.species or sp.DEFAULT
+    _check_species(con, species)
+    try:
+        return B.create(con, req.mirnas, tools=req.tools, genes=req.genes,
+                        species=species)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/batches/{batch_id}")
+def get_batch(batch_id: str, con=Depends(get_con)):
+    js = B.jobs(con, batch_id)
+    if not js:
+        raise HTTPException(status_code=404, detail="no such batch")
+    # whatever the job table calls finished
+    DONE = ("done", "ok", "failed", "error", "cancelled")
+    done = sum(1 for j in js if (j["status"] or "").lower() in DONE)
+    return {"batch_id": batch_id, "n_jobs": len(js), "n_done": done,
+            "jobs": js}
+
+
+@app.get("/batches/{batch_id}/intersection")
+def get_batch_intersection(batch_id: str,
+                           min_count: Optional[int] = None,
+                           site_types: Optional[str] = None,
+                           tools: Optional[str] = None,
+                           limit: int = 500,
+                           con=Depends(get_con)):
+    if not B.jobs(con, batch_id):
+        raise HTTPException(status_code=404, detail="no such batch")
+    st = [s for s in (site_types or "").split(",") if s]
+    tl = [t for t in (tools or "").split(",") if t]
+    out = B.intersection(con, batch_id, min_count, st or None, tl or None)
+    out["genes"] = out["genes"][:max(1, int(limit))]
+    return out
+
+
+@app.post("/batches/{batch_id}/enrichment", status_code=202)
+def post_batch_enrichment(batch_id: str,
+                          min_count: Optional[int] = None,
+                          site_types: Optional[str] = None,
+                          tools: Optional[str] = None,
+                          con=Depends(get_con)):
+    """Enrichment on the shared genes.
+
+    Runs against the first job in the batch, so the organism and the
+    background come from the batch itself.
+    """
+    js = B.jobs(con, batch_id)
+    if not js:
+        raise HTTPException(status_code=404, detail="no such batch")
+    st = [s for s in (site_types or "").split(",") if s]
+    tl = [t for t in (tools or "").split(",") if t]
+    hit = B.intersection(con, batch_id, min_count, st or None, tl or None)
+    ids = [g["entrez"] for g in hit["genes"]]
+    if not ids:
+        raise HTTPException(status_code=400,
+                            detail="no gene is shared by that many miRNAs")
+    try:
+        run_id = enrichment.create(con, js[0]["job_id"], {"genes": ids})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"run_id": run_id, "n_genes": len(ids),
+            "min_count": hit["min_count"], "n_mirnas": hit["n_mirnas"]}
+
+
 app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
+

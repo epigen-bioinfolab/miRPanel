@@ -1448,7 +1448,11 @@ HEAD = """<!doctype html>
         <label class="f f-sp"><span>Organism</span>
           <select id="f_species"></select></label>
         <label class="f"><span>miRNA</span>
-          <input type="text" id="f_mirna" placeholder="hsa-miR-21-5p or MIMAT0000076" autocomplete="off"></label>
+          <input type="text" id="f_mirna" placeholder="hsa-miR-21-5p or MIMAT0000076" autocomplete="off">
+          <textarea id="f_mirmany" rows="4" hidden
+            placeholder="one miRNA per line, up to 20"></textarea>
+          <button type="button" id="f_mirtoggle" class="linkish">several miRNAs</button>
+          </label>
         <label class="f"><span>Genes (optional)</span>
           <input type="text" id="f_genes" placeholder="empty = whole transcriptome" autocomplete="off"></label>
         <div class="fgroup" id="f_tools"><span>Tools</span></div>
@@ -1845,6 +1849,7 @@ TAIL_JS = r"""
 
   function submit(e){
     e.preventDefault();
+    if (!el("f_mirmany").hidden) { submitBatch(); return; }
     var mir = el("f_mirna").value.trim();
     if (!mir) return;
     var genes = el("f_genes").value.split(/[\s,]+/).filter(Boolean);
@@ -2744,8 +2749,160 @@ TAIL_JS = r"""
     });
   }
 
+  /* ---------- several miRNAs ----------
+     Each one becomes an ordinary job, so every panel below still
+     works. The batch only adds the comparison between them: which
+     genes more than one miRNA targets. */
+
+  var BATCH = null, BPOLL = null;
+
+  function wireBatch(){
+    var t = el("f_mirtoggle"), many = el("f_mirmany"), one = el("f_mirna");
+    if (!t) return;
+    t.addEventListener("click", function(){
+      var on = many.hidden;
+      many.hidden = !on; one.hidden = on;
+      t.textContent = on ? "one miRNA" : "several miRNAs";
+    });
+  }
+
+  function bpanel(){
+    var p = el("batchbox");
+    if (p) return p;
+    p = document.createElement("section");
+    p.id = "batchbox"; p.className = "panel"; p.hidden = true;
+    var r = el("results");
+    r.parentNode.insertBefore(p, r);
+    return p;
+  }
+
+  function submitBatch(){
+    var names = el("f_mirmany").value.split(/[\n,]+/)
+                  .map(function(s){ return s.trim(); })
+                  .filter(function(s){ return s.length; });
+    if (!names.length){ alert("Add at least one miRNA."); return; }
+    if (names.length > 20){ alert("At most 20 miRNAs."); return; }
+
+    var genes = el("f_genes").value.split(/[\s,]+/).filter(Boolean);
+    var tools = [].slice.call(
+        document.querySelectorAll("#f_tools input:checked"))
+        .map(function(c){ return c.value; });
+    var body = {mirnas: names, species: CURSP,
+                tools: tools.length ? tools : null,
+                genes: genes.length ? genes : null};
+    var p = bpanel();
+    p.hidden = false;
+    p.innerHTML = '<h2 class="sectitle">Several miRNAs</h2>' +
+                  '<p class="bstat">Queueing ' + names.length + '...</p>';
+    fetch("/batches", {method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(body)})
+      .then(jsonOrThrow)
+      .then(function(r){ BATCH = r.batch_id; pollBatch(r); })
+      .catch(function(e){
+        p.innerHTML += '<p class="bad">' + (e.message || "failed") + '</p>';
+      });
+  }
+
+  function pollBatch(first){
+    if (BPOLL) clearInterval(BPOLL);
+    var draw = function(r){
+      var rows = r.jobs.map(function(j){
+        return '<tr><td>' + spesc(j.mirna || "?") + '</td><td>' +
+               spesc(j.status) + '</td><td><a href="#" data-j="' +
+               j.job_id + '" class="bopen">open</a></td></tr>';
+      }).join("");
+      var p = bpanel();
+      p.innerHTML =
+        '<h2 class="sectitle">Several miRNAs</h2>' +
+        '<p class="bstat">' + r.n_done + ' of ' + r.n_jobs + ' done</p>' +
+        '<table class="btab"><thead><tr><th>miRNA</th><th>status</th>' +
+        '<th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+        (r.n_done === r.n_jobs ? sharedControls() : "");
+      Array.prototype.forEach.call(p.querySelectorAll(".bopen"),
+        function(a){ a.addEventListener("click", function(ev){
+          ev.preventDefault();
+          JOBID = a.getAttribute("data-j");
+          api("/jobs/" + JOBID).then(function(j){
+            JOBST = j; el("runbox").hidden = false; renderRun(j);
+            PAGE.offset = 0; loadPage();
+          });
+        }); });
+      if (r.n_done === r.n_jobs) wireShared();
+    };
+    if (first) draw({batch_id: first.batch_id, n_jobs: first.jobs.length,
+                     n_done: 0, jobs: first.jobs.map(function(j){
+                       return {mirna: j.mirna, job_id: j.job_id,
+                               status: "queued"}; })});
+    BPOLL = setInterval(function(){
+      api("/batches/" + BATCH).then(function(r){
+        draw(r);
+        if (r.n_done === r.n_jobs){ clearInterval(BPOLL); BPOLL = null; }
+      }).catch(function(){});
+    }, 3000);
+  }
+
+  function sharedControls(){
+    return '<div class="bshared">' +
+      '<h3>Genes targeted by more than one</h3>' +
+      '<label>Found by at least <input type="number" id="b_min" ' +
+      'min="1" value="2" style="width:4rem"> miRNAs</label> ' +
+      '<label>Site <select id="b_site">' +
+      '<option value="">any</option>' +
+      '<option value="8mer" selected>8mer only</option>' +
+      '<option value="8mer,7mer-m8,7mer-a1">canonical</option>' +
+      '</select></label> ' +
+      '<button type="button" id="b_go">Show</button> ' +
+      '<button type="button" id="b_enrich">Run GO and KEGG</button>' +
+      '<div id="b_out"></div></div>';
+  }
+
+  function sharedQuery(){
+    return "?min_count=" + encodeURIComponent(el("b_min").value) +
+           "&site_types=" + encodeURIComponent(el("b_site").value);
+  }
+
+  function wireShared(){
+    el("b_go").addEventListener("click", function(){
+      el("b_out").innerHTML = "working...";
+      api("/batches/" + BATCH + "/intersection" + sharedQuery())
+        .then(function(r){
+          var rows = r.genes.slice(0, 200).map(function(g){
+            return '<tr><td>' + spesc(g.symbol || g.entrez) + '</td><td>' +
+                   g.n_mirnas + '</td><td>' +
+                   spesc(g.mirnas.join(", ")) + '</td></tr>';
+          }).join("");
+          el("b_out").innerHTML =
+            '<p>' + r.n_genes.toLocaleString() + ' gene' +
+            (r.n_genes === 1 ? "" : "s") + ' found by at least ' +
+            r.min_count + ' of ' + r.n_mirnas + '.</p>' +
+            '<table class="btab"><thead><tr><th>gene</th><th>miRNAs</th>' +
+            '<th>which</th></tr></thead><tbody>' + rows + '</tbody></table>';
+        }).catch(function(e){ el("b_out").innerHTML = e.message; });
+    });
+
+    el("b_enrich").addEventListener("click", function(){
+      el("b_out").innerHTML = "queueing enrichment...";
+      fetch("/batches/" + BATCH + "/enrichment" + sharedQuery(),
+            {method:"POST"})
+        .then(jsonOrThrow)
+        .then(function(r){
+          el("b_out").innerHTML = 'Enrichment running on ' +
+            r.n_genes.toLocaleString() + ' shared genes.';
+          // same path a Venn region uses, so the result lands in the
+          // existing Pathway Analysis panel
+          el("enrich").hidden = false;
+          gsSetSource(true);
+          watchRun(r.run_id);
+          el("enrich").scrollIntoView({behavior: "smooth", block: "start"});
+        })
+        .catch(function(e){ el("b_out").innerHTML = e.message; });
+    });
+  }
+
   function boot(){
     wire();
+    wireBatch();
     netWire();
     Promise.all([api("/about"), api("/tools"), api("/species")])
       .then(function(r){
