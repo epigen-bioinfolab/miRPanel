@@ -43,13 +43,9 @@ SPECIES = {
         "scanmir":   "shipped",
         "orgdb":     "org.Mm.eg.db",
         "kegg":      "mmu",
-        # TargetScanMouse 8.0 and miRTarBase mouse rows both exist and
-        # are downloadable, but neither is LOADED yet. This tuple says
-        # what the tool can actually do today, not what is obtainable -
-        # listing a tool whose table holds only human data would run
-        # human predictions against mouse genes and report them as
-        # mouse results. Add them here when their loaders run.
-        "tools":     ("seed", "rnahybrid", "scanmir"),
+        # The only organism besides human with all five.
+        "tools":     ("seed", "rnahybrid", "scanmir", "targetscan",
+                      "mirtarbase"),
     },
     "rat": {
         "common":    "Rat",
@@ -64,11 +60,8 @@ SPECIES = {
         "scanmir":   "shipped",
         "orgdb":     "org.Rn.eg.db",
         "kegg":      "rno",
-        # TargetScan has no standalone rat release; rat rows can be
-        # pulled out of the TargetScanMouse 46-way files by species id
-        # 10116. miRTarBase does carry rat records. Neither is loaded,
-        # so neither is declared - see NOT_LOADED below.
-        "tools":     ("seed", "rnahybrid", "scanmir"),
+        # TargetScan publishes no standalone rat release.
+        "tools":     ("seed", "rnahybrid", "scanmir", "mirtarbase"),
     },
     "rabbit": {
         "common":    "Rabbit",
@@ -104,9 +97,9 @@ SPECIES = {
         "scanmir":   "generated",     # built on demand from the CNN
         "orgdb":     "org.Dm.eg.db",
         "kegg":      "dme",
-        # TargetScanFly is release 7.2, not 8.0 - a real version
-        # mismatch that provenance must report honestly if loaded.
-        "tools":     ("seed", "rnahybrid", "scanmir"),
+        # TargetScanFly's predicted-targets file is listed on their
+        # download page but the server returns 404 for it.
+        "tools":     ("seed", "rnahybrid", "scanmir", "mirtarbase"),
     },
 }
 
@@ -208,24 +201,14 @@ def supports(key, tool):
 #: permanent fact about the data, the other is a to-do here. Saying
 #: the wrong one would be worse than saying nothing.
 NOT_LOADED = {
-    "mouse": {
-        "targetscan": "TargetScanMouse 8.0 exists but is not loaded "
-                      "in this installation yet.",
-        "mirtarbase": "miRTarBase has mouse records, but they are not "
-                      "loaded in this installation yet.",
-    },
     "rat": {
-        "targetscan": "TargetScan has no standalone rat release; rat "
-                      "rows must be extracted from the mouse 46-way "
-                      "files, which has not been done yet.",
-        "mirtarbase": "miRTarBase has rat records, but they are not "
-                      "loaded in this installation yet.",
+        "targetscan": "TargetScan publishes no rat release. Rat rows "
+                      "could be extracted from the mouse 46-way "
+                      "alignment files, which has not been done.",
     },
     "fly": {
-        "targetscan": "TargetScanFly 7.2 exists but is not loaded in "
-                      "this installation yet.",
-        "mirtarbase": "miRTarBase has fly records, but they are not "
-                      "loaded in this installation yet.",
+        "targetscan": "TargetScanFly 7.2 lists a predicted-targets "
+                      "file that its own server does not serve.",
     },
 }
 
