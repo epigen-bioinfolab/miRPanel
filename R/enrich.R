@@ -106,21 +106,42 @@ if (looks_entrez(genes_in$id)) {
   bg    <- unique(bg_in$id)
   mapped_frac <- 1
 } else {
-  best <- NULL; best_n <- -1
+  # Every route, not just the best one. They fail on different genes,
+  # so the union maps more than any single key does.
+  collect <- function(d) {
+    out <- list()
+    used <- character(0)
+    for (r in ROUTES) {
+      m <- to_entrez(d, r[1], r[2])
+      if (is.null(m) || !nrow(m)) next
+      hit <- stats::setNames(m$ENTREZID, m[[r[1]]])
+      rows <- which(d[[r[2]]] %in% names(hit))
+      if (!length(rows)) next
+      out[[r[1]]] <- data.frame(id = d$id[rows],
+                                entrez = unname(hit[d[[r[2]]][rows]]),
+                                stringsAsFactors = FALSE)
+      used <- c(used, r[1])
+    }
+    list(map = if (length(out)) do.call(rbind, out) else NULL, keys = used)
+  }
+
   for (r in ROUTES) {
     m <- to_entrez(bg_in, r[1], r[2])
     n <- if (is.null(m)) 0 else length(unique(m[[r[1]]]))
     message(sprintf("  %-9s maps %d of %d background genes",
                     r[1], n, nrow(bg_in)))
-    if (n > best_n) { best_n <- n; best <- r }
   }
-  best_key <- best[1]
-  bgm <- to_entrez(bg_in, best[1], best[2])
-  gm  <- to_entrez(genes_in, best[1], best[2])
-  if (is.null(bgm) || !nrow(bgm)) stop("no background gene could be mapped")
-  bg    <- unique(bgm$ENTREZID)
-  genes <- if (is.null(gm)) character(0) else unique(gm$ENTREZID)
-  mapped_frac <- best_n / nrow(bg_in)
+
+  bgc <- collect(bg_in)
+  gmc <- collect(genes_in)
+  if (is.null(bgc$map) || !nrow(bgc$map))
+    stop("no background gene could be mapped")
+
+  bgm <- bgc$map[!duplicated(bgc$map$id), ]
+  bg  <- unique(bgm$entrez)
+  genes <- if (is.null(gmc$map)) character(0) else unique(gmc$map$entrez)
+  best_key <- paste(bgc$keys, collapse = "+")
+  mapped_frac <- nrow(bgm) / nrow(bg_in)
   message(sprintf("using %s; %.1f%% of the background mapped",
                   best_key, 100 * mapped_frac))
 }
