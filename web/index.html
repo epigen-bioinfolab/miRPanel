@@ -1597,6 +1597,17 @@
 .spnotice ul.splinks{margin:.5rem 0 0;padding-left:1.1rem}
 .spnotice ul.splinks li{margin:.25rem 0}
 .spnotice code{font-size:.92em;word-break:break-all}
+/* Upload form. Hidden until the user picks Other organism. */
+.upform{display:grid;gap:.7rem;max-width:34rem}
+.upform label{display:grid;gap:.25rem;font-size:13px;color:var(--muted)}
+.upform input[type=text]{font:inherit;font-size:14px;padding:.45rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.upform input[type=file]{font-size:13px}
+.upform .hint{font-size:12px;color:var(--muted);line-height:1.5}
+.upbtn{font:inherit;font-size:14px;font-weight:600;padding:.5rem .9rem;border:0;border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;justify-self:start}
+.upbtn[disabled]{opacity:.5;cursor:default}
+.upstat{font-size:13px;line-height:1.6}
+.upstat.bad{color:#b3261e}
+.upstat.good{color:#1e6b3a}
 </style>
 </head>
 <body>
@@ -4127,8 +4138,10 @@
     });
     // An organism whose transcripts were never loaded has nothing to
     // search, so every box is off until its files are uploaded.
-    var notLoaded = s && !s.loaded
-      ? s.common + " transcripts are not loaded yet."  : null;
+    var notLoaded = CURSP === "__upload__"
+      ? "Upload an organism first."
+      : (s && !s.loaded ? s.common + " transcripts are not loaded yet."
+                        : null);
     el("f_tools").innerHTML = '<span>Tools</span><div class="toolpick">' +
       TOOLS.map(function(t){
         var why = notLoaded || reason[t.name];
@@ -4147,6 +4160,7 @@
 
   function speciesChanged(){
     var s = curSpecies(), n = el("f_spnotice");
+    if (CURSP === "__upload__"){ showUploadForm(n); renderTools(); return; }
     if (!s) return;
     el("f_mirna").placeholder =
       "miRNA name or MIMAT accession (" + s.mirbase + " assumed)";
@@ -4183,11 +4197,89 @@
         (s.key === CURSP ? " selected" : "") + ">" + spesc(s.common) +
         (s.loaded ? "" : " \u2014 not loaded") + "</option>";
     }).join("");
+    // One more entry, for an organism we do not have.
+    sel.innerHTML += '<option value="__upload__">Other organism \u2014 upload your own</option>';
     sel.addEventListener("change", function(){
       CURSP = sel.value;
       speciesChanged();
     });
     speciesChanged();
+  }
+
+  /* ---------- bring your own organism ----------
+     Two files and a name. The GTF is required: a FASTA alone has no
+     coding boundary, so regions and the ORF penalty would silently
+     stop working. The name is optional and only buys enrichment. */
+
+  var UPPOLL = null;
+
+  function showUploadForm(n){
+    n.hidden = false;
+    n.innerHTML =
+      '<div class="upform">' +
+      '<div class="hint">Bring an organism miRPanel does not have. Download its cDNA FASTA and GTF from Ensembl, from the same release, and upload both here.</div>' +
+      '<label>Name<input type="text" id="up_label" placeholder="My organism"></label>' +
+      '<label>Scientific name (optional, needed for pathway analysis)<input type="text" id="up_latin" placeholder="e.g. Xenopus tropicalis"></label>' +
+      '<label>Transcript sequences, cDNA FASTA<input type="file" id="up_fasta" accept=".gz,.fa,.fasta"></label>' +
+      '<label>Annotation, GTF<input type="file" id="up_gtf" accept=".gz,.gtf"></label>' +
+      '<button type="button" class="upbtn" id="up_go">Upload</button>' +
+      '<div class="upstat" id="up_stat"></div>' +
+      '</div>';
+    el("up_go").addEventListener("click", startUpload);
+  }
+
+  function upSay(msg, cls){
+    var s = el("up_stat");
+    if (s){ s.className = "upstat " + (cls || ""); s.innerHTML = msg; }
+  }
+
+  function startUpload(){
+    var fa = el("up_fasta").files[0], gt = el("up_gtf").files[0];
+    if (!fa || !gt){ upSay("Both files are needed.", "bad"); return; }
+    var fd = new FormData();
+    fd.append("label", el("up_label").value || "Uploaded organism");
+    fd.append("latin", el("up_latin").value || "");
+    fd.append("fasta", fa);
+    fd.append("gtf", gt);
+    el("up_go").disabled = true;
+    upSay("Sending " + Math.round((fa.size+gt.size)/1048576) + " MB...");
+    fetch("/uploads", {method:"POST", body: fd})
+      .then(jsonOrThrow)
+      .then(function(u){
+        upSay("Reading the files. This takes about a minute.");
+        pollUpload(u.upload_id);
+      })
+      .catch(function(e){
+        el("up_go").disabled = false;
+        upSay("Upload failed. " + (e && e.message ? e.message : ""), "bad");
+      });
+  }
+
+  function pollUpload(id){
+    if (UPPOLL) clearInterval(UPPOLL);
+    UPPOLL = setInterval(function(){
+      api("/uploads/" + id).then(function(u){
+        if (u.status === "ready"){
+          clearInterval(UPPOLL); UPPOLL = null;
+          upSay(u.n_transcripts.toLocaleString() + " transcripts read. " +
+                "Ready to search.", "good");
+          adoptUpload(u.species);
+        } else if (u.status === "failed"){
+          clearInterval(UPPOLL); UPPOLL = null;
+          el("up_go").disabled = false;
+          upSay(u.error || "The files could not be read.", "bad");
+        }
+      }).catch(function(){});
+    }, 2000);
+  }
+
+  // Reload the organism list so the new one appears, then select it.
+  function adoptUpload(key){
+    api("/species").then(function(r){
+      SPECIES = r.species || [];
+      CURSP = key;
+      buildSpecies();
+    });
   }
 
   function boot(){
