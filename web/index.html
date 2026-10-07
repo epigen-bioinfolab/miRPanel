@@ -921,8 +921,8 @@
     --paper:#ffffff; --surface:#ffffff; --surface-2:#f4f5f6; --surface-3:#fafbfb;
     --ink:#14181b; --muted:#454c52; --faint:#6a7278;
     --line:#d6dade; --line-soft:#e8eaec;
-    --accent:#12507e; --accent-ink:#fff; --accent-wash:#eaf1f7;
-    --blue:#12507e; --blue-wash:#eaf1f7;
+    --accent:#1f4e79; --accent-ink:#fff; --accent-wash:#eaf1f7;
+    --blue:#1f4e79; --blue-wash:#eaf1f7;
     --ok:#1d6b48; --warn:#8a5a12; --sel:#a8410f; --sel-wash:#fbeee7;
   }
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -1087,8 +1087,8 @@
 
   /* ---- selected row: blue, and still readable ---- */
   table.results tbody tr.generow.sel>td{
-    background:#12507e;color:#fff;box-shadow:none;
-    border-bottom-color:#12507e}
+    background:#1f4e79;color:#fff;box-shadow:none;
+    border-bottom-color:#1f4e79}
   tr.generow.sel .gene, tr.generow.sel .site, tr.generow.sel .region,
   tr.generow.sel .chip, tr.generow.sel .sub2, tr.generow.sel .txid,
   tr.generow.sel .say, tr.generow.sel td{color:#fff!important}
@@ -1397,8 +1397,8 @@
   the top two steps the fill is too dark (light mode) or too light (dark)
   for ink at 3:1, so text sitting on those flips to --ag-on-deep. */
   :root, :root[data-theme="light"]{
-    --ag-0:#ffffff; --ag-1:#eaf1f7; --ag-2:#cfe0ee; --ag-3:#9dc2dd;
-    --ag-4:#5b92c2; --ag-5:#2e6da2; --ag-6:#12507e;
+    --ag-0:#ffffff; --ag-1:#f7edee; --ag-2:#cfe0ee; --ag-3:#9dc2dd;
+    --ag-4:#5b92c2; --ag-5:#2e6da2; --ag-6:#1f4e79;
     --ag-on-deep:#ffffff;
     --agc-seed:#2a78d6; --agc-targetscan:#1baf7a; --agc-rnahybrid:#eda100;
     --agc-mirtarbase:#e34948; --agc-scanmir:#008300;
@@ -1608,6 +1608,208 @@
 .upstat{font-size:13px;line-height:1.6}
 .upstat.bad{color:#b3261e}
 .upstat.good{color:#1e6b3a}
+/* Multi-miRNA panel. Sits under New Search, above everything else. */
+#batchbox{margin:1.4rem 0 2rem}
+.btabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.9rem 0 0;
+  border-bottom:2px solid var(--line);padding-bottom:0}
+.btab{font:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  padding:.55rem .95rem;border:1px solid var(--line);border-bottom:0;
+  border-radius:7px 7px 0 0;background:var(--surface-2);color:var(--muted);
+  position:relative;top:2px}
+.btab:hover{color:var(--ink)}
+.btab.on{background:var(--surface);color:var(--ink);
+  border-bottom:2px solid var(--surface)}
+.btab.merged{background:#7a1f2b;color:#fff;border-color:#7a1f2b}
+.btab.merged.on{background:#7a1f2b;color:#fff}
+.btab .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+  margin-right:.45rem;vertical-align:middle}
+.bpane{padding:1.2rem 0 0}
+.bctl{display:flex;flex-wrap:wrap;gap:1.1rem;align-items:flex-end;
+  margin:0 0 1rem}
+.bctl label{display:grid;gap:.25rem;font-size:13px;color:var(--muted);
+  font-weight:600}
+.bctl select,.bctl input{font:inherit;font-size:14px;padding:.4rem .5rem;
+  border:1px solid var(--line);border-radius:6px;background:var(--surface);
+  color:var(--ink)}
+.bbtn{font:inherit;font-size:14px;font-weight:600;padding:.5rem 1rem;
+  border:0;border-radius:6px;background:#7a1f2b;color:#fff;cursor:pointer}
+.bbtn.ghost{background:var(--surface-2);color:var(--ink);
+  border:1px solid var(--line)}
+.bbtn[disabled]{opacity:.5;cursor:default}
+.bsum{font-size:15px;margin:0 0 .8rem}
+.bsum b{font-size:17px}
+.btab-table{width:100%;border-collapse:collapse;font-size:14px}
+.btab-table th{text-align:left;font-size:12px;letter-spacing:.03em;
+  text-transform:uppercase;color:var(--muted);padding:.5rem .6rem;
+  border-bottom:2px solid var(--line)}
+.btab-table td{padding:.45rem .6rem;border-bottom:1px solid var(--line)}
+.btab-table tr:hover td{background:var(--surface-2)}
+.bchip{display:inline-block;font-size:12px;font-weight:600;
+  padding:.1rem .45rem;border-radius:4px;margin:0 .25rem .25rem 0;
+  background:var(--surface-2);border:1px solid var(--line)}
+.bwrap{max-height:30rem;overflow:auto;border:1px solid var(--line);
+  border-radius:8px}
+.bnote{font-size:13px;color:var(--muted);line-height:1.6;margin:.6rem 0}
+.btab.waiting{opacity:.72}
+/* The selected row in the result table, maroon against the
+   blue the rest of the page uses. */
+table.results tbody tr.generow.sel > td{
+  background:#7a1f2b !important;border-bottom-color:#5e1720 !important}
+table.results tbody tr.generow.sel:hover > td{
+  background:#5e1720 !important}
+.btab .bwait{font-style:normal;font-size:11px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+/* New Search: three steps side by side, tools and Run underneath. */
+.qform3{display:grid;gap:0;grid-template-columns:1fr 1fr 1fr;
+  align-items:start}
+.qcol{padding:0 1.6rem;border-left:1px solid var(--line)}
+.qcol:first-child{padding-left:0;border-left:0}
+.qh{margin:0 0 .3rem;font-size:15px;font-weight:700;color:var(--ink);
+  letter-spacing:.01em}
+.qsub{margin:0 0 .9rem;font-size:13px;line-height:1.55;
+  color:var(--muted);min-height:2.6em}
+.qcol .f{display:grid;gap:.3rem;width:100%}
+.qcol .f > span{font-size:12px;font-weight:600;letter-spacing:.03em;
+  text-transform:uppercase;color:var(--muted)}
+.qcol input[type=text],.qcol select,.qcol textarea{width:100%;
+  font:inherit;font-size:15px;padding:.55rem .6rem;
+  border:1px solid var(--line);border-radius:7px;
+  background:var(--surface);color:var(--ink);box-sizing:border-box}
+.qcol textarea{font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:14px;line-height:1.5;resize:vertical}
+.qmode{display:inline-flex;margin:0 0 .7rem;border:1px solid var(--line);
+  border-radius:7px;overflow:hidden}
+.qmodebtn{font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  padding:.4rem .9rem;border:0;background:var(--surface-2);
+  color:var(--muted)}
+.qmodebtn.on{background:#7a1f2b;color:#fff}
+.qfoot{grid-column:1 / -1;margin-top:1.6rem;padding-top:1.3rem;
+  border-top:1px solid var(--line);display:grid;gap:1rem}
+.qrun{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+
+/* Three steps, each marked by a coloured bar down its left edge.
+   No boxes: the bar and the heading carry the separation. */
+.qform3, .qform3 *{font-family:Arial,Helvetica,sans-serif}
+.qform3{gap:0 2rem;align-items:stretch}
+.qcol{padding:.2rem 0 .4rem 1.1rem;border-left:5px solid;border-radius:0}
+.qcol:nth-child(1){border-left-color:#0f766e}
+.qcol:nth-child(2){border-left-color:#9b2c3a}
+.qcol:nth-child(3){border-left-color:#b45309}
+.qh{display:flex;align-items:baseline;gap:.5rem;margin:0 0 .4rem;
+  font-size:19px;font-weight:700;letter-spacing:-.01em}
+.qh small{font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em}
+.qnum{font-style:normal;font-size:19px;font-weight:700}
+.qcol:nth-child(1) .qnum{color:#0f766e}
+.qcol:nth-child(2) .qnum{color:#9b2c3a}
+.qcol:nth-child(3) .qnum{color:#b45309}
+.qsub{margin:0 0 1rem;font-size:14px;line-height:1.6;color:var(--muted);
+  min-height:2.9em}
+.qcol .f > span{font-size:12px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted)}
+.qcol input[type=text],.qcol select,.qcol textarea{font-size:16px;
+  padding:.62rem .7rem;border-radius:6px}
+.qcol select{cursor:pointer}
+.qupload{display:block;width:100%;margin-top:.8rem;font:inherit;font-size:14px;
+  font-weight:600;padding:.6rem;cursor:pointer;border:0;border-radius:6px;
+  background:#0f766e;color:#fff}
+.qupload:hover{background:#115e59}
+#f_uploadhere:not(:empty){margin-top:.9rem;padding-top:.9rem;
+  border-top:1px solid var(--line)}
+#f_uploadhere .upform{max-width:none}
+#f_uploadhere .upform label{font-size:13px}
+.qmodebtn{font-size:14px;padding:.45rem 1.1rem}
+.qmodebtn.on{background:#9b2c3a}
+
+/* Tools: a row of equal tiles, each one tickable. */
+#f_tools{display:grid;gap:.6rem;
+  grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))}
+#f_tools > span{grid-column:1/-1;font-size:12px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+#f_tools label{display:flex;gap:.55rem;align-items:flex-start;
+  font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.45;
+  padding:.7rem .8rem;border-radius:6px;background:var(--surface-2);
+  border-left:4px solid var(--line);cursor:pointer}
+#f_tools label:hover{border-left-color:#9b2c3a}
+#f_tools label:has(input:checked){border-left-color:#9b2c3a;
+  background:var(--surface);box-shadow:0 0 0 1px var(--line)}
+#f_tools label:has(input:disabled){opacity:.5;cursor:default}
+#f_tools input{margin-top:.2rem;width:1.05rem;height:1.05rem;
+  accent-color:#9b2c3a;flex:0 0 auto}
+#f_tools em,#f_tools small,#f_tools .tp-why{display:block;font-size:12.5px;
+  font-style:normal;color:var(--muted);margin-top:.2rem}
+
+.qfoot{font-family:Arial,Helvetica,sans-serif;margin-top:1.8rem;
+  padding-top:1.4rem;border-top:2px solid var(--line);background:none;
+  border-radius:0}
+.go{font-size:16px;font-weight:700;padding:.7rem 2rem;border-radius:6px}
+
+
+/* Section headings sit in a tinted box, so one section reads as
+   clearly separate from the next. Sized between the body text and the
+   tool names. */
+.panel > h2, .sectitle, .notes > h3{
+  font-family:Arial,Helvetica,sans-serif;
+  font-size:21px;font-weight:700;letter-spacing:-.01em;
+  display:flex;align-items:baseline;gap:.6rem;
+  margin:0 0 1.1rem;padding:.6rem .9rem;
+  background:#eef3fa;
+  border-left:5px solid #123a78;border-radius:0 6px 6px 0;
+  border-bottom:0;color:#0a2c5c}
+
+/* One colour per section, all in the masthead's family so the page
+   holds together, with two warm accents for the guide decks. */
+#querybox > h2{background:#e8eff9;border-left-color:#123a78;color:#0a2c5c}
+#runbox > h2{background:#eaf1f4;border-left-color:#2b6472;color:#1b4a55}
+#batchbox > h2, #batchbox .sectitle{
+  background:#ecf0f7;border-left-color:#3b5a9b;color:#2a4275}
+.browser > h2{background:#e9f2f0;border-left-color:#1f6f6b;color:#14504d}
+#resulttable{background:#eaeef8;border-left-color:#3f4e9b;color:#2b3875}
+#agree > h2, #agree .sectitle{
+  background:#e8f1ec;border-left-color:#2f7050;color:#1f5139}
+#enrich > h2, #enrich .sectitle{
+  background:#f1ecf6;border-left-color:#5a4a8a;color:#3f3463}
+#netbox > h2, #netbox .sectitle{
+  background:#e9f0f4;border-left-color:#35627e;color:#23465c}
+.toolkey .sectitle{background:#f8f1e6;border-left-color:#a1621a;color:#6f430f}
+.notes > h3{background:#f7eef0;border-left-color:#8a3a4a;color:#5f2733}
+.panel > h2 em, .sectitle em{font-style:normal;font-size:12.5px;
+  font-weight:600;color:var(--muted);margin-left:auto}
+/* The tints are light-mode values; dark mode keeps the coloured bar
+   and drops the fill, which would otherwise glare. */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  .panel > h2, .sectitle, .notes > h3,
+  #querybox > h2, #runbox > h2, #batchbox > h2, .browser > h2,
+  #resulttable, #agree > h2, #enrich > h2, #netbox > h2,
+  .toolkey .sectitle{background:var(--surface-2);color:var(--ink)}
+}}
+:root[data-theme="dark"] .panel > h2,
+:root[data-theme="dark"] .sectitle,
+:root[data-theme="dark"] .notes > h3,
+:root[data-theme="dark"] #resulttable{
+  background:var(--surface-2);color:var(--ink)}
+
+/* The three steps keep their own colours, chosen to sit beside maroon. */
+.qcol:nth-child(1){border-left-color:#1f6f6b}
+.qcol:nth-child(2){border-left-color:#7a1f2b}
+.qcol:nth-child(3){border-left-color:#a1621a}
+.qcol:nth-child(1) .qnum{color:#1f6f6b}
+.qcol:nth-child(2) .qnum{color:#7a1f2b}
+.qcol:nth-child(3) .qnum{color:#a1621a}
+.qupload{background:#1f6f6b}
+.qupload:hover{background:#17544f}
+#f_tools label:hover{border-left-color:#7a1f2b}
+#f_tools label:has(input:checked){border-left-color:#7a1f2b}
+#f_tools input{accent-color:#7a1f2b}
+.qmodebtn.on{background:#7a1f2b}
+.btab.merged{background:#7a1f2b;border-color:#7a1f2b}
+.btab.merged.on{background:#7a1f2b}
+.bbtn{background:#7a1f2b}
+
+@media (max-width:860px){
+  .qform3{grid-template-columns:1fr;gap:1.4rem}
+  .qsub{min-height:0}
+}
 </style>
 </head>
 <body>
@@ -1660,20 +1862,50 @@
   <section class="panel" id="querybox">
     <h2>New Search<em></em></h2>
     <div class="panel-body">
-      <form class="qform" id="qform">
-        <label class="f f-sp"><span>Organism</span>
-          <select id="f_species"></select></label>
-        <label class="f"><span>miRNA</span>
-          <input type="text" id="f_mirna" placeholder="hsa-miR-21-5p or MIMAT0000076" autocomplete="off">
-          <textarea id="f_mirmany" rows="4" hidden
-            placeholder="one miRNA per line, up to 20"></textarea>
-          <button type="button" id="f_mirtoggle" class="linkish">several miRNAs</button>
-          </label>
-        <label class="f"><span>Genes (optional)</span>
-          <input type="text" id="f_genes" placeholder="empty = whole transcriptome" autocomplete="off"></label>
-        <div class="fgroup" id="f_tools"><span>Tools</span></div>
-        <button class="go" id="runbtn" type="submit" disabled>Run</button>
-        <span class="say" id="toolhint">Select at least one analysis method.</span>
+      <form class="qform3" id="qform">
+        <div class="qcol">
+          <h3 class="qh"><i class="qnum">1</i>Organism</h3>
+          <p class="qsub">Which species to search.</p>
+          <label class="f f-sp"><span>Organism</span>
+            <select id="f_species"></select></label>
+          <button type="button" class="qupload" id="f_uploadbtn">
+            Not listed? Upload your own organism</button>
+          <div id="f_uploadhere"></div>
+        </div>
+
+        <div class="qcol">
+          <h3 class="qh"><i class="qnum">2</i>miRNA</h3>
+          <p class="qsub">One miRNA, or several at once to compare their
+            targets.</p>
+          <div class="qmode">
+            <button type="button" class="qmodebtn on" id="f_modeone">One</button>
+            <button type="button" class="qmodebtn" id="f_modemany">Several</button>
+          </div>
+          <label class="f"><span>Name or accession</span>
+            <input type="text" id="f_mirna"
+              placeholder="hsa-miR-21-5p or MIMAT0000076" autocomplete="off">
+            <textarea id="f_mirmany" rows="5" hidden
+              placeholder="one per line, up to 20&#10;hsa-miR-21-5p&#10;hsa-let-7a-5p"></textarea>
+            <button type="button" id="f_mirtoggle" class="linkish" hidden></button>
+            </label>
+        </div>
+
+        <div class="qcol">
+          <h3 class="qh"><i class="qnum">3</i>Genes <small>optional</small></h3>
+          <p class="qsub">Narrow the search to named genes, or leave it empty
+            to scan every gene.</p>
+          <label class="f"><span>Genes (optional)</span>
+            <input type="text" id="f_genes"
+              placeholder="empty = whole transcriptome" autocomplete="off"></label>
+        </div>
+
+        <div class="qfoot">
+          <div class="fgroup" id="f_tools"><span>Tools</span></div>
+          <div class="qrun">
+            <button class="go" id="runbtn" type="submit" disabled>Run</button>
+            <span class="say" id="toolhint">Select at least one analysis method.</span>
+          </div>
+        </div>
       </form>
       <div class="notice spnotice" id="f_spnotice" hidden></div>
       <div class="notice err" id="qerr" hidden></div>
@@ -2795,7 +3027,7 @@
             mirbg: "#f0a19b", mirline: "#bd4a42",
             valbg: "#9cc7e8", valline: "#2c6fa5",
             predbg: "#f7dd82", predline: "#c29a1e",
-            edge: "#9aa4ae", edgeshare: v("--accent", "#12507e")};
+            edge: "#9aa4ae", edgeshare: v("--accent", "#1f4e79")};
   }
 
   function netStyleNode(n, P){
@@ -4165,6 +4397,8 @@
 
   function speciesChanged(){
     var s = curSpecies(), n = el("f_spnotice");
+    var uh = el("f_uploadhere");
+    if (uh) uh.innerHTML = "";
     if (CURSP === "__upload__"){ showUploadForm(n); renderTools(); return; }
     if (!s) return;
     el("f_mirna").placeholder =
@@ -4219,6 +4453,8 @@
   var UPPOLL = null;
 
   function showUploadForm(n){
+    // Inside the Organism step, so the two belong together.
+    n = el("f_uploadhere") || n;
     n.hidden = false;
     n.innerHTML =
       '<div class="upform">' +
@@ -4288,29 +4524,54 @@
   }
 
   /* ---------- several miRNAs ----------
-     Each one becomes an ordinary job, so every panel below still
-     works. The batch only adds the comparison between them: which
-     genes more than one miRNA targets. */
+     Each one is an ordinary job, so the panels below work unchanged.
+     The tabs just decide which job is on screen; the first tab shows
+     what they have in common. */
 
-  var BATCH = null, BPOLL = null;
+  var BATCH = null, BPOLL = null, BJOBS = [], BTAB = "merged";
+  // Which tab the enrichment on screen belongs to: "merged"
+  // means it is about shared genes and applies everywhere.
+  var BENR = null;
+
+  // One colour per miRNA, reused on its tab and its chips.
+  var BHUES = ["#2f6f4e", "#8a4a2b", "#3c5a9a", "#7a4a7e", "#1f6f7a",
+               "#8a6b1f", "#6b3a5a", "#3a6b2f", "#5a4a8a", "#8a3a3a",
+               "#2f5a7a", "#7a5a2f", "#4a7a5a", "#7a2f5a", "#5a7a2f",
+               "#2f7a6b", "#6b2f7a", "#7a6b2f", "#2f4a7a", "#7a2f2f"];
+  function bhue(i){ return BHUES[i % BHUES.length]; }
 
   function wireBatch(){
-    var t = el("f_mirtoggle"), many = el("f_mirmany"), one = el("f_mirna");
-    if (!t) return;
-    t.addEventListener("click", function(){
-      var on = many.hidden;
-      many.hidden = !on; one.hidden = on;
-      t.textContent = on ? "one miRNA" : "several miRNAs";
+    var one = el("f_modeone"), many = el("f_modemany");
+    if (!one || !many) return;
+    var set = function(multi){
+      el("f_mirmany").hidden = !multi;
+      el("f_mirna").hidden = multi;
+      one.classList.toggle("on", !multi);
+      many.classList.toggle("on", multi);
+    };
+    one.addEventListener("click", function(){ set(false); });
+    many.addEventListener("click", function(){ set(true); });
+
+    // Shortcut to the uploader, so it is visible without hunting
+    // through the organism list for it.
+    var u = el("f_uploadbtn");
+    if (u) u.addEventListener("click", function(){
+      var sel = el("f_species");
+      sel.value = "__upload__"; CURSP = "__upload__";
+      speciesChanged();
+      el("f_spnotice").scrollIntoView({behavior: "smooth", block: "center"});
     });
   }
 
+  // The panel lives directly under New Search so a multi-miRNA run does
+  // not send the reader to the bottom of the page looking for it.
   function bpanel(){
     var p = el("batchbox");
     if (p) return p;
     p = document.createElement("section");
     p.id = "batchbox"; p.className = "panel"; p.hidden = true;
-    var r = el("results");
-    r.parentNode.insertBefore(p, r);
+    var anchor = el("runbox") || el("results");
+    anchor.parentNode.insertBefore(p, anchor);
     return p;
   }
 
@@ -4325,122 +4586,291 @@
     var tools = [].slice.call(
         document.querySelectorAll("#f_tools input:checked"))
         .map(function(c){ return c.value; });
-    var body = {mirnas: names, species: CURSP,
-                tools: tools.length ? tools : null,
-                genes: genes.length ? genes : null};
+
     var p = bpanel();
     p.hidden = false;
     p.innerHTML = '<h2 class="sectitle">Several miRNAs</h2>' +
-                  '<p class="bstat">Queueing ' + names.length + '...</p>';
-    fetch("/batches", {method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(body)})
+                  '<p class="bsum">Queueing ' + names.length + ' searches…</p>';
+    p.scrollIntoView({behavior: "smooth", block: "start"});
+
+    fetch("/batches", {method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({mirnas: names, species: CURSP,
+                              tools: tools.length ? tools : null,
+                              genes: genes.length ? genes : null})})
       .then(jsonOrThrow)
-      .then(function(r){ BATCH = r.batch_id; pollBatch(r); })
+      .then(function(r){
+        BATCH = r.batch_id; BTAB = "merged";
+        BJOBS = r.jobs.map(function(j){
+          return {mirna: j.mirna, job_id: j.job_id, status: "queued"}; });
+        if (r.failed && r.failed.length)
+          p.insertAdjacentHTML("beforeend", '<p class="bnote">' +
+            r.failed.length + ' name(s) could not be resolved: ' +
+            spesc(r.failed.map(function(f){ return f.mirna; }).join(", ")) +
+            '</p>');
+        drawBatch(); pollBatch();
+      })
       .catch(function(e){
-        p.innerHTML += '<p class="bad">' + (e.message || "failed") + '</p>';
+        p.innerHTML += '<p class="upstat bad">' +
+          spesc(e.message || "could not start") + '</p>';
       });
   }
 
-  function pollBatch(first){
+  function pollBatch(){
     if (BPOLL) clearInterval(BPOLL);
-    var draw = function(r){
-      var rows = r.jobs.map(function(j){
-        return '<tr><td>' + spesc(j.mirna || "?") + '</td><td>' +
-               spesc(j.status) + '</td><td><a href="#" data-j="' +
-               j.job_id + '" class="bopen">open</a></td></tr>';
-      }).join("");
-      var p = bpanel();
-      p.innerHTML =
-        '<h2 class="sectitle">Several miRNAs</h2>' +
-        '<p class="bstat">' + r.n_done + ' of ' + r.n_jobs + ' done</p>' +
-        '<table class="btab"><thead><tr><th>miRNA</th><th>status</th>' +
-        '<th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
-        (r.n_done === r.n_jobs ? sharedControls() : "");
-      Array.prototype.forEach.call(p.querySelectorAll(".bopen"),
-        function(a){ a.addEventListener("click", function(ev){
-          ev.preventDefault();
-          JOBID = a.getAttribute("data-j");
-          api("/jobs/" + JOBID).then(function(j){
-            JOBST = j; el("runbox").hidden = false; renderRun(j);
-            PAGE.offset = 0; loadPage();
-          });
-        }); });
-      if (r.n_done === r.n_jobs) wireShared();
-    };
-    if (first) draw({batch_id: first.batch_id, n_jobs: first.jobs.length,
-                     n_done: 0, jobs: first.jobs.map(function(j){
-                       return {mirna: j.mirna, job_id: j.job_id,
-                               status: "queued"}; })});
     BPOLL = setInterval(function(){
       api("/batches/" + BATCH).then(function(r){
-        draw(r);
+        BJOBS = r.jobs;
+        drawBatch();
         if (r.n_done === r.n_jobs){ clearInterval(BPOLL); BPOLL = null; }
       }).catch(function(){});
-    }, 3000);
+    }, 2500);
   }
 
-  function sharedControls(){
-    return '<div class="bshared">' +
-      '<h3>Genes targeted by more than one</h3>' +
-      '<label>Found by at least <input type="number" id="b_min" ' +
-      'min="1" value="2" style="width:4rem"> miRNAs</label> ' +
-      '<label>Site <select id="b_site">' +
-      '<option value="">any</option>' +
-      '<option value="8mer" selected>8mer only</option>' +
-      '<option value="8mer,7mer-m8,7mer-a1">canonical</option>' +
-      '</select></label> ' +
-      '<button type="button" id="b_go">Show</button> ' +
-      '<button type="button" id="b_enrich">Run GO and KEGG</button>' +
-      '<div id="b_out"></div></div>';
+  function bdone(){
+    return BJOBS.filter(function(j){
+      return ["done","ok","failed","error"].indexOf(
+        (j.status || "").toLowerCase()) >= 0; }).length;
   }
 
-  function sharedQuery(){
+  function drawBatch(){
+    var p = bpanel(), done = bdone(), all = done === BJOBS.length;
+    var tabs = '<button type="button" class="btab merged' +
+      (BTAB === "merged" ? " on" : "") + '" data-tab="merged">' +
+      'Merged result</button>' +
+      BJOBS.map(function(j, i){
+        var ok = ["done","ok"].indexOf((j.status || "").toLowerCase()) >= 0;
+        return '<button type="button" class="btab' +
+          (BTAB === j.job_id ? " on" : "") + (ok ? "" : " waiting") +
+          '" data-tab="' + j.job_id + '">' +
+          '<span class="dot" style="background:' +
+          (ok ? bhue(i) : "transparent") + ';border:2px solid ' + bhue(i) +
+          ';box-sizing:border-box"></span>' +
+          spesc(j.mirna || "?") +
+          (ok ? "" : ' <em class="bwait">running</em>') + '</button>';
+      }).join("");
+
+    p.innerHTML =
+      '<h2 class="sectitle">Several miRNAs</h2>' +
+      '<p class="bsum">' + (all
+        ? '<b>' + BJOBS.length + ' searches finished.</b> ' +
+          'Open a tab for one miRNA, or stay here for what they share.'
+        : '<b>' + done + ' of ' + BJOBS.length + ' finished…</b>') + '</p>' +
+      '<div class="btabs">' + tabs + '</div>' +
+      '<div class="bpane" id="bpane"></div>';
+
+    Array.prototype.forEach.call(p.querySelectorAll(".btab"), function(b){
+      b.addEventListener("click", function(){
+        var next = b.getAttribute("data-tab");
+        // A merged run is about shared genes, so it holds on every tab.
+        // Anything else belongs to the tab that started it.
+        if (next !== BTAB && BENR !== "merged" && BENR !== next)
+          clearEnrichPanel();
+        BTAB = next; drawBatch();
+      });
+    });
+
+    if (BTAB === "merged") drawMerged(all);
+    else openBatchJob(BTAB);
+  }
+
+  function drawMerged(ready){
+    var n = BJOBS.length;
+    // The binding map, result table, agreement figure and network all
+    // describe one miRNA. Enrichment does not - its genes are the shared
+    // ones - so it stays.
+    showMergedPanels(true);
+    el("runbox").hidden = true;
+    // Nothing to analyse until every search has finished.
+    if (!ready) clearEnrichPanel();
+    if (!ready){
+      el("bpane").innerHTML = '<p class="bnote">The shared-gene view ' +
+        'appears once every search has finished.</p>';
+      return;
+    }
+    var opts = "";
+    for (var k = n; k >= 1; k--)
+      opts += '<option value="' + k + '"' + (k === 2 || n === 1 ? " selected" : "") +
+              '>' + k + ' or more</option>';
+
+    el("bpane").innerHTML =
+      '<h3>Genes targeted by more than one miRNA</h3>' +
+      '<p class="bnote">A gene found by several miRNAs with different ' +
+      'seeds is a stronger candidate than one found by a single miRNA.</p>' +
+      '<div class="bctl">' +
+      '<label>Found by<select id="b_min">' + opts + '</select></label>' +
+      '<label>Site type<select id="b_site">' +
+      '<option value="8mer" selected>8mer only — strongest</option>' +
+      '<option value="8mer,7mer-m8,7mer-a1">Canonical sites</option>' +
+      '<option value="">Any site</option>' +
+      '</select></label>' +
+      '<button type="button" class="bbtn" id="b_go">Show genes</button>' +
+      '<button type="button" class="bbtn ghost" id="b_dl">Download TSV</button>' +
+      '<button type="button" class="bbtn" id="b_enrich">Run GO and KEGG</button>' +
+      '</div><div id="b_out"></div>';
+    wireMerged();
+    el("b_go").click();
+  }
+
+  function sharedQuery(extra){
     return "?min_count=" + encodeURIComponent(el("b_min").value) +
-           "&site_types=" + encodeURIComponent(el("b_site").value);
+           "&site_types=" + encodeURIComponent(el("b_site").value) +
+           (extra || "");
   }
 
-  function wireShared(){
+  var BLAST = null;   // the rows currently shown, for the download button
+
+  function wireMerged(){
     el("b_go").addEventListener("click", function(){
-      el("b_out").innerHTML = "working...";
-      api("/batches/" + BATCH + "/intersection" + sharedQuery())
+      el("b_out").innerHTML = '<p class="bnote">Working…</p>';
+      api("/batches/" + BATCH + "/intersection" + sharedQuery("&limit=5000"))
         .then(function(r){
-          var rows = r.genes.slice(0, 200).map(function(g){
-            return '<tr><td>' + spesc(g.symbol || g.entrez) + '</td><td>' +
-                   g.n_mirnas + '</td><td>' +
-                   spesc(g.mirnas.join(", ")) + '</td></tr>';
+          BLAST = r;
+          var idx = {};
+          BJOBS.forEach(function(j, i){ idx[j.mirna] = i; });
+          var rows = r.genes.slice(0, 1000).map(function(g){
+            var chips = g.mirnas.map(function(m){
+              return '<span class="bchip" style="border-color:' +
+                bhue(idx[m] || 0) + ';color:' + bhue(idx[m] || 0) + '">' +
+                spesc(m) + '</span>'; }).join("");
+            return '<tr><td><b>' + spesc(g.symbol || g.entrez) + '</b></td>' +
+                   '<td>' + g.n_mirnas + '</td><td>' + chips + '</td></tr>';
           }).join("");
           el("b_out").innerHTML =
-            '<p>' + r.n_genes.toLocaleString() + ' gene' +
+            '<p class="bsum"><b>' + r.n_genes.toLocaleString() + '</b> gene' +
             (r.n_genes === 1 ? "" : "s") + ' found by at least ' +
-            r.min_count + ' of ' + r.n_mirnas + '.</p>' +
-            '<table class="btab"><thead><tr><th>gene</th><th>miRNAs</th>' +
-            '<th>which</th></tr></thead><tbody>' + rows + '</tbody></table>';
-        }).catch(function(e){ el("b_out").innerHTML = e.message; });
+            r.min_count + ' of ' + r.n_mirnas + ' miRNAs.' +
+            (r.n_genes > 1000 ? ' Showing the first 1,000.' : '') + '</p>' +
+            '<div class="bwrap"><table class="btab-table"><thead><tr>' +
+            '<th>Gene</th><th>miRNAs</th><th>Which</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody></table></div>';
+        })
+        .catch(function(e){
+          el("b_out").innerHTML = '<p class="upstat bad">' +
+            spesc(e.message || "failed") + '</p>'; });
+    });
+
+    el("b_dl").addEventListener("click", function(){
+      if (!BLAST){ alert("Show the genes first."); return; }
+      var tsv = "gene\tgene_id\tn_mirnas\tmirnas\n" +
+        BLAST.genes.map(function(g){
+          return [g.symbol || "", g.entrez, g.n_mirnas,
+                  g.mirnas.join(";")].join("\t"); }).join("\n") + "\n";
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([tsv], {type: "text/tab-separated-values"}));
+      a.download = "shared_genes_" + BATCH + ".tsv";
+      a.click(); URL.revokeObjectURL(a.href);
     });
 
     el("b_enrich").addEventListener("click", function(){
-      el("b_out").innerHTML = "queueing enrichment...";
+      var b = el("b_enrich");
+      b.disabled = true; b.textContent = "Starting…";
+      BENR = "merged";
       fetch("/batches/" + BATCH + "/enrichment" + sharedQuery(),
-            {method:"POST"})
+            {method: "POST"})
         .then(jsonOrThrow)
         .then(function(r){
-          el("b_out").innerHTML = 'Enrichment running on ' +
-            r.n_genes.toLocaleString() + ' shared genes.';
-          // same path a Venn region uses, so the result lands in the
-          // existing Pathway Analysis panel
           el("enrich").hidden = false;
           gsSetSource(true);
           watchRun(r.run_id);
           el("enrich").scrollIntoView({behavior: "smooth", block: "start"});
         })
-        .catch(function(e){ el("b_out").innerHTML = e.message; });
+        .catch(function(e){ alert(e.message || "could not start"); })
+        .then(function(){
+          b.disabled = false; b.textContent = "Run GO and KEGG"; });
+    });
+  }
+
+
+  // On the merged tab, keep the results block open but show only the
+  // enrichment panel inside it. A miRNA's own tab puts them all back.
+
+  // Put the enrichment panel back to empty, so nothing carries over
+  // from the tab that was just left.
+  function clearEnrichPanel(){
+    var e = el("enrich"), o = el("enrichout");
+    if (e) e.hidden = true;
+    if (o) o.hidden = true;
+    if (typeof ENR !== "undefined") ENR = null;
+    BENR = null;
+  }
+
+  // Starting a run from inside the enrichment or agreement panels
+  // means it belongs to whichever miRNA tab is open.
+  function watchEnrichOwner(){
+    document.addEventListener("click", function(ev){
+      if (!BATCH || BTAB === "merged") return;
+      var t = ev.target;
+      while (t && t !== document){
+        if (t.id === "enrich" || t.id === "agree"){ BENR = BTAB; return; }
+        t = t.parentNode;
+      }
+    }, true);
+  }
+
+  function showMergedPanels(merged){
+    var r = el("results");
+    if (!r) return;
+    r.hidden = false;
+    var keep = el("enrich");
+    Array.prototype.forEach.call(r.children, function(c){
+      var isEnrich = keep && (c === keep || c.contains(keep));
+      if (isEnrich){
+        // Shown only if this tab owns the run, or the run was merged.
+        c.hidden = !(BENR === "merged" || BENR === BTAB);
+        return;
+      }
+      c.hidden = merged;
+    });
+    // left hidden until something is actually run on this tab
+
+    // The network describes one miRNA, so it goes. The two guide decks
+    // are reference material and stay on every tab.
+    var net = el("netbox");
+    if (net) net.hidden = merged;
+    ["toolkey", "notes"].forEach(function(cls){
+      [].slice.call(document.querySelectorAll("." + cls))
+        .forEach(function(n){ n.hidden = false; });
+    });
+  }
+
+  function jobFinished(j){
+    return ["done", "ok"].indexOf((j.status || "").toLowerCase()) >= 0;
+  }
+
+  // One miRNA's own tab. An unfinished job is not opened: half-filled
+  // panels read as a broken result rather than an unfinished one.
+  function openBatchJob(jobId){
+    var j = BJOBS.filter(function(x){ return x.job_id === jobId; })[0];
+    var name = spesc((j && j.mirna) || "");
+
+    if (!j || !jobFinished(j)){
+      var failed = j && (j.status || "").toLowerCase().indexOf("fail") === 0;
+      el("bpane").innerHTML = '<p class="bnote">' + (failed
+        ? '<b>' + name + '</b> did not finish. Its tools reported an error.'
+        : '<b>' + name + '</b> is still running (' + bdone() + ' of ' +
+          BJOBS.length + ' finished). Its results open here as soon as it ' +
+          'is done.') + '</p>';
+      el("results").hidden = true;
+      el("runbox").hidden = true;
+      return;
+    }
+
+    el("bpane").innerHTML = '<p class="bnote">Showing <b>' + name +
+      '</b> on its own, in the panels below.</p>';
+    showMergedPanels(false);
+    if (JOBID === jobId && !el("results").hidden) return;
+    JOBID = jobId;
+    api("/jobs/" + jobId).then(function(job){
+      JOBST = job; el("runbox").hidden = false; renderRun(job);
+      PAGE.offset = 0; loadPage();
     });
   }
 
   function boot(){
     wire();
     wireBatch();
+    watchEnrichOwner();
     netWire();
     Promise.all([api("/about"), api("/tools"), api("/species")])
       .then(function(r){
@@ -4491,7 +4921,7 @@
   whose numbers quietly disagree with the table above it reads as a bug even
   when both are right. */
 
-  var AGREE = {all: null, picked: null, data: null, detail: null};
+  var AGREE = {all: null, picked: null, data: null, detail: null, job: null};
   var AGREE_LAST_KEY = null;
 
   // Fixed order, fixed colour, never cycled - the CVD-safety mechanism the
@@ -4736,8 +5166,12 @@
 
   function agToolBoxes(a){
     var box = el("agtools");
-    if (box.dataset.built) return;
-    box.dataset.built = "1";
+    // Built once per job, not once per page: a batch switches JOBID
+    // under the same page, and the old job's tools would otherwise
+    // stay on screen.
+    if (box.dataset.built === JOBID) return;
+    box.dataset.built = JOBID;
+    box.innerHTML = '<span>Tools</span>';
     AGREE.all.forEach(function(name){
       var lab = document.createElement("label");
       var sw = document.createElement("span");
@@ -5032,6 +5466,11 @@
   }
 
   function agreeLoad(){
+    // A selection belongs to the job it was made on.
+    if (AGREE.job !== JOBID){
+      AGREE.job = JOBID; AGREE.picked = null; AGREE.all = null;
+      AGREE_LAST_KEY = null;
+    }
     var qs = agFilterQS();
     if (AGREE.picked && AGREE.picked.length)
       qs.push("tools=" + AGREE.picked.join(","));
