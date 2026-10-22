@@ -505,6 +505,14 @@ REDESIGN_CSS = """
 
   /* ---- sections are headings and space, not boxes ---- */
   .wrap{max-width:1340px;padding:34px 26px 110px;gap:0}
+
+  /* ---- example under a search box: real identifiers for the organism that
+     is selected, and clicking one fills the box. ---- */
+  .qex{margin:7px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5}
+  .qex .qexlink{background:none;border:0;padding:0;margin:0;font:inherit;
+    font-weight:600;color:var(--blue,#123a78);cursor:pointer;
+    text-decoration:underline;text-underline-offset:2px}
+  .qex .qexlink:hover{opacity:.78}
   .panel, .toolkey, .toolbar, .notes, .panel.browser{
     background:none;border:0;border-radius:0;box-shadow:none;overflow:visible}
   .panel, .context, .toolkey, .notes, #results{margin:0 0 46px}
@@ -850,7 +858,37 @@ POLISH_CSS = """
     background:linear-gradient(115deg,#123a78 0%,#0c3268 55%,#0a2c5c 100%);
   }
   .masthead, .masthead *{font-family:Arial,Helvetica,sans-serif!important}
-  .mh-inner{max-width:760px;margin:0 auto;padding:38px 40px 0;text-align:center}
+
+  /* ---- the two logos, pinned to the banner's top corners. They sit
+     outside .brand-row on purpose: that grid is balanced to keep the name
+     centred, and adding a column to it would pull the title off centre.
+     Both shrink on a narrower window and step out of the way once the
+     banner is too tight to hold them without crowding the title. ---- */
+  .mh-logo{position:absolute;top:118px;transform:translateY(-50%);line-height:0}
+  .mh-logo-left{left:30px;display:flex;flex-direction:column;
+    align-items:center;gap:6px}
+  .mh-brandname{font-size:15px;font-weight:800;line-height:1.2;color:#fff;
+    letter-spacing:.01em;white-space:nowrap}
+  .mh-logo-left img{display:block;width:118px;height:118px;object-fit:contain}
+  .mh-logo-right{right:30px;display:flex;flex-direction:column;
+    align-items:center;gap:7px;text-decoration:none}
+  .mh-logo-right img{display:block;width:98px;height:98px;object-fit:cover;
+    border-radius:9px;border:1px solid rgba(255,255,255,.35)}
+  .mh-labsite{font-size:12.5px;font-weight:700;line-height:1.2;
+    color:rgba(255,255,255,.92);letter-spacing:.01em;white-space:nowrap}
+  .mh-logo-right:hover .mh-labsite{text-decoration:underline}
+  .mh-logo-right:hover img{opacity:.9}
+  @media (max-width:1060px){
+    .mh-logo{top:92px}
+    .mh-logo-left img{width:86px;height:86px}
+    .mh-logo-right img{width:72px;height:72px}
+    .mh-labsite{font-size:11px}
+    .mh-brandname{font-size:13px}
+  }
+  @media (max-width:880px){
+    .mh-logo{display:none}
+  }
+  .mh-inner{max-width:760px;margin:0 auto;padding:48px 40px 42px;text-align:center}
   /* Three columns so the middle one - the name plus its maker line, which
      must center on each other and nothing wider - lands in the true center
      of the banner regardless of the pill's width. The pill sits in its own
@@ -867,7 +905,7 @@ POLISH_CSS = """
     text-transform:none;letter-spacing:0;
     border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.10);
     border-radius:999px;padding:6px 16px;white-space:nowrap}
-  .maker{font-size:16px;color:rgba(255,255,255,.94);margin:7px 0 0;
+  .maker{font-size:17.5px;color:rgba(255,255,255,.94);margin:7px 0 0;
     font-weight:600;letter-spacing:.01em}
   .masthead .sub2line{font-size:clamp(18px,2.1vw,21px);font-weight:700;
     color:#fff;letter-spacing:-.012em;line-height:1.35;max-width:none;
@@ -875,7 +913,8 @@ POLISH_CSS = """
   /* #tagline carries an ID rule from the page's older, plain-masthead CSS
      (color:var(--muted)) - an ID beats any number of classes, so this has
      to match or beat that specificity rather than just come later. */
-  .masthead #tagline{font-size:15.5px;line-height:1.65;color:#fff;
+  .masthead #tagline{font-size:14.5px;line-height:1.6;color:#fff;
+    text-wrap:balance;
     font-weight:500;max-width:720px;margin:12px auto 0}
 
   /* ---- section nav: one row of links to every part of the page. Before a
@@ -884,14 +923,64 @@ POLISH_CSS = """
      dimmed - a click on a section that doesn't exist yet should do nothing).
      positionGuides() flips the gate the moment #results shows or hides. ---- */
   .navrow{margin:26px 0 0;border-top:1px solid rgba(255,255,255,.18);
-    display:flex;justify-content:center;flex-wrap:wrap;padding:0 6px}
-  .navitem{display:flex;align-items:center;gap:7px;padding:14px 16px;
-    font-size:13px;font-weight:600;color:#fff;white-space:nowrap;
+    display:flex;justify-content:center;flex-wrap:nowrap;padding:0 6px;
+    overflow-x:auto;scrollbar-width:none}
+  .navrow::-webkit-scrollbar{display:none}
+  .navitem{display:flex;align-items:center;gap:6px;padding:14px 9px;
+    font-size:13.5px;font-weight:600;color:#fff;white-space:nowrap;
     cursor:pointer;position:relative;background:none;border:0;
     font-family:inherit;transition:opacity .2s;appearance:none}
-  .navitem svg{width:15px;height:15px;flex:none;opacity:.92}
+  .navitem svg{width:16px;height:16px;flex:none;opacity:.92}
   .navitem:disabled{opacity:.38;cursor:default}
   .navitem:not(:disabled):hover{opacity:.82}
+
+  /* ---- section rail: the same links as the banner row, in a fixed column
+     down the left. Open by default; the toggle collapses it so the binding
+     map and the results table get their width back, and that choice is kept
+     in localStorage. Below 900px the rail is gone and the banner row comes
+     back, so a narrow window loses nothing. ---- */
+  .srail{position:fixed;top:0;left:0;bottom:0;width:236px;z-index:40;
+    background:var(--surface);border-right:1px solid var(--line);
+    padding:22px 14px;overflow-y:auto;
+    transform:translateX(0);transition:transform .22s ease}
+  .srail-head{display:flex;align-items:center;justify-content:space-between;
+    gap:8px;margin:0 0 14px;padding:0 6px}
+  .srail-title{font-size:11px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  .srail-toggle{display:flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border:1px solid var(--line);border-radius:7px;
+    background:none;color:var(--ink);cursor:pointer;padding:0;flex:none}
+  .srail-toggle:hover{background:var(--surface-2)}
+  .srail-toggle svg{width:15px;height:15px}
+  .srail .navitem{width:100%;justify-content:flex-start;gap:10px;
+    padding:10px;font-size:14px;color:var(--ink);border-radius:8px;
+    border-left:3px solid transparent;margin:0 0 2px;text-align:left;
+    transition:background .15s,opacity .2s}
+  /* The icon carries the section's colour; the mark fills the row with a
+     wash of the same colour and thickens its left bar. A section that is
+     not available yet stays grey - colour is for things you can go to. */
+  .srail .navitem svg{opacity:1}
+  .srail .navitem svg *{stroke:var(--sc)}
+  .srail .navitem:disabled svg *{stroke:currentColor}
+  .srail .navitem:not(:disabled):hover{background:var(--sc-wash);opacity:1}
+  .srail .navitem.srail-now{background:var(--sc-wash);
+    border-left-color:var(--sc);color:var(--sc);font-weight:700}
+  body.srail-off .srail{transform:translateX(-100%)}
+  .srail-open{position:fixed;top:14px;left:14px;z-index:41;display:none;
+    align-items:center;justify-content:center;width:34px;height:34px;
+    border:1px solid var(--line);border-radius:8px;background:var(--surface);
+    color:var(--ink);cursor:pointer;padding:0}
+  .srail-open svg{width:17px;height:17px}
+  .srail-open:hover{background:var(--surface-2)}
+  body.srail-off .srail-open{display:flex}
+  @media (min-width:901px){
+    body{padding-left:236px;transition:padding-left .22s ease}
+    body.srail-off{padding-left:0}
+    .navrow{display:none}
+  }
+  @media (max-width:900px){
+    .srail, .srail-open{display:none!important}
+  }
 
   /* ---- sections announce themselves ----
      The panel heading was a 10px uppercase mono label, which read as a
@@ -1399,6 +1488,14 @@ HEAD = """<!doctype html>
 <div class="wrap">
 
   <header class="masthead">
+    <span class="mh-logo mh-logo-left">
+      <img src="/mirpanel-logo.png" alt="miRPanel">
+      <span class="mh-brandname">miRPanel</span>
+    </span>
+    <a class="mh-logo mh-logo-right" href="https://www.epigen-bioinfolab.com/home" target="_blank" rel="noopener">
+      <img src="/lab-logo.png" alt="Epigen-BioinfoLab">
+      <span class="mh-labsite">www.epigen-bioinfolab.com</span>
+    </a>
     <div class="mh-inner">
       <div class="brand-row">
         <div class="brand-name-col">
@@ -1414,9 +1511,6 @@ HEAD = """<!doctype html>
       <button type="button" class="navitem" data-target="querybox">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
         New Search</button>
-      <button type="button" class="navitem" data-target="querybox">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Query</button>
       <button type="button" class="navitem" data-target="mapsection" data-gate="results" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Binding Map</button>
@@ -1446,7 +1540,7 @@ HEAD = """<!doctype html>
     <div class="panel-body">
       <form class="qform3" id="qform">
         <div class="qcol">
-          <h3 class="qh"><i class="qnum">1</i>Organism</h3>
+          <h3 class="qh">Organism</h3>
           <p class="qsub">Which species to search.</p>
           <label class="f f-sp"><span>Organism</span>
             <select id="f_species"></select></label>
@@ -1456,7 +1550,7 @@ HEAD = """<!doctype html>
         </div>
 
         <div class="qcol">
-          <h3 class="qh"><i class="qnum">2</i>miRNA</h3>
+          <h3 class="qh">miRNA</h3>
           <p class="qsub">One miRNA, or several at once to compare their
             targets.</p>
           <div class="qmode">
@@ -1470,15 +1564,17 @@ HEAD = """<!doctype html>
               placeholder="one per line, up to 20&#10;hsa-miR-21-5p&#10;hsa-let-7a-5p"></textarea>
             <button type="button" id="f_mirtoggle" class="linkish" hidden></button>
             </label>
+          <p class="qex" id="f_mirex" hidden></p>
         </div>
 
         <div class="qcol">
-          <h3 class="qh"><i class="qnum">3</i>Genes <small>optional</small></h3>
+          <h3 class="qh">Genes <small>optional</small></h3>
           <p class="qsub">Narrow the search to named genes, or leave it empty
             to scan every gene.</p>
           <label class="f"><span>Genes (optional)</span>
             <input type="text" id="f_genes"
               placeholder="empty = whole transcriptome" autocomplete="off"></label>
+          <p class="qex" id="f_genex" hidden></p>
         </div>
 
         <div class="qfoot">
@@ -1746,6 +1842,110 @@ TAIL_JS = r"""
      is hidden (nothing to show yet), back down to their usual spot the
      moment a job's results are on screen. #guidesPreRun and #guidesHome
      are the two fixed anchors that mark those spots. */
+  // The banner's section links, mirrored into a fixed rail on the left. The
+  // rail's buttons are clones carrying the same data-target / data-select /
+  // data-gate attributes, and they are built here, before the gating and the
+  // click wiring below, so that one piece of code handles both sets.
+  (function(){
+    var row = el("navRow");
+    if (!row) return;
+
+    var rail = document.createElement("aside");
+    rail.className = "srail";
+    var head = document.createElement("div");
+    head.className = "srail-head";
+    head.innerHTML = '<span class="srail-title">Sections</span>' +
+      '<button type="button" class="srail-toggle" id="srailToggle" ' +
+      'title="Hide the section list" aria-label="Hide the section list">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg></button>';
+    rail.appendChild(head);
+    // One colour per section, in the same deep, muted family as the search
+    // form's teal/maroon/amber bars and the navy masthead. Each button
+    // carries its own colour as a custom property, so the stylesheet needs
+    // no per-item rules and nothing breaks if a section is added or removed.
+    var SRAIL_COLOURS = ["#0f766e", "#9b2c3a", "#b45309", "#1e40af",
+                         "#15803d", "#6d28d9", "#0369a1", "#4d7c0f"];
+    function wash(hex, a){
+      return "rgba(" + parseInt(hex.substr(1, 2), 16) + "," +
+             parseInt(hex.substr(3, 2), 16) + "," +
+             parseInt(hex.substr(5, 2), 16) + "," + a + ")";
+    }
+    row.querySelectorAll(".navitem").forEach(function(b, i){
+      var c = SRAIL_COLOURS[i % SRAIL_COLOURS.length];
+      var copy = b.cloneNode(true);
+      copy.style.setProperty("--sc", c);
+      copy.style.setProperty("--sc-wash", wash(c, .13));
+      rail.appendChild(copy);
+    });
+    document.body.appendChild(rail);
+
+    var opener = document.createElement("button");
+    opener.type = "button";
+    opener.className = "srail-open";
+    opener.title = "Show the section list";
+    opener.setAttribute("aria-label", "Show the section list");
+    opener.innerHTML = '<svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2"><path d="M4 7h16"/>' +
+      '<path d="M4 12h16"/><path d="M4 17h16"/></svg>';
+    document.body.appendChild(opener);
+
+    function setOpen(open){
+      document.body.classList.toggle("srail-off", !open);
+      try { localStorage.setItem("mirpanel.rail", open ? "1" : "0"); } catch(e){}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem("mirpanel.rail"); } catch(e){}
+    setOpen(saved !== "0");
+    el("srailToggle").addEventListener("click", function(){ setOpen(false); });
+    opener.addEventListener("click", function(){ setOpen(true); });
+
+    // Highlight whichever section is in view. Targets are looked up fresh on
+    // every pass, never cached, because .toolkey and .notes move between two
+    // places; a section inside the hidden #results has no offsetParent and is
+    // skipped rather than matching at the top of the page.
+    var items = rail.querySelectorAll(".navitem");
+    var hold = 0;
+
+    // A link scrolls its section to the middle of the screen, so the mark
+    // follows a probe line a little past halfway rather than the top edge.
+    // Measured from the top, a short section centred on screen never crosses
+    // the line at all and the previous section stayed marked instead.
+    function current(){
+      if (Date.now() < hold) return;
+      var probe = window.innerHeight * 0.55;
+      var best = null, bestTop = -1e9, firstSeen = null;
+      items.forEach(function(b){
+        var t = b.dataset.target ? el(b.dataset.target)
+              : document.querySelector(b.dataset.select);
+        if (!t || t.offsetParent === null) return;
+        var r = t.getBoundingClientRect();
+        if (r.bottom <= 0 || r.top >= window.innerHeight) return;
+        if (!firstSeen) firstSeen = b;
+        if (r.top <= probe && r.top > bestTop){ bestTop = r.top; best = b; }
+      });
+      best = best || firstSeen;
+      items.forEach(function(b){ b.classList.toggle("srail-now", b === best); });
+    }
+
+    // Mark the clicked link at once and leave it alone until the smooth
+    // scroll has finished, so the mark doesn't flicker through every section
+    // on the way down.
+    items.forEach(function(b){
+      b.addEventListener("click", function(){
+        hold = Date.now() + 900;
+        items.forEach(function(o){ o.classList.toggle("srail-now", o === b); });
+      });
+    });
+    var tick = null;
+    window.addEventListener("scroll", function(){
+      if (tick) return;
+      tick = requestAnimationFrame(function(){ tick = null; current(); });
+    }, {passive:true});
+    window.addEventListener("resize", current, {passive:true});
+    current();
+  })();
+
   function positionGuides(preRun){
     // The masthead's links to everything below #results (Binding Map, the
     // table, Tool Agreement, Pathway Analysis, Target Network) are real
@@ -2857,14 +3057,88 @@ TAIL_JS = r"""
     toolsChanged();
   }
 
+  // One real miRNA and a few real gene symbols per organism, all checked
+  // against the loaded database so a click on an example returns results
+  // rather than an error.
+  var EXAMPLES = {
+    human:  {one: "hsa-miR-21-5p",
+             many: "hsa-miR-21-5p\nhsa-let-7a-5p",
+             genes: "PTEN, BCL2, PDCD4"},
+    mouse:  {one: "mmu-miR-21a-5p",
+             many: "mmu-miR-21a-5p\nmmu-let-7a-5p",
+             genes: "Pten, Bcl2, Pdcd4"},
+    rat:    {one: "rno-miR-21-5p",
+             many: "rno-miR-21-5p\nrno-let-7a-5p",
+             genes: "Pten, Bcl2, Pdcd4"},
+    rabbit: {one: "ocu-miR-21-5p",
+             many: "ocu-miR-21-5p\nocu-let-7a-5p",
+             genes: "PTEN, PDCD4"},
+    fly:    {one: "dme-miR-1-3p",
+             many: "dme-miR-1-3p\ndme-bantam-3p",
+             genes: "hid, wg, Ras85D"}
+  };
+
+  function fillExample(id, value){
+    var n = el(id);
+    if (!n) return;
+    n.value = value;
+    n.dispatchEvent(new Event("input", {bubbles: true}));
+    n.focus();
+  }
+
+  function exampleLine(node, text, fill){
+    node.hidden = false;
+    node.textContent = "Example: ";
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "qexlink";
+    b.textContent = text;
+    b.addEventListener("click", fill);
+    node.appendChild(b);
+  }
+
+  // Rebuilt whenever the organism changes or the One/Several mode is
+  // switched. An organism with nothing loaded, and the upload option, get no
+  // example at all rather than one that cannot work.
+  function renderExamples(){
+    var mx = el("f_mirex"), gx = el("f_genex");
+    if (!mx || !gx) return;
+
+    if (!renderExamples.wired){
+      renderExamples.wired = true;
+      ["f_modeone", "f_modemany"].forEach(function(id){
+        var b = el(id);
+        if (b) b.addEventListener("click", function(){
+          setTimeout(renderExamples, 0);
+        });
+      });
+    }
+
+    var ex = EXAMPLES[CURSP], sp = curSpecies();
+    if (!ex || CURSP === "__upload__" || (sp && !sp.loaded)){
+      mx.hidden = true; gx.hidden = true;
+      return;
+    }
+    var many = el("f_mirmany") && !el("f_mirmany").hidden;
+    var val = many ? ex.many : ex.one;
+    exampleLine(mx, val.replace(/\n/g, ", "), function(){
+      fillExample(many ? "f_mirmany" : "f_mirna", val);
+    });
+    exampleLine(gx, ex.genes, function(){
+      fillExample("f_genes", ex.genes);
+    });
+  }
+
   function speciesChanged(){
+    renderExamples();
     var s = curSpecies(), n = el("f_spnotice");
     var uh = el("f_uploadhere");
     if (uh) uh.innerHTML = "";
     if (CURSP === "__upload__"){ showUploadForm(n); renderTools(); return; }
     if (!s) return;
-    el("f_mirna").placeholder =
-      "miRNA name or MIMAT accession (" + s.mirbase + " assumed)";
+    // Short enough to read in full inside the box. Which prefix this
+    // organism uses is shown by the example underneath instead.
+    el("f_mirna").placeholder = "Name or MIMAT accession";
     el("f_genes").placeholder = s.loaded
       ? "empty = whole transcriptome (" + s.transcripts.toLocaleString() +
         " genes)"
@@ -3043,6 +3317,7 @@ TAIL_JS = r"""
                   .filter(function(s){ return s.length; });
     if (!names.length){ alert("Add at least one miRNA."); return; }
     if (names.length > 20){ alert("At most 20 miRNAs."); return; }
+    el("qerr").hidden = true;
 
     var genes = el("f_genes").value.split(/[\s,]+/).filter(Boolean);
     var tools = [].slice.call(
