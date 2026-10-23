@@ -18,6 +18,22 @@ META = {"name": "rnahybrid", "version": "2.1.2-8", "kind": "prediction",
 
 BIN = "RNAhybrid"
 
+def _bin():
+    """The RNAhybrid binary, or a message saying how to install it.
+
+    The Debian package installs it capitalised, so a lowercase name on PATH
+    is not it. Without this, the first thing a user without RNAhybrid sees is
+    a FileNotFoundError from subprocess.
+    """
+    found = shutil.which(BIN)
+    if not found:
+        raise RuntimeError(
+            "RNAhybrid is not installed, or not on PATH. On Debian or Ubuntu: "
+            "sudo apt install rnahybrid. The binary is called RNAhybrid, with "
+            "a capital R and H. Run python3 scripts/check_env.py to check "
+            "everything else at the same time.")
+    return found
+
 def covers(con, entrez):
     """Any transcript we hold can be folded."""
     return True
@@ -110,7 +126,7 @@ def run(con, mirna, tgts, opts=None, progress=None):
             ep = os.path.join(work, "err%d.txt" % i)
             oh, eh = open(op, "w"), open(ep, "w")
             procs.append((subprocess.Popen(
-                [BIN, "-t", tf, "-q", qf, "-s", "3utr_human", "-f", "2,7",
+                [_bin(), "-t", tf, "-q", qf, "-s", "3utr_human", "-f", "2,7",
                  "-c", "-b", str(per_target), "-e", str(cutoff),
                  "-m", str(maxlen)], stdout=oh, stderr=eh), oh, eh, op, ep))
 

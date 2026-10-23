@@ -26,7 +26,7 @@ if ss -ltn 2>/dev/null | grep -q ':8000 '; then
     echo "Web server: already running"
 else
     echo "Web server: starting..."
-    nohup uvicorn api:app --host 0.0.0.0 --port 8000 >> "$APP_DIR/server.log" 2>&1 &
+    nohup uvicorn api:app --host 127.0.0.1 --port 8000 >> "$APP_DIR/server.log" 2>&1 &
     echo "Web server: started"
 fi
 

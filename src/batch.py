@@ -22,10 +22,16 @@ MAX_MIRNAS = 20
 
 def create(con, mirnas, tools=None, genes=None, species=None):
     """Queue one job per miRNA. Returns the batch id and the jobs."""
-    names = []
+    names, dropped = [], []
     for m in mirnas:
         m = (m or "").strip()
-        if m and m not in names:
+        if not m:
+            continue
+        if m in names:
+            # Say so rather than quietly running fewer jobs than asked for:
+            # the user sees one tab where they expected two.
+            dropped.append(m)
+        else:
             names.append(m)
     if not names:
         raise ValueError("no miRNA given")
@@ -50,7 +56,14 @@ def create(con, mirnas, tools=None, genes=None, species=None):
         raise ValueError("no miRNA could be resolved: %s"
                          % "; ".join(f["error"] for f in failed))
     con.commit()
-    return {"batch_id": batch_id, "jobs": made, "failed": failed}
+    out = {"batch_id": batch_id, "jobs": made, "failed": failed}
+    if dropped:
+        # Two identical names in, one job out: say so rather than leaving the
+        # user to notice one tab fewer than they asked for.
+        out["duplicates"] = sorted(set(dropped))
+        out["note"] = ("listed more than once, run once: %s"
+                       % ", ".join(sorted(set(dropped))))
+    return out
 
 
 def jobs(con, batch_id):
