@@ -83,6 +83,20 @@ SCANMIR_CANONICAL = ("8mer", "7mer-m8", "7mer-a1", "7mer-A1",
                      "wobbled 8mer", "wobbled 7mer",
                      "g-bulged 8mer", "g-bulged 7mer")
 
+# The same decision, for RNAhybrid. It reports a favourable hybrid on 91% of
+# human genes - and on 82% of random sequence, so that is the algorithm and
+# not the transcriptome. Counting any site would give it a circle holding
+# almost every gene: of the genes found by miRTarBase, the seed analyser and
+# TargetScan together, exactly one was not also found by RNAhybrid.
+#
+# No cutoff here is biological. The best dG per gene runs from -15 to -29
+# with half the transcriptome between -19.4 and -23.1, one smooth hump with
+# no break in it. -24 is chosen because it leaves about 2,900 genes, the
+# same order as TargetScan's 2,598, so the sets being compared are of
+# comparable stringency. Every site stays in the results table either way;
+# this governs set membership only.
+RNAHYBRID_MAX_DG = -24.0
+
 # Above this many sets a Venn needs ellipses and 31 regions, several too thin
 # to click. The caller is told which shape to draw rather than guessing.
 VENN_MAX_SETS = 4
@@ -92,18 +106,25 @@ class BadRequest(ValueError):
     """The caller asked for something that cannot be answered. -> 422."""
 
 
-def _membership_sql(scanmir_canonical):
+def _membership_sql(scanmir_canonical, rnahybrid_max_dg=None):
     """Extra WHERE terms that turn rows into set membership."""
-    if not scanmir_canonical:
-        return "", []
-    qs = ",".join("?" * len(SCANMIR_CANONICAL))
-    return (" AND NOT (tool = 'scanmir' AND (site_type IS NULL "
-            "OR site_type NOT IN (%s)))" % qs), list(SCANMIR_CANONICAL)
+    terms, args = [], []
+    if scanmir_canonical:
+        qs = ",".join("?" * len(SCANMIR_CANONICAL))
+        terms.append(" AND NOT (tool = 'scanmir' AND (site_type IS NULL "
+                     "OR site_type NOT IN (%s)))" % qs)
+        args += list(SCANMIR_CANONICAL)
+    if rnahybrid_max_dg is not None:
+        terms.append(" AND NOT (tool = 'rnahybrid' AND "
+                     "(score IS NULL OR score > ?))")
+        args.append(float(rnahybrid_max_dg))
+    return "".join(terms), args
 
 
-def _sets(con, job_id, where, args, tools, scanmir_canonical):
+def _sets(con, job_id, where, args, tools, scanmir_canonical,
+          rnahybrid_max_dg=None):
     """{tool: {entrez}} and {entrez: symbol}, after filters."""
-    extra, extra_args = _membership_sql(scanmir_canonical)
+    extra, extra_args = _membership_sql(scanmir_canonical, rnahybrid_max_dg)
     sql = ("SELECT DISTINCT entrez, symbol, tool FROM results WHERE "
            + where + extra)
     a = list(args) + extra_args
@@ -118,7 +139,8 @@ def _sets(con, job_id, where, args, tools, scanmir_canonical):
 
 
 def build(con, job_id, tools=None, where=None, args=None,
-          scanmir_canonical=True, filters=None):
+          scanmir_canonical=True, filters=None,
+          rnahybrid_max_dg=RNAHYBRID_MAX_DG):
     """Set sizes and every non-empty exclusive region.
 
     `where`/`args` come from the caller's own filter builder, so the diagram
@@ -144,7 +166,8 @@ def build(con, job_id, tools=None, where=None, args=None,
     if len(tools) < 1:
         raise BadRequest("an agreement diagram needs at least one tool")
 
-    sets, names = _sets(con, job_id, where, args, tools, scanmir_canonical)
+    sets, names = _sets(con, job_id, where, args, tools,
+                        scanmir_canonical, rnahybrid_max_dg)
     sets = {t: sets.get(t, set()) for t in tools}
 
     # Every gene in at least one set, assigned to exactly one region.
@@ -202,13 +225,20 @@ def build(con, job_id, tools=None, where=None, args=None,
                     "least one row for it, after the filters below",
             "scanmir_canonical_only": bool(scanmir_canonical),
             "scanmir_site_types": list(SCANMIR_CANONICAL)
-            if scanmir_canonical else None},
+            if scanmir_canonical else None,
+            "rnahybrid_max_dg": rnahybrid_max_dg,
+            "rnahybrid_note": (
+                "RNAhybrid reports a favourable hybrid for about 91%% of "
+                "genes, so only its sites at dG %s or lower count towards "
+                "its set. Every site is still in the results table."
+                % rnahybrid_max_dg) if rnahybrid_max_dg is not None else None},
         "filters": filters or {},
     }
 
 
 def region_genes(con, job_id, inc, exc, where=None, args=None,
-                 scanmir_canonical=True, limit=100, offset=0):
+                 scanmir_canonical=True, limit=100, offset=0,
+                 rnahybrid_max_dg=RNAHYBRID_MAX_DG):
     """The genes in one exclusive region, with what each tool said about them.
 
     `inc` are the tools a gene must be in, `exc` the tools it must not be in.
@@ -223,7 +253,7 @@ def region_genes(con, job_id, inc, exc, where=None, args=None,
         raise BadRequest("a region must include at least one tool")
 
     sets, names = _sets(con, job_id, where, args, inc + exc,
-                        scanmir_canonical)
+                        scanmir_canonical, rnahybrid_max_dg)
     keep = set(names)
     for t in inc:
         keep &= sets.get(t, set())

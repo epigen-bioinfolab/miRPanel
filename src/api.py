@@ -904,6 +904,7 @@ def read_agreement_genes(job_id: str,
                          include_6mer: bool = True,
                          q: Optional[str] = Query(None, max_length=60),
                          scanmir_canonical: bool = True,
+                         rnahybrid_max_dg: float | None = agreement.RNAHYBRID_MAX_DG,
                          limit: int = Query(100, ge=1, le=20000),
                          offset: int = Query(0, ge=0),
                          con=Depends(get_con)):
@@ -926,7 +927,8 @@ def read_agreement_genes(job_id: str,
     try:
         return agreement.region_genes(
             con, job_id, _csv(inc), _csv(out), where=where, args=args,
-            scanmir_canonical=scanmir_canonical, limit=limit, offset=offset)
+            scanmir_canonical=scanmir_canonical, limit=limit,
+            offset=offset, rnahybrid_max_dg=rnahybrid_max_dg)
     except agreement.BadRequest as e:
         raise HTTPException(422, {"error": "bad_region_request",
                                   "message": str(e)})
@@ -939,6 +941,8 @@ def read_agreement(job_id: str,
                    include_6mer: bool = True,
                    q: Optional[str] = Query(None, max_length=60),
                    scanmir_canonical: bool = True,
+                   rnahybrid_max_dg: Optional[float] =
+                       agreement.RNAHYBRID_MAX_DG,
                    con=Depends(get_con)):
     """How much the tools agree, as set sizes and exclusive regions.
 
@@ -958,6 +962,7 @@ def read_agreement(job_id: str,
         return agreement.build(
             con, job_id, tools=_csv(tools) or None, where=where, args=args,
             scanmir_canonical=scanmir_canonical,
+            rnahybrid_max_dg=rnahybrid_max_dg,
             filters={"regions": regs, "include_6mer": include_6mer, "q": q})
     except agreement.BadRequest as e:
         raise HTTPException(422, {"error": "bad_agreement_request",
