@@ -2787,6 +2787,9 @@ TAIL_JS = r"""
   }
 
   var TOOLMETA = {}, MIRINFO = null, JOBID = null, JOBST = null, POLL = null;
+  // the miRNA whose details are already being fetched, so a redraw
+  // while the request is in flight does not ask again
+  var MIRFETCH = null;
   var SPECIES = [], TOOLS = [], CURSP = "human";
   var RAN = {};
   var PAGE = {limit: 10, offset: 0, sort: "seed", total: 0, q: ""};
@@ -2855,6 +2858,28 @@ TAIL_JS = r"""
   }
 
   function fillPanels(){
+    // A job record holds the name and accession, nothing else. On a tab of
+    // a several-miRNA search that is all we have, so the mature sequence,
+    // the seed and the TargetScan family have to be looked up before the
+    // panel can show them. Redraw once the answer arrives.
+    var want = (JOBST && JOBST.params && JOBST.params.mirna_name) ||
+               (MIR && MIR.name);
+    if (want && !(MIR && MIR.seq && MIR.name === want) && MIRFETCH !== want){
+      MIRFETCH = want;
+      fetch("/mirnas/" + encodeURIComponent(want) + "?species=" +
+            encodeURIComponent((JOBST && JOBST.species) || CURSP))
+        .then(function(r){ return r.json(); })
+        .then(function(m){
+          if (!m || !m.sequence) return;
+          MIRINFO = m;
+          MIR = {name: m.name, acc: m.accession, seq: m.sequence, seed: m.seed,
+                 family: m.targetscan ? m.targetscan.family : null,
+                 cons: m.targetscan ? m.targetscan.conservation : null};
+          fillPanels();
+        })
+        .catch(function(err){ console.warn("miRNA details: not available", err); });
+    }
+
     el("prov").textContent =
       RUN.job + " · " + RUN.date + " · " + RUN.results.toLocaleString() +
       " records · " + PAGE.total.toLocaleString() + " genes with a result";
@@ -3082,6 +3107,7 @@ TAIL_JS = r"""
     el("results").hidden = true;
     positionGuides(true);
     MIRINFO = null;
+    MIRFETCH = null;
     api("/mirnas/" + encodeURIComponent(mir))
       .then(function(m){ MIRINFO = m; })
       .catch(function(){ /* the POST below reports the real error */ })
