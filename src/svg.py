@@ -336,29 +336,30 @@ CSS = """
 .nd-val{fill:#9cc7e8;stroke:#2c6fa5;stroke-width:1.8}
 .nd-pred{fill:#f7dd82;stroke:#c29a1e;stroke-width:1.8}
 .nd-mir{fill:#f0a19b;stroke:#bd4a42;stroke-width:1.8}
-.nd-lab{font-size:12.5px;text-anchor:middle;fill:#15181d;
+.nd-lab{font-size:16.5px;font-weight:600;text-anchor:middle;fill:#15181d;
   paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
-.nd-mirlab{font-size:14px;font-weight:700}
+.nd-mirlab{font-size:18px;font-weight:700}
 .netkey-svg{display:flex;flex-wrap:wrap;gap:6px 20px;margin:6px 0 0;
-  font-size:12.5px;color:#5c6670}
+  font-size:15px;color:#3a434d}
 .netkey-svg b{display:inline-block;width:10px;height:10px;border-radius:50%;
   margin-right:5px;vertical-align:-1px}
 
-.mp-title{font-size:12.5px;font-weight:600;fill:#15181d}
-.mp-tx{font-weight:400;fill:#8a929c;font-size:11px}
+.mp-title,.mp-tx,.mp-tlab,.mp-reg,.mp-lane,.mp-slab,.mp-none,.nd-lab,.nd-mirlab{font-family:'Inter','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;font-variant-numeric:tabular-nums lining-nums}
+.mp-title{font-size:17px;font-weight:700;fill:#11141a}
+.mp-tx{font-weight:500;fill:#5c6670;font-size:14px}
 .mp-tick{stroke:#c9d0d8;stroke-width:1}
 .mp-tick.mp-maj{stroke:#9aa4ae}
-.mp-tlab{font-size:9.5px;text-anchor:middle;fill:#8a929c}
+.mp-tlab{font-size:14px;font-weight:600;text-anchor:middle;fill:#4a535e}
 .reg5{fill:#dfe7ee}.regc{fill:#c3d3e0}.reg3{fill:#e9eef3}
-.mp-reg{font-size:9.5px;text-anchor:middle;fill:#3d4a57;font-weight:600}
-.mp-lane{font-size:10px;fill:#8a929c;font-weight:600}
+.mp-reg{font-size:13px;text-anchor:middle;fill:#2b343d;font-weight:700}
+.mp-lane{font-size:15px;fill:#2b343d;font-weight:700;letter-spacing:.02em}
 .mp-seed{stroke:#1a6b3c;stroke-width:2.4;stroke-linecap:round}
 .mp-seed.s1{stroke:#2f8a55}.mp-seed.s2{stroke:#57a878}
 .mp-seed.s3{stroke:#9fc7b1}
 .mp-dup{fill:#c7d6e4;stroke:#8fa8be;stroke-width:.8}
 .mp-dup.strong{fill:#9fbdd6;stroke:#5b7f9e}
-.mp-slab{font-size:9.5px;text-anchor:middle;fill:#5c6670}
-.mp-none{font-size:10.5px;fill:#a8b0b8}
+.mp-slab{font-size:14px;font-weight:600;text-anchor:middle;fill:#2b343d}
+.mp-none{font-size:14.5px;fill:#5c6670}
 @media print{
   .netsvg, .mapsvg{page-break-inside:avoid}
 }

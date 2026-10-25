@@ -1088,11 +1088,14 @@
   <div class="toolbar">
     <label class="ctl">Sort
       <select id="sortby">
-        <option value="seed">Best seed site</option>
-        <option value="ts">TargetScan context++</option>
-        <option value="rh">RNAhybrid ΔG</option>
-        <option value="mt">Experimental support</option>
+        <option value="seed">Strongest seed site</option>
+        <option value="scanmir">scanMiR affinity</option>
+        <option value="targetscan">TargetScan context++</option>
+        <option value="rnahybrid">RNAhybrid binding energy</option>
+        <option value="mirtarbase">Published experiments</option>
+        <option value="gene">Gene name, A to Z</option>
       </select>
+      <span class="sorthint" id="sorthint"></span>
     </label>
     <label class="switch"><input type="checkbox" id="show6"> <span>Include 6mer sites</span></label>
     <div class="fgroup" id="regfilter">

@@ -89,7 +89,6 @@ keep = keep[:_notes] + """<section class="panel" id="agree" hidden>
     <div class="panel-body">
       <p id="enrichhead"></p>
       <p id="enrichmeta"></p>
-      <div class="tabs" id="enrichtabs"></div>
       <div class="tsearch">
         <label for="termq">Search pathways, terms and genes</label>
         <div class="tsbox">
@@ -98,6 +97,7 @@ keep = keep[:_notes] + """<section class="panel" id="agree" hidden>
           <button type="button" id="termqx" hidden aria-label="clear">×</button>
         </div>
       </div>
+      <div class="tabs" id="enrichtabs"></div>
       <table class="terms"><thead><tr>
         <th></th><th>Term</th>
         <th class="sortable" data-sort="genes">Genes<span class="arrow"></span></th>
@@ -404,6 +404,56 @@ EXTRA_CSS = """
   .gsrow input[type=number]{width:82px;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace}
   .gsrow[data-off="1"]{opacity:.45}
   .gsnote{font-size:11px;color:var(--faint)}
+  .gsintro{margin:0 0 1rem;font-size:14px;line-height:1.55;
+    color:var(--ink);max-width:48rem}
+  .gsintro b{color:#123a78}
+  #enrich .gsrow{padding:.5rem .55rem;border:0;border-radius:7px;
+    transition:background .14s ease}
+  #enrich .gsrow:hover{background:var(--surface-2)}
+  #enrich .gsrow[data-off="0"]{background:rgba(18,58,120,.06)}
+  #enrich .gsrow > label.tick{font-weight:600}
+  #enrich .gsrow[data-off="0"] > label.tick{color:#123a78}
+  #enrich .gsnote{font-size:13px;line-height:1.45;color:var(--muted)}
+  #gsregions,#gsmatch{border:0;padding:.55rem;margin-top:.2rem}
+  #gsregions > span,#gsmatch > span{font-size:12.5px;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;color:#123a78}
+  #gssentence{font-size:14px;line-height:1.5}
+  /* One colour per filter, the same as the tool picker. Nothing is
+     filled until the cursor is on it or the box is ticked. */
+  #enrich .gsrow{--gc:#123a78;background:transparent}
+  #enrich .gsrow[data-tool="seed"]{--gc:#0f766e}
+  #enrich .gsrow[data-tool="rnahybrid"]{--gc:#9b2c3a}
+  #enrich .gsrow[data-tool="scanmir"]{--gc:#4338ca}
+  #enrich .gsrow[data-tool="targetscan"]{--gc:#b45309}
+  #enrich .gsrow[data-tool="mirtarbase"]{--gc:#15803d}
+  #enrich .gsrow:hover{
+    background:color-mix(in srgb, var(--gc) 11%, transparent)}
+  #enrich .gsrow[data-off="0"]{
+    background:color-mix(in srgb, var(--gc) 7%, transparent)}
+  #enrich .gsrow[data-off="0"] > label.tick{color:var(--gc)}
+  #enrich .gsrow input[type=checkbox]{accent-color:var(--gc);
+    width:16px;height:16px}
+
+  /* No rules above or below the regions and match rows. */
+  #enrich .gsbar{border:0;padding:0;margin:.4rem 0 0}
+  #enrich .gsfoot{border:0;padding:1rem 0 0;display:flex;
+    align-items:center;gap:1.2rem;flex-wrap:wrap}
+
+  /* The status is the one thing a reader must notice, so it sits in a
+     box of its own and turns amber when something needs doing. */
+  #gssentence{flex:1 1 22rem;margin:0;font-size:14.5px;line-height:1.55;
+    padding:.75rem .95rem;border-radius:7px;color:var(--ink);
+    border-left:4px solid #123a78;background:rgba(18,58,120,.07)}
+  #gssentence.warn{border-left-color:#b45309;background:rgba(180,83,9,.09)}
+
+  .gsintro{font-size:14.5px}
+  #enrich .gsrow > label.tick{font-size:15px;min-width:11rem}
+  #enrich .gsrow select,#enrich .gsrow input[type=number]{font-size:14px;
+    padding:6px 9px}
+  #enrich .gsnote{font-size:13.5px}
+  #gsregions label,#gsmatch label{font-size:14.5px}
+  #gsregions > span,#gsmatch > span{font-size:13px}
+  #enrich .go{font-size:15px}
   .gsbar{display:flex;flex-direction:column;gap:7px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-soft)}
   .gsfoot{display:flex;align-items:center;gap:14px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line-soft)}
   .gsfoot .say{max-width:none;margin:0;flex:1}
@@ -466,6 +516,339 @@ EXTRA_CSS = """
   .tsbox button{position:absolute;right:6px;top:50%;transform:translateY(-50%);appearance:none;background:none;border:none;font-size:16px;line-height:1;color:var(--faint);cursor:pointer;padding:2px 4px}
   .tsbox button:hover{color:var(--ink)}
   .termfoot{display:flex;align-items:center;gap:12px;margin-top:11px;font-size:11.5px;color:var(--faint)}
+
+  /* Enriched Terms and Target Network both carry a lot of numbers, so
+     nothing here is below 13px. */
+  #enrichout #enrichhead,#enrichout #enrichmeta{font-size:14.5px;
+    line-height:1.6}
+  #enrichout .tsearch{margin:0 0 .9rem}
+  #enrichout .tsearch label{display:block;font-size:12.5px;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;color:#123a78;
+    margin:0 0 .35rem}
+  #enrichout .tsearch input{font-size:14.5px;padding:8px 30px 8px 11px}
+  #enrichout .tabs{font-size:14.5px}
+  #enrichout table.terms{font-size:14px}
+  #enrichout table.terms th{font-size:12px;letter-spacing:.05em;
+    text-transform:uppercase}
+  #enrichout table.terms td{padding-top:.45rem;padding-bottom:.45rem}
+  #enrichout table.terms tbody tr:hover{background:var(--surface-2)}
+  #enrichout .termfoot{font-size:13.5px}
+
+  #netbox label,#netbox select,#netbox button,#netbox .say{font-size:14px}
+  #netinfo{border-left:4px solid var(--line);padding-left:.9rem}
+  #netinfo[data-group="validated"]{border-left-color:#2563eb}
+  #netinfo[data-group="predicted"]{border-left-color:#d97706}
+  #netinfo[data-group="mirna"]{border-left-color:#dc2626}
+  #netinfo h4{font-size:16.5px}
+  #netinfo dt{font-size:13.5px;color:var(--muted)}
+  #netinfo dd{font-size:14.5px}
+  #netinfo dt[data-t="seed"]{color:#0f766e}
+  #netinfo dt[data-t="rnahybrid"]{color:#9b2c3a}
+  #netinfo dt[data-t="scanmir"]{color:#4338ca}
+  #netinfo dt[data-t="targetscan"]{color:#b45309}
+  #netinfo dt[data-t="mirtarbase"]{color:#15803d}
+  #netinfo .linkbtn{font-size:14px}
+
+  /* Section headings. These name the page, so they lead everything in it. */
+  .panel > h2,.sectitle,#netbox > h2,#netbox .sectitle,
+  .browser > header h2{font-size:24px;line-height:1.3;letter-spacing:-.015em}
+  .panel > h2 em,.sectitle em{font-size:13px}
+  .notes h3{font-size:21px;line-height:1.3}
+  .srail .navitem{font-size:15px}
+
+  /* Text a size up throughout. Most of this page is numbers and short
+     explanations, and both read better with more room. */
+  body{font-size:16px;line-height:1.6}
+
+  /* the three search columns */
+  .qsub{font-size:15.5px;line-height:1.6;min-height:0}
+  .qcol .f > span{font-size:13px}
+  .qcol input[type=text],.qcol select,.qcol textarea{font-size:16px}
+  .qex{font-size:14px}
+
+  /* tool picker */
+  #f_tools .toolpick .tpn{font-size:17px}
+  #f_tools .toolpick .tps{font-size:15px}
+  #f_tools .toolpick .tp-why{font-size:14.5px}
+
+  /* results toolbar */
+  .toolbar > label.ctl select,.gsearch .tsbox input{font-size:15.5px}
+  .sorthint,.gsnote2{font-size:14.5px}
+  #rowcount{font-size:14.5px}
+  .toolbar > .fgroup > label,.toolbar > label.switch{font-size:15.5px}
+
+  /* agreement */
+  #agree .agcap,#agree #agcaption{font-size:14.5px}
+  .agdetnote{font-size:15px}
+  #agdettable table{font-size:15px}
+  .agdetbar .cols{font-size:15px}
+  .agdetstat,.agdetmore{font-size:14.5px}
+
+  /* pathway analysis */
+  .gsintro{font-size:15.5px}
+  #enrich .gsrow > label.tick{font-size:16px}
+  #enrich .gsnote{font-size:14.5px}
+  #gssentence{font-size:15.5px}
+  #gsregions label,#gsmatch label{font-size:15.5px}
+
+  /* enriched terms */
+  #enrichout #enrichhead,#enrichout #enrichmeta{font-size:15.5px}
+  #enrichout .tabs{font-size:15.5px}
+  #enrichout .tsearch input{font-size:15.5px}
+  #enrichout table.terms{font-size:15px}
+  #enrichout table.terms th{font-size:13px}
+
+  /* target network */
+  #netbox label,#netbox select,#netbox button,#netbox .say{font-size:15px}
+  #netinfo h4{font-size:17.5px}
+  #netinfo dt{font-size:14.5px}
+  #netinfo dd{font-size:15.5px}
+
+  /* query summary, tools run, and any other panel table or list */
+  .panel table{font-size:15px}
+  .panel dl dt{font-size:14.5px}
+  .panel dl dd{font-size:15.5px}
+  .txid,.hu,.gsnote,.say,.sub2,.termfoot{font-size:14.5px}
+  .notes,.notes li,.notes p{font-size:15.5px;line-height:1.65}
+
+  /* Supporting text was light enough to read as disabled. These two greys
+     carry most of the page's explanation, so they are darkened here rather
+     than selector by selector. */
+  :root{--muted:#3f4954;--faint:#4e5863}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){--muted:#c5ccd6;--faint:#aeb7c2}
+  }
+  :root[data-theme="dark"]{--muted:#c5ccd6;--faint:#aeb7c2}
+
+  body{font-size:17px;line-height:1.62}
+
+  .qsub{font-size:17px;font-weight:500;color:var(--muted)}
+  .qcol .f > span{font-size:13.5px}
+  .qcol input[type=text],.qcol select,.qcol textarea{font-size:17px}
+  .qex{font-size:15px}
+
+  #f_tools .toolpick .tpn{font-size:18px}
+  #f_tools .toolpick .tps{font-size:16px;font-weight:450}
+  #f_tools .toolpick .tp-why{font-size:15.5px}
+  #f_tools .toolpick .tp-no{font-size:13.5px}
+
+  .toolbar > label.ctl select,.gsearch .tsbox input{font-size:17px}
+  .sorthint,.gsnote2{font-size:15.5px;font-weight:450}
+  #rowcount{font-size:15.5px}
+  .toolbar > .fgroup > label,.toolbar > label.switch{font-size:16.5px}
+
+  #agree .agcap,#agree #agcaption{font-size:16px;font-weight:450}
+  .agdetnote{font-size:16px}
+  #agdettable table{font-size:16px}
+  .agdetbar .cols{font-size:16px}
+  .agdetstat,.agdetmore{font-size:15.5px}
+
+  .gsintro{font-size:17px;font-weight:450}
+  #enrich .gsrow > label.tick{font-size:17px}
+  #enrich .gsnote{font-size:15.5px;font-weight:450}
+  #gssentence{font-size:16.5px;font-weight:500}
+  #gsregions label,#gsmatch label{font-size:16.5px}
+
+  #enrichout #enrichhead,#enrichout #enrichmeta{font-size:17px;
+    font-weight:450}
+  #enrichout .tabs{font-size:16.5px}
+  #enrichout .tsearch input{font-size:17px}
+  #enrichout table.terms{font-size:16px}
+  #enrichout table.terms th{font-size:13.5px}
+
+  #netbox label,#netbox select,#netbox button,#netbox .say{font-size:16px}
+  #netinfo h4{font-size:19px}
+  #netinfo dt{font-size:15.5px}
+  #netinfo dd{font-size:16.5px}
+
+  .panel table{font-size:16px}
+  .panel dl dt{font-size:15.5px}
+  .panel dl dd{font-size:16.5px}
+  .txid,.hu,.gsnote,.say,.sub2,.termfoot{font-size:15.5px}
+  .notes,.notes li,.notes p{font-size:17px;line-height:1.7}
+
+  /* Sections. A rule and a wide gap above each one, so the page reads as a
+     sequence of parts rather than one long scroll. Nested panels keep
+     neither, or every box inside a section would look like a section. */
+  .panel,#results,.toolkey,.notes,.browser{
+    margin:0 0 4.5rem;padding-top:2rem;border-top:2px solid var(--line)}
+  .panel:first-of-type{border-top:0;padding-top:0}
+  .panel .panel,.panel .toolkey,.panel .notes,.panel .browser,
+  #results .panel,#results .browser{
+    border-top:0;padding-top:0;margin-bottom:0}
+
+  /* The name of each section, in its band. */
+  .panel > h2,.sectitle,#netbox > h2,#netbox .sectitle,
+  .browser > header h2{font-size:28px;line-height:1.25;
+    letter-spacing:-.018em;padding:.8rem 1.1rem;margin:0 0 1.6rem}
+  .panel > h2 em,.sectitle em{font-size:14px;font-weight:600}
+  .notes h3{font-size:23px;margin:0 0 1.1rem}
+
+  /* ---- sections ------------------------------------------------------
+     Each one opens with a rule, a wide gap and its name in a band, and
+     closes with enough space that its last line is not read as the next
+     section's first. One size for every name, whichever element carries
+     it. ---------------------------------------------------------- */
+  .panel,#results,.toolkey,.notes,.browser{
+    margin:0 0 5.5rem;padding:2.8rem 0 0;border-top:3px solid var(--line)}
+  .panel:first-of-type{border-top:0;padding-top:0}
+  .panel .panel,.panel .toolkey,.panel .notes,.panel .browser,
+  #results .panel,#results .browser{
+    border-top:0;padding-top:0;margin-bottom:0}
+  .panel > .panel-body{padding-bottom:1.2rem}
+
+  .panel > h2,.sectitle,#netbox > h2,#netbox .sectitle,
+  .browser > header h2,h2.sectitle{font-size:25px;line-height:1.3;
+    letter-spacing:-.015em;padding:.8rem 1.1rem;margin:0 0 1.7rem;
+    font-weight:700}
+  .panel > h2 em,.sectitle em{font-size:14px;font-weight:600}
+  .notes h3{font-size:21px;margin:0 0 1.1rem}
+
+  /* ---- the rail names them, so it reads at the same weight ---- */
+  .srail .navitem{font-size:16.5px;padding:11px 10px}
+  .srail-title{font-size:12px}
+  .srail{width:252px}
+  @media (min-width:901px){
+    body{padding-left:252px}
+    body.srail-off{padding-left:0}
+  }
+
+  /* ---- pathway analysis sat a size above everything else ---- */
+  .gsintro{font-size:16px}
+  #enrich .gsrow > label.tick{font-size:16px}
+  #enrich .gsnote{font-size:15px}
+  #gsregions label,#gsmatch label{font-size:15.5px}
+  #gssentence{font-size:16px}
+
+  /* rg-start : result table guide */
+  .rg-lead{font-size:18px;line-height:1.6;color:var(--ink);font-weight:500;
+    margin:0 0 1.5rem}
+
+  .rg-tabs{display:flex;flex-wrap:wrap;gap:.6rem;margin:0 0 1.8rem}
+  .rg-tab{appearance:none;cursor:pointer;font:inherit;font-size:16.5px;
+    font-weight:600;padding:.6rem 1.25rem;border-radius:999px;
+    border:2px solid var(--c);background:#fff;color:var(--c);
+    transition:.14s}
+  .rg-tab:hover{background:var(--f)}
+  .rg-tab.on{background:var(--c);color:#fff}
+  .rg-tab[data-c="1"]{--c:#123a78;--f:rgba(18,58,120,.09)}
+  .rg-tab[data-c="2"]{--c:#0f766e;--f:rgba(15,118,110,.09)}
+  .rg-tab[data-c="3"]{--c:#9333ea;--f:rgba(147,51,234,.09)}
+
+  .rg-pane{display:none}
+  .rg-pane.on{display:block}
+  .rg-pane p{font-size:16.5px;line-height:1.68;color:var(--ink);
+    margin:0 0 1rem}
+  .rg-sub{font-size:19px;font-weight:700;color:#123a78;
+    margin:1.8rem 0 .7rem;letter-spacing:-.01em}
+  .rg-k{color:#123a78;font-weight:700}
+  .rg-note{font-size:17px;font-weight:500;background:rgba(147,51,234,.07);
+    border-left:4px solid #9333ea;border-radius:0 6px 6px 0;
+    padding:.85rem 1.1rem;margin:0 0 1.6rem}
+
+  /* screenshots: centred, framed so they do not read as a live table */
+  .rg-fig{margin:0 auto 1.8rem;max-width:58rem;text-align:center}
+  .rg-frame{cursor:zoom-in;position:relative;border-radius:10px;
+    overflow:hidden;border:1px solid #c9d2de;background:#eef2f7;
+    box-shadow:0 2px 12px rgba(18,58,120,.1);transition:.15s}
+  .rg-frame:hover{border-color:#123a78;
+    box-shadow:0 6px 22px rgba(18,58,120,.2)}
+  .rg-bar{display:flex;align-items:center;gap:.4rem;padding:.5rem .75rem;
+    background:#e3e9f1;border-bottom:1px solid #c9d2de}
+  .rg-bar i{width:9px;height:9px;border-radius:50%;background:#b9c4d2}
+  .rg-bar b{margin-left:.5rem;font-size:12.5px;font-weight:700;
+    letter-spacing:.06em;text-transform:uppercase;color:#5d6b7e}
+  .rg-frame img{display:block;width:100%;height:auto;background:#fff}
+  .rg-zoom{position:absolute;right:.7rem;bottom:.7rem;font-size:13px;
+    font-weight:600;color:#fff;background:rgba(18,58,120,.88);
+    padding:.32rem .7rem;border-radius:5px;opacity:0;transition:.15s}
+  .rg-frame:hover .rg-zoom{opacity:1}
+  .rg-fig figcaption{font-size:14.5px;line-height:1.5;color:var(--muted);
+    margin-top:.6rem;font-style:italic}
+
+  /* enlarged view */
+  .rg-lb{position:fixed;inset:0;z-index:9999;background:rgba(12,20,34,.9);
+    display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:.9rem;padding:1.5rem}
+  .rg-lb-top{display:flex;align-items:center;gap:1rem;width:100%;
+    max-width:min(94vw,1500px);justify-content:space-between}
+  .rg-lb-top span{font-size:13px;font-weight:700;letter-spacing:.07em;
+    text-transform:uppercase;color:#aebbd0}
+  .rg-lb-x{appearance:none;cursor:pointer;font:inherit;font-size:15px;
+    font-weight:700;color:#123a78;background:#fff;border:0;
+    padding:.5rem 1.3rem;border-radius:999px;transition:.14s}
+  .rg-lb-x:hover{background:#dbe5f3}
+  .rg-lb img{max-width:min(94vw,1500px);max-height:78vh;border-radius:8px;
+    background:#fff;box-shadow:0 10px 50px rgba(0,0,0,.5)}
+  .rg-lb-hint{font-size:14px;color:#aebbd0;margin:0}
+
+  .rg-tool{border-left:4px solid var(--c);padding:.1rem 0 .1rem 1.15rem;
+    margin:0 0 1.5rem;border-radius:0 6px 6px 0;transition:background .14s}
+  .rg-tool:hover{background:var(--f)}
+  .rg-tool h4{font-size:19px;font-weight:700;color:var(--c);
+    margin:0 0 .35rem;letter-spacing:-.01em}
+  .rg-tool p{margin:0 0 .5rem}
+  .rg-tool p:last-child{margin:0}
+  .rg-g{font-weight:600;color:var(--ink)}
+  .rg-tool[data-t="seed"]{--c:#0f766e;--f:rgba(15,118,110,.06)}
+  .rg-tool[data-t="rnahybrid"]{--c:#9b2c3a;--f:rgba(155,44,58,.06)}
+  .rg-tool[data-t="scanmir"]{--c:#4338ca;--f:rgba(67,56,202,.06)}
+  .rg-tool[data-t="targetscan"]{--c:#b45309;--f:rgba(180,83,9,.06)}
+  .rg-tool[data-t="mirtarbase"]{--c:#15803d;--f:rgba(21,128,61,.06)}
+
+  .rg-rank{list-style:none;padding:0;margin:0 0 1rem}
+  .rg-rank li{font-size:16.5px;line-height:1.6;margin:0 0 .6rem}
+  .rg-rank b{display:inline-block;min-width:6.4rem;font-weight:700;
+    font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;
+    padding:.18rem .5rem;border-radius:4px;margin-right:.55rem;
+    text-align:center}
+  .rg-s{color:#0b5c2e;background:rgba(21,128,61,.14)}
+  .rg-m{color:#8a4208;background:rgba(180,83,9,.14)}
+  .rg-w{color:#8a2531;background:rgba(155,44,58,.12)}
+
+  @media (max-width:720px){
+    .rg-lead{font-size:16.5px}
+    .rg-tab{font-size:15px;padding:.5rem 1rem}
+    .rg-lb img{max-height:68vh}
+  }
+
+  /* the longest nav label needs two lines */
+  .navitem[data-target="howread"]{white-space:normal;overflow:visible;
+    text-overflow:clip;height:auto;line-height:1.3;align-items:flex-start}
+  .navitem[data-target="howread"] svg{flex:0 0 auto;margin-top:1px}
+  #howread{scroll-margin-top:14px}
+
+  /* a little air above a section the nav has scrolled to the top */
+  .panel{scroll-margin-top:16px}
+  /* rg-end */
+
+
+
+  .panel dl dt{font-size:14px}
+  .panel dl dd{font-size:15px}
+  .panel dl dt,.panel dl dd,.panel dl > div{border-top:0;border-bottom:0}
+  .panel dl{row-gap:.35rem}
+  .gsintro{max-width:none;margin:0 0 1.2rem;line-height:1.5}
+  #enrich .gsgrid{gap:.1rem}
+  #enrich .gsrow{padding:.4rem .55rem}
+  #gsregions,#gsmatch{padding:.4rem .55rem;margin-top:0}
+  #enrich .gsbar{margin:.5rem 0 0}
+
+  .panel,#results,.toolkey,.notes,.browser{
+    border-top:0;padding-top:0;margin:0 0 1.5rem;display:flow-root}
+  .panel .panel,.panel .toolkey,.panel .notes,.panel .browser,
+  #results .panel,#results .browser{margin-bottom:0}
+
+  .panel > h2,h2.sectitle,#netbox > h2,#netbox .sectitle,
+  .browser > header h2{font-size:22px;line-height:1.3;
+    letter-spacing:-.012em;padding:.75rem 1.05rem;margin:6.5rem 0 1.6rem}
+  .panel:first-of-type > h2{margin-top:0}
+  .panel .panel > h2,#results .panel > h2{margin-top:2rem}
+  .panel > h2 em,.sectitle em{font-size:13.5px;font-weight:600}
+  .notes h3{font-size:20px}
+
+  .srail .navitem{font-size:17.5px;padding:12px 10px}
+  .srail-title{font-size:12.5px}
   .sub2line{margin:0;font-size:16px;font-weight:600;color:var(--accent);letter-spacing:-.005em}
   .sources{margin:6px 0 0;font-family:'JetBrains Mono','SFMono-Regular',Menlo,monospace;font-size:10.5px;color:var(--faint);letter-spacing:.02em}
 """
@@ -672,6 +1055,61 @@ REDESIGN_CSS = """
   table.results tbody tr.generow.sel:hover>td{background:#0f4470}
 
   /* ---- the toolbar above the table ---- */
+  .sorthint{display:block;flex-basis:100%;margin:2px 0 0;
+    font-size:12.5px;line-height:1.45;color:var(--muted)}
+
+  /* Results toolbar. Each control sits under its own label, the sort
+     explains what it orders on, and the count goes on its own line at the
+     end instead of being squeezed against the right edge. */
+  .gsearch{margin:0 0 1rem}
+  .gsearch > label{display:block;font-size:12px;font-weight:700;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 .3rem}
+  .gsearch .tsbox{max-width:26rem}
+  .gsnote2{display:block;margin:.35rem 0 0;font-size:12.5px;
+    line-height:1.45;color:var(--muted)}
+
+  /* Three rows: search and sort, then the filters, then what the table is
+     showing with the export button opposite. The empty pseudo-elements are
+     the row breaks. */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:flex-start;
+    gap:.9rem 2rem;padding:0 0 1rem;margin:0 0 1.1rem;
+    border-bottom:1px solid var(--line)}
+  .toolbar::before,.toolbar::after{content:"";flex-basis:100%;height:0}
+  .toolbar::before{order:3}
+  .toolbar::after{order:6}
+
+  .toolbar > .gsearch{order:1;flex:1 1 22rem;margin:0}
+  .toolbar > label.ctl{order:2;flex:1 1 22rem;display:flex;
+    flex-direction:column;align-items:flex-start;gap:.35rem}
+  .toolbar > .fgroup{order:4;align-self:center}
+  .toolbar > label.switch{order:5;align-self:center}
+  #rowcount{order:7;margin:0}
+  .toolbar > .exp{order:8;margin-left:auto}
+
+  /* Every control names itself above the input, in the same navy as the
+     section headings. */
+  .toolbar > .gsearch > label,
+  .toolbar > label.ctl,
+  .toolbar > .fgroup > span{font-size:12.5px;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;color:#123a78}
+  .toolbar > .gsearch > label{display:block;margin:0 0 .35rem}
+  .toolbar > .fgroup{display:flex;align-items:center;gap:.7rem}
+  .toolbar > .fgroup > label,
+  .toolbar > label.switch{font-size:14.5px;font-weight:400;
+    text-transform:none;letter-spacing:0;color:var(--ink);
+    display:flex;align-items:center;gap:.4rem;white-space:nowrap}
+  .toolbar > label.ctl select{font-size:14.5px;padding:7px 10px;
+    text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);
+    min-width:16rem}
+  .gsearch .tsbox{max-width:none}
+  .gsearch .tsbox input{font-size:14.5px;padding:8px 30px 8px 11px}
+  .gsnote2{display:block;margin:.35rem 0 0;font-size:13px;line-height:1.45;
+    color:var(--muted)}
+  .sorthint{display:block;margin:.1rem 0 0;font-size:13px;line-height:1.45;
+    color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+  #rowcount{font-size:13.5px;color:var(--muted);align-self:center}
+  .expbtn{font-size:14.5px;padding:8px 20px}
   .toolbar{display:grid;grid-template-columns:1fr auto;gap:14px 26px;
     align-items:end;padding:0 0 12px;margin-bottom:0;
     border-bottom:1px solid var(--line)}
@@ -1472,6 +1910,43 @@ AGREE_CSS = """
              cursor:pointer;padding:6px 0;font-family:inherit}
   .agdetmore:hover{color:var(--ink);text-decoration:underline}
   .agdetstat{font-size:11.5px;color:var(--faint);margin-top:6px}
+
+  /* The membership rule sits in a tinted strip, one line per idea. */
+  .agcap,#agcaption,.agreefoot p{white-space:pre-line}
+  #agree .agcap,#agree #agcaption{font-size:13.5px;line-height:1.6;
+    color:var(--ink);padding:.7rem .9rem;margin:.9rem 0 0;border-radius:7px;
+    border-left:4px solid #123a78;background:rgba(18,58,120,.06)}
+
+  /* Region detail. A results view, not a card: a coloured rule under the
+     heading, columns named in each tool's colour, room between rows. */
+  #agdetail{margin-top:1.2rem;padding-top:1.1rem;
+    border-top:2px solid var(--line)}
+  .agdethead{align-items:center;margin-bottom:.15rem}
+  .agdethead h3{font-size:17px;font-weight:700;color:#123a78;
+    line-height:1.35}
+  .agdetclose{font-size:22px;line-height:1;padding:0 .35rem}
+  .agdetnote{font-size:14px;line-height:1.55;margin:.4rem 0 1rem;
+    color:var(--muted)}
+  .agdetbar{gap:.8rem 1.5rem;padding:.75rem 0;border:0}
+  .agdetbar .cols{font-size:14px;gap:.35rem 1.1rem}
+  .agdetbar .cols label{gap:.45rem;font-weight:600;color:var(--ink)}
+  .agdetbar .cols label:has(input[value="seed"]){color:#0f766e}
+  .agdetbar .cols label:has(input[value="rnahybrid"]){color:#9b2c3a}
+  .agdetbar .cols label:has(input[value="scanmir"]){color:#4338ca}
+  .agdetbar .cols label:has(input[value="targetscan"]){color:#b45309}
+  .agdetbar .cols label:has(input[value="mirtarbase"]){color:#15803d}
+  .agdetbar .cols input{width:15px;height:15px;accent-color:currentColor}
+  .agdetbtn{font-size:14px;padding:7px 16px;border-radius:5px}
+  #agdetenrich{border-color:#123a78;background:#123a78;color:#fff;
+    font-weight:600}
+  #agdetenrich:hover{background:#0d2d60;border-color:#0d2d60}
+  #agdettable table{font-size:14px;width:100%}
+  #agdettable th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);padding-bottom:.45rem}
+  #agdettable td{padding:.5rem .5rem .5rem 0}
+  #agdettable tbody tr:hover{background:var(--surface-2)}
+  .agdetmore{font-size:14px}
+  .agdetstat{font-size:13px;margin-top:.6rem}
 """
 
 HEAD = """<!doctype html>
@@ -1526,6 +2001,9 @@ HEAD = """<!doctype html>
       <button type="button" class="navitem" data-target="netbox" data-gate="results" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><line x1="12" y1="7.4" x2="6.4" y2="17"/><line x1="12" y1="7.4" x2="17.6" y2="17"/><line x1="7.4" y1="19" x2="16.6" y2="19"/></svg>
         Target Network</button>
+      <button type="button" class="navitem" data-target="howread">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.5V20"/><path d="M12 6.5C10.5 5 8 4.5 4 4.5V18c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2V4.5c-4 0-6.5.5-8 2z"/></svg>
+        How To Read The Result Table</button>
       <button type="button" class="navitem" data-select=".toolkey">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor"/></svg>
         How The Tool Works</button>
@@ -1594,6 +2072,260 @@ HEAD = """<!doctype html>
     <h2>Running<em id="runjob"></em></h2>
     <div class="panel-body" id="runlist"></div>
   </section>
+
+  <section class="panel" id="howread">
+  <h2>How To Read The Result Table<em></em></h2>
+  <div class="panel-body">
+
+  <p class="rg-lead">Every row is one gene, and the columns show what each
+  tool found in it. The tools measure different things in different units,
+  so their numbers cannot be compared with one another. Read across a row
+  to see how far the tools agree, rather than hunting for the biggest
+  number.</p>
+
+  <div class="rg-tabs">
+    <button type="button" class="rg-tab on" data-p="a" data-c="1">Several miRNAs at once</button>
+    <button type="button" class="rg-tab" data-p="b" data-c="2">A single result table</button>
+    <button type="button" class="rg-tab" data-p="c" data-c="3">What each number means</button>
+  </div>
+
+  <div class="rg-pane on" data-p="a">
+
+    <figure class="rg-fig">
+      <div class="rg-frame" data-img="/guide/merged.png">
+        <div class="rg-bar"><i></i><i></i><i></i><b>Example screenshot</b></div>
+        <img src="/guide/merged.png" width="1386" height="915"
+             alt="Merged result for two miRNAs">
+        <span class="rg-zoom">Click to enlarge</span>
+      </div>
+      <figcaption>A search for two miRNAs. This is a picture of the tool,
+      not a live table.</figcaption>
+    </figure>
+
+    <p>Searching more than one miRNA gives you a <b>tab for each one</b>,
+    plus a <b>Merged result</b> tab. The per-miRNA tabs are ordinary single
+    results, so everything in the next tab of this guide applies to them.
+    The merged tab answers a different question: which genes are hit by
+    more than one of your miRNAs?</p>
+
+    <p>A gene targeted by several miRNAs with <b>different seeds</b> is a
+    stronger candidate than one found by a single miRNA, because two
+    unrelated miRNAs landing on the same transcript is less likely to be
+    chance.</p>
+
+    <h4 class="rg-sub">The two filters</h4>
+
+    <p><b class="rg-k">Found by</b> sets how many of your miRNAs must hit a
+    gene before it is listed. With twelve miRNAs from a differential
+    expression list, raising this from 2 to 5 is the quickest way to get
+    from thousands of genes down to a shortlist worth reading.</p>
+
+    <p><b class="rg-k">Site type</b> sets how good each of those hits has to
+    be. <i>8mer only</i> is the strictest setting, and <i>any site</i> the
+    loosest.</p>
+
+    <h4 class="rg-sub">The three buttons</h4>
+
+    <p><b class="rg-k">Show genes</b> lists the genes that survive both
+    filters. <b class="rg-k">Download TSV</b> saves that list as a file you
+    can open in Excel or read into R. <b class="rg-k">Run GO and KEGG</b>
+    sends that exact set to pathway analysis, so what you tested is what
+    you filtered.</p>
+
+  </div>
+
+  <div class="rg-pane" data-p="b">
+
+    <figure class="rg-fig">
+      <div class="rg-frame" data-img="/guide/single.png">
+        <div class="rg-bar"><i></i><i></i><i></i><b>Example screenshot</b></div>
+        <img src="/guide/single.png" width="1076" height="996"
+             alt="A single result table with one row open">
+        <span class="rg-zoom">Click to enlarge</span>
+      </div>
+      <figcaption>One result table with a row opened. This is a picture of
+      the tool, not a live table.</figcaption>
+    </figure>
+
+    <p>One row per gene. The columns are grouped by tool, and each group
+    carries a heading saying what its numbers are.</p>
+
+    <h4 class="rg-sub">Click a row to open it</h4>
+
+    <p>The row itself is a summary: the best site each tool found. Opening
+    it shows <b>every individual record</b>, one line each, with the tool,
+    the region, the position on the transcript and the score. The
+    <b class="rg-k">Agreement</b> column on the right is the useful part,
+    because it marks the places where two tools point at overlapping
+    nucleotides. Two tools agreeing on the same stretch of sequence is much
+    stronger evidence than two tools merely naming the same gene.</p>
+
+    <h4 class="rg-sub">The toolbar above the table</h4>
+
+    <p><b class="rg-k">Search genes</b> looks through the whole result, not
+    just the page you are on. <b class="rg-k">Sort</b> reorders by any
+    tool's score, and the line underneath tells you which criterion is in
+    use. <b class="rg-k">Region</b> drops sites outside the regions you
+    tick. <b class="rg-k">Hide 6mer sites</b> is on by default, because
+    6mers are weak and there are a great many of them. The count on the
+    left tells you where you are in the result, and
+    <b class="rg-k">Export</b> saves it.</p>
+
+  </div>
+
+  <div class="rg-pane" data-p="c">
+
+    <p class="rg-note">Each tool answers its own question. Here is what each
+    one hands you, and what that number is actually telling you.</p>
+
+    <div class="rg-tool" data-t="seed">
+      <h4>Seed analyser</h4>
+      <p class="rg-g">Gives you the kind of seed match, and exactly where it
+      sits.</p>
+      <p>Which means 8mer is the strongest, then 7mer-m8, then 7mer-A1, then
+      6mer. Picture a key in a lock: an 8mer is the whole key, a 6mer is two
+      teeth that happen to line up. This is a direct observation about
+      sequence rather than a prediction, which makes it the most reliable
+      column on the page and the weakest evidence on its own.</p>
+    </div>
+
+    <div class="rg-tool" data-t="rnahybrid">
+      <h4>RNAhybrid</h4>
+      <p class="rg-g">Gives you ΔG, the folding energy of the duplex, in
+      kcal/mol.</p>
+      <p>Which means the more negative the number, the tighter the predicted
+      pairing. Values usually fall between −15 and −30. Treat them with
+      care: RNAhybrid finds a favourable duplex in roughly nine of every ten
+      genes, so a good energy on its own proves very little. It earns its
+      place when a more selective tool agrees with it.</p>
+    </div>
+
+    <div class="rg-tool" data-t="targetscan">
+      <h4>TargetScan</h4>
+      <p class="rg-g">Gives you context++ and P<sub>CT</sub>.</p>
+      <p>Which means context++ predicts how strongly a site will silence its
+      gene, taking into account what surrounds it. More negative is
+      stronger, most values lie between −0.5 and 0, and anything below about
+      −0.3 is worth attention. P<sub>CT</sub> is the probability that the
+      site has been conserved across species, from 0 to 1, and a value above
+      0.5 suggests evolution has held on to it, which often means it does
+      something. TargetScan reads 3′UTRs only, so an empty cell may simply
+      mean the site lies elsewhere.</p>
+    </div>
+
+    <div class="rg-tool" data-t="scanmir">
+      <h4>scanMiR</h4>
+      <p class="rg-g">Gives you log Kd, along with the site class and its
+      position.</p>
+      <p>Which means a model trained on laboratory measurements of how
+      tightly miRNAs bind, so this is the closest thing on the page to a
+      physical quantity. The more negative the value, the tighter the
+      binding. Values usually fall between −1 and −6, and anything below −3
+      is strong.</p>
+    </div>
+
+    <div class="rg-tool" data-t="mirtarbase">
+      <h4>miRTarBase</h4>
+      <p class="rg-g">Gives you the number of published experiments for this
+      miRNA and this gene, and how good they were.</p>
+      <p>Which means this is evidence rather than prediction. Strong support
+      comes from a direct test such as a reporter assay or a western blot,
+      while weak support comes from broader methods such as microarrays. An
+      empty cell means nobody has looked yet, not that the gene is not a
+      target.</p>
+    </div>
+
+    <h4 class="rg-sub">Reading a whole row</h4>
+
+    <p>Because the scores answer different questions in different units,
+    the thing to look for is agreement rather than magnitude.</p>
+
+    <ul class="rg-rank">
+      <li><b class="rg-s">Strongest</b> an 8mer site, a good context++ score
+      and published experimental support behind it.</li>
+      <li><b class="rg-m">Promising</b> three tools agree on the gene and
+      nobody has tested the pair yet. This is a lead worth following.</li>
+      <li><b class="rg-w">Weak</b> RNAhybrid alone, because RNAhybrid agrees
+      with almost everything.</li>
+    </ul>
+
+    <h4 class="rg-sub">Empty cells</h4>
+
+    <p>A dash means the tool ran and found nothing. N.A. means the tool
+    cannot judge that region, or that organism, at all.</p>
+
+    <h4 class="rg-sub">Where to go from here</h4>
+
+    <p><b class="rg-k">Tool Agreement</b> draws the overlap between the
+    tools, and clicking any part of it pulls out exactly those genes.
+    <b class="rg-k">Pathway Analysis</b> asks what a set of genes does
+    together. <b class="rg-k">Target Network</b> draws the miRNA and its
+    targets, with thicker links where more tools agree.</p>
+
+  </div>
+
+  </div>
+</section>
+
+<script>
+(function(){
+  var sec = document.getElementById("howread");
+  if (!sec) return;
+
+  sec.addEventListener("click", function(e){
+    var b = e.target.closest(".rg-tab");
+    if (b) {
+      var p = b.getAttribute("data-p");
+      sec.querySelectorAll(".rg-tab").forEach(function(t){
+        t.classList.toggle("on", t === b);
+      });
+      sec.querySelectorAll(".rg-pane").forEach(function(d){
+        d.classList.toggle("on", d.getAttribute("data-p") === p);
+      });
+      return;
+    }
+    var f = e.target.closest(".rg-frame");
+    if (f) big(f.getAttribute("data-img"));
+  });
+
+  function big(src){
+    if (!src || document.querySelector(".rg-lb")) return;
+    var o = document.createElement("div");
+    o.className = "rg-lb";
+    o.innerHTML =
+      '<div class="rg-lb-top">' +
+        '<span>Example screenshot</span>' +
+        '<button type="button" class="rg-lb-x">Close</button>' +
+      '</div>' +
+      '<img src="' + src + '" alt="">' +
+      '<p class="rg-lb-hint">Press Esc, or click outside the image, to close</p>';
+
+    function shut(){
+      o.remove();
+      document.removeEventListener("keydown", key);
+      document.documentElement.style.overflow = "";
+    }
+    function key(ev){ if (ev.key === "Escape") shut(); }
+
+    o.addEventListener("click", function(ev){
+      if (ev.target === o || ev.target.closest(".rg-lb-x")) shut();
+    });
+    document.addEventListener("keydown", key);
+    document.documentElement.style.overflow = "hidden";
+    document.body.appendChild(o);
+    o.querySelector(".rg-lb-x").focus();
+  }
+
+  // the two reference decks move between a pre-run and a post-run slot;
+  // sit just in front of them so this travels with them
+  function follow(){
+    var tk = document.querySelector(".toolkey");
+    if (tk && sec.nextElementSibling !== tk) tk.parentNode.insertBefore(sec, tk);
+  }
+  follow();
+  new MutationObserver(follow).observe(document.body, {childList:true, subtree:true});
+})();
+</script>
 
   <div id="guidesPreRun"></div>
 
@@ -1757,7 +2489,7 @@ table.results tbody tr.generow.sel:hover > td{
   font-style:normal;color:var(--muted);margin-top:.2rem}
 
 .qfoot{font-family:Arial,Helvetica,sans-serif;margin-top:1.8rem;
-  padding-top:1.4rem;border-top:2px solid var(--line);background:none;
+  padding-top:0;border-top:0;background:none;
   border-radius:0}
 .go{font-size:16px;font-weight:700;padding:.7rem 2rem;border-radius:6px}
 
@@ -1818,6 +2550,61 @@ table.results tbody tr.generow.sel:hover > td{
 #f_tools label:hover{border-left-color:#7a1f2b}
 #f_tools label:has(input:checked){border-left-color:#7a1f2b}
 #f_tools input{accent-color:#7a1f2b}
+
+/* Tool picker. A plain list: tick box, name, what the tool does.
+   Rules between rows, no boxes. Each tool's colour shows on its tick box
+   and on its name once ticked. */
+#f_tools{display:block}
+#f_tools > span{display:block;font-size:13px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+  margin:0 0 .35rem}
+#f_tools .toolpick{display:block;max-width:50rem}
+#f_tools .toolpick .tp{display:flex;gap:.8rem;align-items:flex-start;
+  padding:.7rem .7rem .75rem;cursor:pointer;
+  font-family:Arial,Helvetica,sans-serif;
+  background:transparent;border:0;border-radius:7px;box-shadow:none;
+  transition:background .14s ease}
+#f_tools .toolpick .tp:hover{
+  background:color-mix(in srgb, var(--tc) 10%, transparent)}
+#f_tools .toolpick .tp input{width:1.05rem;height:1.05rem;flex:0 0 auto;
+  accent-color:var(--tc);margin:.2rem 0 0}
+#f_tools .toolpick .tp-body{display:block;min-width:0}
+#f_tools .toolpick .tpn{display:block;font-size:16px;font-weight:700;
+  color:var(--ink);line-height:1.35}
+#f_tools .toolpick .tp:has(input:checked) .tpn{color:var(--tc)}
+#f_tools .toolpick .tps{display:block;font-size:14px;line-height:1.5;
+  color:var(--muted);margin-top:.15rem}
+#f_tools .toolpick .tp-off{cursor:default}
+#f_tools .toolpick .tp-off:hover{background:none}
+#f_tools .toolpick .tp-off .tpn{color:var(--muted);font-weight:600}
+#f_tools .toolpick .tp-no{display:block;font-size:12.5px;font-weight:700;
+  color:var(--muted);margin-top:.2rem}
+#f_tools .toolpick .tp-why{display:block;font-size:13.5px;line-height:1.5;
+  color:var(--muted);margin-top:.1rem}
+
+/* Section headings. Each takes its section's colour, and the short bar
+   under it runs out to the full width when the cursor is in that section.
+   Tools is given the masthead navy so it reads as one of the four. */
+.qcol{--sc:#0f766e;border-left-color:var(--sc)}
+.qcol:nth-child(2){--sc:#9b2c3a}
+.qcol:nth-child(3){--sc:#b45309}
+.qh{display:inline-flex;color:var(--sc);position:relative;
+  padding-bottom:.32rem}
+.qh small{color:var(--muted)}
+.qh::after{content:"";position:absolute;left:0;bottom:0;height:3px;
+  width:1.7rem;background:var(--sc);border-radius:2px;
+  transition:width .25s ease}
+.qcol:hover .qh::after,.qcol:focus-within .qh::after{width:100%}
+
+#f_tools{--sc:#123a78;border-left:5px solid var(--sc);
+  padding:.2rem 0 .4rem 1.1rem}
+#f_tools > span{display:inline-block;font-family:Arial,Helvetica,sans-serif;
+  font-size:19px;font-weight:700;letter-spacing:-.01em;text-transform:none;
+  color:var(--sc);position:relative;padding-bottom:.32rem;margin:0 0 .75rem}
+#f_tools > span::after{content:"";position:absolute;left:0;bottom:0;
+  height:3px;width:1.7rem;background:var(--sc);border-radius:2px;
+  transition:width .25s ease}
+#f_tools:hover > span::after,#f_tools:focus-within > span::after{width:100%}
 .qmodebtn.on{background:#7a1f2b}
 .btab.merged{background:#7a1f2b;border-color:#7a1f2b}
 .btab.merged.on{background:#7a1f2b}
@@ -1974,7 +2761,11 @@ TAIL_JS = r"""
     b.addEventListener("click", function(){
       var t = b.dataset.target ? el(b.dataset.target)
             : document.querySelector(b.dataset.select);
-      if (t) t.scrollIntoView({behavior: "smooth", block: "center"});
+      if (t) t.scrollIntoView({behavior: "smooth",
+        // a section taller than the window would have its heading
+        // pushed off the top if it were centred
+        block: t.getBoundingClientRect().height > window.innerHeight - 80
+               ? "start" : "center"});
     });
   });
 
@@ -2083,7 +2874,6 @@ TAIL_JS = r"""
       ["TargetScan family", MIR && MIR.family
         ? MIR.family + " · conservation " + MIR.cons
         : '<span class="empty ncov">not in TargetScan v8.0</span>'],
-      ["-"],
       ["transcripts scanned", scanned],
       ["regions", "5′UTR · CDS · 3′UTR"]
     ]);
@@ -2514,9 +3304,11 @@ TAIL_JS = r"""
     sb.className = "tsearch gsearch";
     sb.innerHTML = '<label for="geneq">Search genes</label>' +
       '<div class="tsbox"><input type="search" id="geneq" autocomplete="off" ' +
-      'placeholder="gene symbol or Entrez id — searches every result, not this page">' +
-      '<button type="button" id="geneqx" hidden aria-label="clear">×</button></div>';
-    bar.parentNode.insertBefore(sb, bar);
+      'placeholder="Gene symbol or Entrez id">' +
+      '<button type="button" id="geneqx" hidden aria-label="clear">×</button></div>' +
+      '<span class="gsnote2">Searches every result, not only the genes on ' +
+      'this page.</span>';
+    bar.insertBefore(sb, bar.firstChild);
     el("geneq").addEventListener("input", function(){
       clearTimeout(GTIMER);
       GTIMER = setTimeout(function(){
@@ -2537,7 +3329,9 @@ TAIL_JS = r"""
   var GSTIMER = null;
 
   function gsBoxes(){
-    var rows = [];
+    var rows = ['<p class="gsintro">Pick the genes to test, then run the '
+      + 'analysis. Each box is a filter; <b>Match</b> decides whether a gene '
+      + 'must pass all of them or just one.</p>'];
     // TargetScan's conserved sites are the default list: measured on this
     // project's own data, an 8mer list gave no enrichment at all and adding
     // it to the conserved list was no better than a random subset of the
@@ -2552,7 +3346,8 @@ TAIL_JS = r"""
           return '<option value="' + c + '"' + (i === 0 ? " selected" : "") + ">" +
                  c + (i ? " or better" : "") + "</option>";
         }).join("") + '<option value="any">any site</option></select>' +
-        '<span class="gsnote">ranking comes from the tool itself</span></div>');
+        '<span class="gsnote">Genes whose best seed match is at least '
+        + 'this strong.</span></div>');
     }
     if (ran("targetscan"))
       rows.push('<div class="gsrow" data-tool="targetscan"><label class="tick">' +
@@ -2561,18 +3356,30 @@ TAIL_JS = r"""
         '<option value="any">any score</option>' +
         '<option value="cut">context++ at most</option></select>' +
         '<input type="number" id="gs_ts_c" value="-0.30" step="0.05" hidden>' +
-        '<span class="gsnote" id="gs_ts_n">TargetScan publishes no cutoff, so a ' +
-        'number here is yours</span></div>');
+        '<span class="gsnote" id="gs_ts_n">Conserved sites are '
+        + 'TargetScan\u2019s own list. Pick \u201ccontext++ at most\u201d to '
+        + 'set your own cutoff instead.</span></div>');
     if (ran("rnahybrid"))
       rows.push('<div class="gsrow" data-tool="rnahybrid"><label class="tick">' +
         '<input type="checkbox" id="gs_rh"> RNAhybrid</label>' +
         "<span>\u0394G at most</span>" +
         '<input type="number" id="gs_rh_c" value="-25" step="1">' +
-        '<span class="gsnote">kcal/mol \u00b7 measured from this run, editable</span></div>');
+        '<span class="gsnote">Genes with a duplex at least this tight, '
+        + 'in kcal/mol. More negative is tighter.</span></div>');
+    if (ran("scanmir"))
+      rows.push('<div class="gsrow" data-tool="scanmir"><label class="tick">' +
+        '<input type="checkbox" id="gs_sm"> scanMiR</label>' +
+        '<select id="gs_sm_v"><option value="canonical">canonical site</option>'
+        + '<option value="cut">log Kd at most</option></select>' +
+        '<input type="number" id="gs_sm_c" value="-3" step="0.5" hidden>' +
+        '<span class="gsnote">Canonical means an 8mer or 7mer class site. '
+        + 'Or set your own log Kd cutoff; more negative is tighter.'
+        + '</span></div>');
     if (ran("mirtarbase"))
       rows.push('<div class="gsrow" data-tool="mirtarbase"><label class="tick">' +
         '<input type="checkbox" id="gs_mt"> miRTarBase</label>' +
-        '<span class="gsnote">genes with strong experimental support</span></div>');
+        '<span class="gsnote">Genes with strong published experimental '
+        + 'support.</span></div>');
     el("gsboxes").innerHTML = rows.join("");
     // gsBoxes() runs again on every page of the table, so this must not stack
     // listeners: two listeners would start two enrichment runs per click.
@@ -2595,12 +3402,22 @@ TAIL_JS = r"""
     if (el("gs_seed") && el("gs_seed").checked){
       o.seed = el("gs_seed_v").value; boxes++;
     }
+    var blank = null;
     if (el("gs_ts") && el("gs_ts").checked){
       var v = el("gs_ts_v").value;
+      if (v === "cut" && el("gs_ts_c").value.trim() === "") blank = "TargetScan";
       o.targetscan = (v === "cut" ? el("gs_ts_c").value : v); boxes++;
     }
     if (el("gs_rh") && el("gs_rh").checked){
+      // An empty box used to be sent as rnahybrid=, which the server reads
+      // as no filter at all - the run went dead with nothing saying why.
+      if (el("gs_rh_c").value.trim() === "") blank = "RNAhybrid";
       o.rnahybrid = el("gs_rh_c").value; boxes++;
+    }
+    if (el("gs_sm") && el("gs_sm").checked){
+      var sv = el("gs_sm_v").value;
+      if (sv === "cut" && el("gs_sm_c").value.trim() === "") blank = "scanMiR";
+      o.scanmir = (sv === "cut" ? el("gs_sm_c").value : sv); boxes++;
     }
     if (el("gs_mt") && el("gs_mt").checked){ o.mirtarbase = "strong"; boxes++; }
     var regs = [].slice.call(document.querySelectorAll("#gsregions input:checked"))
@@ -2612,7 +3429,7 @@ TAIL_JS = r"""
       var v = o[k];
       return k + "=" + encodeURIComponent(v instanceof Array ? v.join(",") : v);
     }).join("&");
-    return {query: q, boxes: boxes, body: o};
+    return {query: q, boxes: boxes, body: o, blank: blank};
   }
 
   // Whether the enrichment currently shown (or about to be requested) came
@@ -2633,17 +3450,48 @@ TAIL_JS = r"""
   function gsChanged(evt){
     if (evt) gsSetSource(false);
     if (el("gs_ts")) el("gs_ts_c").hidden = el("gs_ts_v").value !== "cut";
+    if (el("gs_sm")) el("gs_sm_c").hidden = el("gs_sm_v").value !== "cut";
     document.querySelectorAll("#enrich .gsrow").forEach(function(r){
       var cb = r.querySelector("input[type=checkbox]");
       r.dataset.off = (cb && cb.checked) ? "0" : "1";
     });
     var spec = gsSpec();
-    el("gsmatch").hidden = spec.boxes < 2;
+    // Match stays on screen. A control that appears only once a second box
+    // is ticked is one the reader never knows is coming.
+    el("gsmatch").hidden = false;
+    if (spec.blank){
+      el("gscount").textContent = "\u2014";
+      el("gscount").className = "warn";
+      el("gsrun").disabled = true;
+      el("gssentence").textContent =
+        "Enter a number for " + spec.blank + ", or untick it.";
+      el("gssentence").className = "say warn";
+      return;
+    }
     clearTimeout(GSTIMER);
-    GSTIMER = setTimeout(function(){ gsCount(spec.query); }, 250);
+    GSTIMER = setTimeout(function(){ gsCount(spec.query, spec.boxes); }, 250);
   }
 
-  function gsCount(query){
+  // What to say about the current selection. Zero genes has three quite
+  // different causes and used to be reported as one.
+  function gsStatus(count, sentence, boxes){
+    if (!boxes)
+      return "Tick a box above to choose which genes to test.";
+    if (count === 0)
+      return boxes > 1
+        ? "No gene passes all of these at once. Set Match to \u201cany\u201d, "
+          + "or loosen one of the cutoffs."
+        : "No gene passes this filter. Try loosening the cutoff.";
+    if (count < 200)
+      return sentence + " \u2014 too few for enrichment to reach "
+           + "significance. Loosen a filter to widen the set.";
+    if (count > 1500)
+      return sentence + " \u2014 a list this large makes almost anything "
+           + "look enriched. Tighten a filter.";
+    return sentence + " \u2014 ready to run.";
+  }
+
+  function gsCount(query, boxes){
     if (!JOBID) return;
     api("/jobs/" + JOBID + "/geneset?" + query).then(function(r){
       var c = el("gscount");
@@ -2652,13 +3500,8 @@ TAIL_JS = r"""
       // A list outside 200-1500 is still allowed to run: the range is advice,
       // not a rule, and the 628-gene list finding nothing is a real result.
       el("gsrun").disabled = (r.count === 0);
-      el("gssentence").textContent = r.count === 0
-        ? "Tick at least one box."
-        : r.sentence + (r.count < 200
-            ? " \u2014 too few genes for enrichment to reach significance."
-            : (r.count > 1500
-               ? " \u2014 a list this large makes almost anything look enriched."
-               : ""));
+      el("gssentence").textContent = gsStatus(r.count, r.sentence, boxes);
+      el("gssentence").className = "say " + c.className;
     }).catch(function(e){
       el("gscount").textContent = "\u2014";
       el("gscount").className = "warn";
@@ -3030,6 +3873,74 @@ TAIL_JS = r"""
     return "no data for this organism";
   }
 
+  // One colour per tool, matching the section rail.
+  var TOOLCOLOUR = {seed: "#0f766e", rnahybrid: "#9b2c3a",
+                    scanmir: "#4338ca", targetscan: "#b45309",
+                    mirtarbase: "#15803d"};
+
+
+  // What each tool does and what its number means. The scores are not
+  // comparable with one another, so each row explains its own.
+  var TOOLBLURB = {
+    seed:
+      "Looks for places where the miRNA's seed matches the transcript, and "
+      + "reports which kind of match it is. An 8mer is the strongest, then "
+      + "7mer-m8, then 7mer-A1, with 6mer the weakest.",
+    rnahybrid:
+      "Folds the miRNA against the transcript and reports the binding "
+      + "energy in kcal/mol. The more negative the number, the tighter the "
+      + "predicted pairing. Takes a few minutes to run.",
+    scanmir:
+      "A machine-learning model trained on real laboratory binding "
+      + "measurements. It reports log Kd: the more negative the value, the "
+      + "more tightly the miRNA is predicted to bind. Takes a few minutes.",
+    targetscan:
+      "Published predictions that weigh what surrounds the site and how "
+      + "well it is conserved across species. The more negative the "
+      + "context++ score, the stronger the predicted silencing.",
+    mirtarbase:
+      "Experiments other researchers have already published for this "
+      + "miRNA and gene. Shows how many, and whether the evidence is "
+      + "strong, such as a reporter assay, or weaker, such as a microarray."
+  };
+
+  // Short line for a tool that cannot run. The API's own sentence is
+  // longer and goes on the row's title, so it is still there on hover.
+  function shortReason(t, why){
+    var name = TOOLTITLE[t.name] || t.name;
+    if (/upload an organism/i.test(why)) return why;
+    if (/not loaded/i.test(why))
+      return name + " needs this organism's transcripts to be loaded.";
+    return name + " has no data for this organism.";
+  }
+
+  // What the chosen sort actually orders on. A gene has many sites, so
+  // every sort below ranks a gene by its best one.
+  var SORTHINT = {
+    seed: "Best seed match first: 8mer, then 7mer-m8, then 7mer-A1, "
+          + "then 6mer.",
+    scanmir: "Most negative log Kd first, so the tightest predicted "
+          + "binding is at the top.",
+    targetscan: "Most negative context++ first, so the strongest "
+          + "predicted silencing is at the top.",
+    rnahybrid: "Most negative binding energy first, so the tightest "
+          + "predicted duplex is at the top.",
+    mirtarbase: "Most published experimental support first.",
+    gene: "Alphabetical by gene symbol."
+  };
+
+  function showSortHint(){
+    var n = el("sorthint"), b = el("sortby");
+    if (!n || !b) return;
+    n.textContent = SORTHINT[b.value] || "";
+  }
+
+  (function(){
+    var b = el("sortby");
+    if (b) b.addEventListener("change", showSortHint);
+    showSortHint();
+  })();
+
   function renderTools(){
     var s = curSpecies(), reason = {};
     ((s && s.tools_unavailable) || []).forEach(function(u){
@@ -3038,21 +3949,33 @@ TAIL_JS = r"""
     // An organism whose transcripts were never loaded has nothing to
     // search, so every box is off until its files are uploaded.
     var notLoaded = CURSP === "__upload__"
-      ? "Upload an organism first."
+      ? "Upload an organism first, then choose the tools to run on it."
       : (s && !s.loaded ? s.common + " transcripts are not loaded yet."
                         : null);
+
     el("f_tools").innerHTML = '<span>Tools</span><div class="toolpick">' +
       TOOLS.map(function(t){
         var why = notLoaded || reason[t.name];
-        return '<label class="tp' + (why ? " tp-off" : "") + '"' +
+        var col = TOOLCOLOUR[t.name] || "#123a78";
+        var out = '<label class="tp' + (why ? " tp-off" : "") +
+          '" style="--tc:' + col + '"' +
           (why ? ' title="' + spesc(why) + '"' : "") + '>' +
-          '<input type="checkbox" value="' + t.name + '"' +
+          '<input type="checkbox" value="' + spesc(t.name) + '"' +
           (why ? " disabled" : "") + '>' +
-          '<span class="tpn">' + spesc(TOOLTITLE[t.name] || t.name) +
-          "</span>" +
-          '<span class="tps">' +
-          spesc(why ? shortWhy(why) : (t.question || "")) +
-          "</span></label>";
+          '<span class="tp-body"><span class="tpn">' +
+          spesc(TOOLTITLE[t.name] || t.name) +
+          "</span>";
+        if (why) {
+          // The reason from the API, in full - it says something the user
+          // can act on.
+          out += '<span class="tp-no">Cannot run here</span>' +
+                 '<span class="tp-why">' + spesc(shortReason(t, why)) +
+                 "</span>";
+        } else {
+          var blurb = TOOLBLURB[t.name] || t.question || "";
+          if (blurb) out += '<span class="tps">' + spesc(blurb) + "</span>";
+        }
+        return out + "</span></label>";
       }).join("") + "</div>";
     toolsChanged();
   }
@@ -3526,7 +4449,9 @@ TAIL_JS = r"""
   // from the tab that was just left.
   function clearEnrichPanel(){
     var e = el("enrich"), o = el("enrichout");
-    if (e) e.hidden = true;
+    // the panel itself stays on a miRNA's own tab, where it works exactly
+    // as it does for a single search; only the merged tab waits for a run
+    if (e) e.hidden = !!(BATCH && BTAB === "merged");
     if (o) o.hidden = true;
     if (typeof ENR !== "undefined") ENR = null;
     BENR = null;
@@ -3553,13 +4478,15 @@ TAIL_JS = r"""
     Array.prototype.forEach.call(r.children, function(c){
       var isEnrich = keep && (c === keep || c.contains(keep));
       if (isEnrich){
-        // Shown only if this tab owns the run, or the run was merged.
-        c.hidden = !(BENR === "merged" || BENR === BTAB);
+        // A miRNA's own tab is an ordinary single-miRNA job, so the panel
+        // works there and stays available. The merged tab builds its gene
+        // set differently, so it waits for a run of its own.
+        c.hidden = merged && BENR !== "merged";
         return;
       }
       c.hidden = merged;
     });
-    // left hidden until something is actually run on this tab
+    // the merged tab's panel waits for a run of its own
 
     // The network describes one miRNA, so it goes. The two guide decks
     // are reference material and stay on every tab.
@@ -3569,6 +4496,12 @@ TAIL_JS = r"""
       [].slice.call(document.querySelectorAll("." + cls))
         .forEach(function(n){ n.hidden = false; });
     });
+
+    // Don't offer a section this tab isn't showing. Clicking a nav entry
+    // for a hidden panel scrolls nowhere and looks like a dead button.
+    var off = !!(keep && keep.hidden);
+    [].slice.call(document.querySelectorAll('.navitem[data-target="enrich"]'))
+      .forEach(function(b){ b.disabled = off; });
   }
 
   function jobFinished(j){
@@ -3810,15 +4743,17 @@ NETWORK_JS = """
     el("netbox").hidden = false;
   }
 
-  function netRow(k, v){
+  function netRow(k, v, t){
     return v == null || v === "" ? "" :
-      "<dt>" + nesc(k) + "</dt><dd>" + v + "</dd>";
+      "<dt" + (t ? ' data-t="' + t + '"' : "") + ">" + nesc(k) +
+      "</dt><dd" + (t ? ' data-t="' + t + '"' : "") + ">" + v + "</dd>";
   }
 
   function netShowNode(id){
     var n = null;
     (NETDATA.nodes || []).forEach(function(x){ if (x.id === id) n = x; });
     if (!n) return;
+    el("netinfo").dataset.group = n.group || "";
     if (n.group === "mirna"){
       el("netinfo").innerHTML = "<h4>" + nesc(n.label) + "</h4><dl>" +
         netRow("accession", nesc(n.accession)) +
@@ -3833,17 +4768,19 @@ NETWORK_JS = """
       netRow("regions", (n.regions || []).map(function(r){
         return RL[r] || r; }).join(" · ")) +
       netRow("best seed site", n.seed_site ? nesc(n.seed_site) +
-             (n.n_seed > 1 ? " (" + n.n_seed + " sites)" : "") : null) +
+             (n.n_seed > 1 ? " (" + n.n_seed + " sites)" : "") : null,
+             "seed") +
       netRow("RNAhybrid \\u0394G", n.dg == null ? null : n.dg.toFixed(1) +
-             " kcal/mol" + (n.n_rh > 1 ? " (best of " + n.n_rh + ")" : "")) +
+             " kcal/mol" + (n.n_rh > 1 ? " (best of " + n.n_rh + ")" : ""),
+             "rnahybrid") +
       netRow("TargetScan context++", n.context == null ? null :
-             n.context.toFixed(3)) +
-      netRow("TargetScan PCT", n.pct == null ? null : n.pct) +
+             n.context.toFixed(3), "targetscan") +
+      netRow("TargetScan PCT", n.pct == null ? null : n.pct, "targetscan") +
       netRow("scanMiR log Kd", n.log_kd == null ? null :
              n.log_kd.toFixed(3) + (n.sm_site ? " \u00b7 " + nesc(n.sm_site) : "") +
-             (n.n_sm > 1 ? " (best of " + n.n_sm + " sites)" : "")) +
+             (n.n_sm > 1 ? " (best of " + n.n_sm + " sites)" : ""), "scanmir") +
       netRow("miRTarBase", n.strong_functional ? n.strong_functional +
-             " strong functional experiments" : null) +
+             " strong functional experiments" : null, "mirtarbase") +
       "</dl><button class='linkbtn' id='netgene' type='button'>" +
       "show this gene's binding sites \\u2192</button>";
     var b = el("netgene");
@@ -4139,17 +5076,20 @@ AGREE_JS = r"""
     if (f.regions)
       bits.push(f.regions.length ? "regions " + f.regions.join(", ")
                                  : "every region box unticked");
-    if (f.include_6mer === false) bits.push("seed 6mer sites excluded");
-    if (f.q) bits.push("gene search “" + f.q + "”");
-    var out = "A gene counts as found by a tool when that tool reported at " +
-              "least one row for it";
-    if (a.membership && a.membership.scanmir_canonical_only)
-      out += ", except scanMiR, which counts canonical sites only — at " +
-             "its default threshold it reports a site on most of the " +
-             "transcriptome, so any-site membership would say nothing";
-    out += ". " + (bits.length ? "Filters applied: " + bits.join("; ") + "."
-                               : "No filters applied.");
-    return out;
+    if (f.include_6mer === false) bits.push("6mer seed sites");
+    if (f.q) bits.push("genes outside the search “" + f.q + "”");
+    // One idea per line. The old version was a single sentence carrying
+    // the rule, both exceptions and the reason for them at once.
+    var lines = ["A gene is in a tool’s circle if that tool found at "
+                 + "least one site in it."];
+    var m = a.membership || {}, ex = [];
+    if (m.scanmir_canonical_only) ex.push("scanMiR counts only its canonical sites");
+    if (m.rnahybrid_max_dg != null) ex.push("RNAhybrid only its strongest");
+    if (ex.length)
+      lines.push(ex.join(", and ") + ", because each reports something in "
+                 + "nearly every gene otherwise.");
+    if (bits.length) lines.push("Not counted: " + bits.join("; ") + ".");
+    return lines.join("\n");
   }
 
   // Same three filters the results table itself applies (see exportRegions/
