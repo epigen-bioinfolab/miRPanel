@@ -10,7 +10,14 @@ import json
 from tools import registry
 
 REGIONS = ("5UTR", "CDS", "3UTR")
-POSITIONAL = ("seed", "rnahybrid")     # the only tools a region filter can apply to
+POSITIONAL = ("seed", "rnahybrid", "scanmir")   # tools a region filter can apply to
+
+# The scanMiR site classes that count as canonical, the same list the
+# agreement diagram uses. Everything else is real output but too permissive
+# to pick a gene set by.
+SCANMIR_CANONICAL = ("8mer", "7mer-m8", "7mer-a1", "7mer-A1",
+                     "wobbled 8mer", "wobbled 7mer",
+                     "g-bulged 8mer", "g-bulged 7mer")
 
 
 def site_types(minimum):
@@ -46,6 +53,7 @@ def select(con, job_id, spec):
          seed        '8mer' | '7mer-m8' | '7mer-A1' | '6mer' | 'any'
          targetscan  'any' | 'conserved' | a number (context++ at most this)
          rnahybrid   a number (dG at most this)
+         scanmir     'canonical' | a number (log Kd at most this)
          mirtarbase  'strong'
          regions     list, applied to seed and rnahybrid only
          match       'all' (AND, default) or 'any' (OR)
@@ -111,6 +119,22 @@ def select(con, job_id, spec):
                            "tool='rnahybrid' AND score <= ?%s" % rclause,
                            [cut] + rargs))
         rules.append("an RNAhybrid duplex at most %s kcal/mol%s" % (cut, inreg))
+
+    sm = spec.get("scanmir")
+    if sm not in (None, ""):
+        if sm == "canonical":
+            qs = ",".join("?" * len(SCANMIR_CANONICAL))
+            sets.append(_genes(con, job_id,
+                               "tool='scanmir' AND site_type IN (%s)%s"
+                               % (qs, rclause),
+                               list(SCANMIR_CANONICAL) + rargs))
+            rules.append("a canonical scanMiR site%s" % inreg)
+        else:
+            cut = float(sm)
+            sets.append(_genes(con, job_id,
+                               "tool='scanmir' AND score <= ?%s" % rclause,
+                               [cut] + rargs))
+            rules.append("a scanMiR log Kd at most %s%s" % (cut, inreg))
 
     if spec.get("mirtarbase"):
         sets.append(_genes(con, job_id,

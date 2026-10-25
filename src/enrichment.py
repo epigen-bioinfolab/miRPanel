@@ -50,7 +50,7 @@ ONTOLOGIES = "GO:BP,GO:CC,GO:MF,KEGG"
 COLS = ("source", "term_id", "description", "gene_ratio", "bg_ratio",
         "p_value", "p_adjust", "q_value", "n_genes", "genes")
 
-SPEC_KEYS = ("seed", "targetscan", "rnahybrid", "mirtarbase", "regions", "match",
+SPEC_KEYS = ("seed", "targetscan", "rnahybrid", "scanmir", "mirtarbase", "regions", "match",
             # An explicit gene list - a click on one exclusive region of the
             # agreement diagram - plus the tool names that produced it, kept
             # only so the stored sentence can name them (see create()).

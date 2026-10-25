@@ -513,6 +513,7 @@ def read_geneset(job_id: str,
                  seed: Optional[str] = None,
                  targetscan: Optional[str] = None,
                  rnahybrid: Optional[str] = None,
+                 scanmir: Optional[str] = None,
                  mirtarbase: Optional[str] = None,
                  regions: Optional[str] = None,
                  match: str = Query("all", pattern="^(all|any)$"),
@@ -524,7 +525,7 @@ def read_geneset(job_id: str,
     if orchestrator.job_status(con, job_id) is None:
         raise HTTPException(404, {"error": "job_not_found", "job_id": job_id})
     spec = {"seed": seed, "targetscan": targetscan, "rnahybrid": rnahybrid,
-            "mirtarbase": mirtarbase, "match": match,
+            "scanmir": scanmir, "mirtarbase": mirtarbase, "match": match,
             "regions": regions.split(",") if regions else None}
     try:
         out = geneset.select(con, job_id, spec)
@@ -543,6 +544,7 @@ class EnrichmentRequest(BaseModel):
     seed: Optional[str] = None
     targetscan: Optional[str] = None
     rnahybrid: Optional[str] = None
+    scanmir: Optional[str] = None
     mirtarbase: Optional[str] = None
     regions: Optional[List[str]] = None
     match: str = Field("all", pattern="^(all|any)$")
@@ -1125,6 +1127,17 @@ def post_batch_enrichment(batch_id: str,
         raise HTTPException(status_code=400, detail=str(exc))
     return {"run_id": run_id, "n_genes": len(ids),
             "min_count": hit["min_count"], "n_mirnas": hit["n_mirnas"]}
+
+
+# The page is one generated file with everything inline, so a browser that
+# has it cached will keep serving the old one after an update and the tool
+# will look broken for no visible reason. The data responses stay cacheable.
+@app.middleware("http")
+async def no_cache_html(request, call_next):
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+    return response
 
 
 app.mount("/", StaticFiles(directory=WEB, html=True), name="web")

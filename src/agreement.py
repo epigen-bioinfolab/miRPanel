@@ -97,6 +97,22 @@ SCANMIR_CANONICAL = ("8mer", "7mer-m8", "7mer-a1", "7mer-A1",
 # this governs set membership only.
 RNAHYBRID_MAX_DG = -24.0
 
+# Below this many genes the cutoff is not applied. It answers a problem of
+# scale: across the whole transcriptome RNAhybrid reports a site for 91% of
+# genes, so its circle swallows the others. A search of a few named genes
+# has nothing to swamp, and a tool that is visibly in the table but absent
+# from the diagram is more confusing than a wide circle.
+CUTOFF_MIN_GENES = 200
+
+
+def _dg_cutoff(con, job_id, requested):
+    """The cutoff to use for this job, or None on a small search."""
+    if requested is None:
+        return None
+    n = con.execute("SELECT COUNT(DISTINCT entrez) FROM results "
+                    "WHERE job_id=?", (job_id,)).fetchone()[0]
+    return requested if n >= CUTOFF_MIN_GENES else None
+
 # Above this many sets a Venn needs ellipses and 31 regions, several too thin
 # to click. The caller is told which shape to draw rather than guessing.
 VENN_MAX_SETS = 4
@@ -166,6 +182,7 @@ def build(con, job_id, tools=None, where=None, args=None,
     if len(tools) < 1:
         raise BadRequest("an agreement diagram needs at least one tool")
 
+    rnahybrid_max_dg = _dg_cutoff(con, job_id, rnahybrid_max_dg)
     sets, names = _sets(con, job_id, where, args, tools,
                         scanmir_canonical, rnahybrid_max_dg)
     sets = {t: sets.get(t, set()) for t in tools}
@@ -229,9 +246,10 @@ def build(con, job_id, tools=None, where=None, args=None,
             "rnahybrid_max_dg": rnahybrid_max_dg,
             "rnahybrid_note": (
                 "RNAhybrid reports a favourable hybrid for about 91%% of "
-                "genes, so only its sites at dG %s or lower count towards "
-                "its set. Every site is still in the results table."
-                % rnahybrid_max_dg) if rnahybrid_max_dg is not None else None},
+                "genes, so on a search this wide only its sites at dG %s or "
+                "lower count towards its set. Every site is still in the "
+                "results table." % rnahybrid_max_dg)
+            if rnahybrid_max_dg is not None else None},
         "filters": filters or {},
     }
 
@@ -252,6 +270,7 @@ def region_genes(con, job_id, inc, exc, where=None, args=None,
     if not inc:
         raise BadRequest("a region must include at least one tool")
 
+    rnahybrid_max_dg = _dg_cutoff(con, job_id, rnahybrid_max_dg)
     sets, names = _sets(con, job_id, where, args, inc + exc,
                         scanmir_canonical, rnahybrid_max_dg)
     keep = set(names)
