@@ -2794,7 +2794,9 @@ TAIL_JS = r"""
   var RAN = {};
   var PAGE = {limit: 10, offset: 0, sort: "seed", total: 0, q: ""};
   var GTIMER = null;
-  var SORTMAP = {seed: "seed", ts: "targetscan", rh: "rnahybrid", mt: "mirtarbase"};
+  // the dropdown's option values are the API's own sort names
+  var SORTS = ["gene", "seed", "targetscan", "rnahybrid",
+               "mirtarbase", "scanmir"];
 
   /* the server chose the gene order; do not re-sort the page */
   function order(){ return GENES.slice(); }
@@ -3213,7 +3215,15 @@ TAIL_JS = r"""
       show6 = e.target.checked; selSite = null; render();
     });
     el("sortby").addEventListener("change", function(e){
-      PAGE.sort = SORTMAP[e.target.value] || "gene";
+      var picked = e.target.value;
+      if (SORTS.indexOf(picked) < 0){
+        // falling back quietly is how four broken sorts went
+        // unnoticed: a missing option looks like a deliberate
+        // choice of gene order
+        console.warn("sort: unknown option", picked);
+        picked = "gene";
+      }
+      PAGE.sort = picked;
       PAGE.offset = 0;
       if (JOBID) loadPage();
     });

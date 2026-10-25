@@ -1,0 +1,23 @@
+# Keep the build context small. Without this, docker build sends all 16 GB
+# of data/ to the daemon before it starts.
+
+data/
+venv/
+.git/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.log
+*.bak*
+.mirpanel/
+dev-artifacts/
+
+# notes and tests are not needed in the image
+manifests/
+docs/
+tests/
+docker/
+
+# everything in dist/ except the one archive the Dockerfile unpacks
+dist/*
+!dist/mirpanel-data-v0.1.0.tar.gz
