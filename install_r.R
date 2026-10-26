@@ -38,6 +38,24 @@ if (getRversion() < MIN_R) {
 
 cat("\nR", as.character(getRversion()), "- ok\n")
 
+# ---- somewhere this account can write to ------------------------------
+# An ordinary account usually cannot write to R's system library, and a
+# script run with Rscript will not offer to make a personal one the way an
+# interactive session does - it just stops. So make it here. R finds it on
+# its own from then on, because the folder now exists.
+
+if (file.access(.libPaths()[1], 2) != 0) {
+  personal <- path.expand(Sys.getenv("R_LIBS_USER"))
+  if (!nzchar(personal)) {
+    cat("\nCannot write to", .libPaths()[1], "and R_LIBS_USER is not set.\n")
+    cat("Run this script with sudo, or set R_LIBS_USER to a folder you own.\n\n")
+    quit(save = "no", status = 1)
+  }
+  dir.create(personal, recursive = TRUE, showWarnings = FALSE)
+  .libPaths(c(personal, .libPaths()))
+  cat("Installing into your personal library:", personal, "\n")
+}
+
 # ---- what is already here ----------------------------------------------
 
 have <- rownames(installed.packages())

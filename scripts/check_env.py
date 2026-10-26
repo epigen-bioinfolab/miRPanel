@@ -77,21 +77,61 @@ else:
     warn("docker", "absent; scanMiR works for human, mouse and rat only")
 
 print("\nR packages")
-if rs:
-    pkgs = ["clusterProfiler", "scanMiR", "scanMiRData", "miRBaseConverter",
-            "AnnotationHub", "org.Hs.eg.db"]
-    code = ('for (p in c(%s)) cat(p, if (requireNamespace(p, quietly=TRUE)) '
-            'as.character(packageVersion(p)) else "MISSING", "\\n")'
-            % ",".join('"%s"' % p for p in pkgs))
+# The versions this release was built and tested against. An older R
+# resolves to an older Bioconductor and installs scanMiR 1.4.0 without a
+# word, which gives different numbers, so being present is not enough.
+R_MIN = "4.5.0"
+R_PKGS = [
+    ("clusterProfiler", "4.18.4"),
+    ("scanMiR", "1.16.0"),
+    ("scanMiRData", "1.16.0"),
+    ("miRBaseConverter", "1.34.0"),
+    ("AnnotationHub", "4.0.0"),
+    ("org.Hs.eg.db", "3.22.0"),
+    ("org.Mm.eg.db", "3.22.0"),
+    ("org.Rn.eg.db", "3.22.0"),
+    ("org.Dm.eg.db", "3.22.0"),
+]
+
+import shutil as _shutil
+import subprocess as _subprocess
+
+
+def _vtuple(v):
+    return tuple(int(x) if x.isdigit() else 0
+                 for x in v.replace("-", ".").split("."))
+
+
+if _shutil.which("Rscript"):
+    _script = (
+        "writeLines(as.character(getRversion()));"
+        "for (p in c(%s)) writeLines(paste(p, tryCatch("
+        "as.character(packageVersion(p)), error=function(e) 'MISSING')))"
+    ) % ",".join("'%s'" % p for p, _ in R_PKGS)
     try:
-        out = subprocess.run([rs, "-e", code], capture_output=True,
-                             text=True, timeout=300)
-        for line in out.stdout.strip().splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[1] != "MISSING":
-                ok(parts[0], parts[1])
-            elif parts:
-                fail(parts[0], "install it with BiocManager::install()")
+        _out = _subprocess.run(["Rscript", "-e", _script], capture_output=True,
+                               text=True, timeout=180).stdout.splitlines()
+        _rver = _out[0].strip() if _out else "unknown"
+        if _vtuple(_rver) >= _vtuple(R_MIN):
+            ok("R", _rver)
+        else:
+            fail("R", "%s is older than %s - see the README" % (_rver, R_MIN))
+
+        _have = {}
+        for _line in _out[1:]:
+            _bits = _line.split()
+            if len(_bits) == 2:
+                _have[_bits[0]] = _bits[1]
+
+        for _name, _need in R_PKGS:
+            _got = _have.get(_name, "MISSING")
+            if _got == "MISSING":
+                fail(_name, "not installed - run: Rscript install_r.R")
+            elif _vtuple(_got) < _vtuple(_need):
+                fail(_name, "%s is older than %s - run: Rscript install_r.R"
+                     % (_got, _need))
+            else:
+                ok(_name, _got)
     except Exception as e:
         fail("R packages", "could not be checked: %s" % e)
 else:
