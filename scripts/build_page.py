@@ -3120,7 +3120,7 @@ TAIL_JS = r"""
                               tools: tools.length ? tools : null});
       })
       .then(function(job){
-        JOBID = job.job_id;
+        { if (!BATCH && JOBID && JOBID !== job.job_id) clearEnrichPanel(); JOBID = job.job_id; }
         JOBST = job;
         el("runbox").hidden = false;
         renderRun(job);
@@ -3549,6 +3549,39 @@ TAIL_JS = r"""
   /* ---------- enrichment: run it, then read it ---------- */
   var NETSEEN = {};
   var ENR = null, ENRSRC = null, ENRLIMIT = 20, ENRPOLL = null;
+  // bumped whenever the tab or the search changes; see watchRun
+  var ENRGEN = 0;
+  // which view a run belongs to: the merged tab, or one miRNA's own
+  // job. Checked on every draw, so timing can never put a run on the
+  // wrong tab.
+  var ENRMERGED = {};
+  function enrMine(run){
+    if (!run) return false;
+    var onMerged = !!(BATCH && BTAB === "merged");
+    if (ENRMERGED[run.run_id]) return onMerged;
+    return !onMerged && run.job_id === JOBID;
+  }
+  // the run each tab owns, under "merged" or the job it was made for,
+  // so coming back to a tab brings its own result back
+  var ENRTAB = {}, ENRWATCHING = null;
+  function enrRestore(){
+    var key = (BATCH && BTAB === "merged") ? "merged" : JOBID;
+    var id = key && ENRTAB[key];
+    if (!id) return;
+    if (ENR && ENR.run && ENR.run.run_id === id){
+      el("enrichout").hidden = false;
+      return;
+    }
+    if (ENRWATCHING === id) return;
+    watchRun(id);
+  }
+  function enrRefresh(runId){
+    var gen = ENRGEN;
+    return fetchRun(runId).then(function(r){
+      if (gen !== ENRGEN || !enrMine(r.run)) return;
+      ENR = r; renderEnrich();
+    });
+  }
   var ENRQ = "", QTIMER = null;
   // p ascending is the scientific default: strongest term first. Sorting by
   // gene count answers a different question - which term the list touches most
@@ -3617,26 +3650,32 @@ TAIL_JS = r"""
       QTIMER = setTimeout(function(){
         ENRQ = box.value.trim();
         el("termqx").hidden = !ENRQ;
-        if (ENR) fetchRun(ENR.run.run_id).then(function(r){
-          ENR = r; renderEnrich();
-        });
+        if (ENR) enrRefresh(ENR.run.run_id);
       }, 200);
     });
     el("termqx").addEventListener("click", function(){
       box.value = ""; ENRQ = ""; el("termqx").hidden = true;
-      if (ENR) fetchRun(ENR.run.run_id).then(function(r){
-        ENR = r; renderEnrich();
-      });
+      if (ENR) enrRefresh(ENR.run.run_id);
       box.focus();
     });
   }
 
   function watchRun(runId){
     clearTimeout(ENRPOLL);
+    // the tab and search this run belongs to; an answer that comes back
+    // after the page has moved on is dropped rather than drawn
+    var gen = ENRGEN;
+    ENRWATCHING = runId;
     el("enrichout").hidden = false;
     el("enrichstate").textContent = "starting";
     (function poll(){
+      if (gen !== ENRGEN) return;
       fetchRun(runId).then(function(r){
+        // file the run under the tab it belongs to, even if that tab
+        // is not the one on screen
+        if (r && r.run)
+          ENRTAB[ENRMERGED[r.run.run_id] ? "merged" : r.run.job_id] = r.run.run_id;
+        if (gen !== ENRGEN || !enrMine(r.run)) return;
         ENR = r;
         // The first answer is the only one that knows which ontologies came
         // back, so the opening tab can only be chosen once it has arrived.
@@ -3645,9 +3684,13 @@ TAIL_JS = r"""
         var srcs = Object.keys(r.terms_by_source || {});
         if (!ENRSRC && srcs.length){
           ENRSRC = srcs[0];
-          return fetchRun(runId).then(function(r2){ ENR = r2; });
+          return fetchRun(runId).then(function(r2){ if (gen === ENRGEN) ENR = r2; });
         }
       }).then(function(){
+        if (gen !== ENRGEN) return;
+        // a run that belongs to another tab is never drawn here
+        if (!ENR || ENR.run.run_id !== runId || !enrMine(ENR.run)) return;
+        el("enrichout").hidden = false;
         renderEnrich();
         var st = ENR.run.status;
         if (st === "queued" || st === "running"){
@@ -3657,6 +3700,7 @@ TAIL_JS = r"""
           gsIdle();
         }
       }).catch(function(){
+        if (gen !== ENRGEN) return;
         el("enrichstate").textContent = "could not be read";
         gsIdle();
       });
@@ -3721,7 +3765,7 @@ TAIL_JS = r"""
       b.addEventListener("click", function(){
         ENRSRC = b.dataset.src;
         ENRLIMIT = 20;
-        fetchRun(run.run_id).then(function(r){ ENR = r; renderEnrich(); });
+        enrRefresh(run.run_id);
       });
     });
 
@@ -3813,7 +3857,7 @@ TAIL_JS = r"""
     el("termmore").textContent = "show all " + total + " \u2192";
     el("termmore").onclick = function(){
       ENRLIMIT = 500;
-      fetchRun(run.run_id).then(function(r){ ENR = r; renderEnrich(); });
+      enrRefresh(run.run_id);
     };
   }
 
@@ -4296,7 +4340,7 @@ TAIL_JS = r"""
                               genes: genes.length ? genes : null})})
       .then(jsonOrThrow)
       .then(function(r){
-        BATCH = r.batch_id; BTAB = "merged";
+        { clearEnrichPanel(); ENRTAB = {}; ENRMERGED = {}; BATCH = r.batch_id; } BTAB = "merged";
         BJOBS = r.jobs.map(function(j){
           return {mirna: j.mirna, job_id: j.job_id, status: "queued"}; });
         if (r.failed && r.failed.length)
@@ -4358,10 +4402,9 @@ TAIL_JS = r"""
     Array.prototype.forEach.call(p.querySelectorAll(".btab"), function(b){
       b.addEventListener("click", function(){
         var next = b.getAttribute("data-tab");
-        // A merged run is about shared genes, so it holds on every tab.
-        // Anything else belongs to the tab that started it.
-        if (next !== BTAB && BENR !== "merged" && BENR !== next)
-          clearEnrichPanel();
+        // an enrichment run belongs to the tab it was started on, the
+        // merged tab included, so leaving a tab always clears it
+        if (next !== BTAB) clearEnrichPanel();
         BTAB = next; drawBatch();
       });
     });
@@ -4379,6 +4422,7 @@ TAIL_JS = r"""
     el("runbox").hidden = true;
     // Nothing to analyse until every search has finished.
     if (!ready) clearEnrichPanel();
+    else enrRestore();
     if (!ready){
       el("bpane").innerHTML = '<p class="bnote">The shared-gene view ' +
         'appears once every search has finished.</p>';
@@ -4468,7 +4512,7 @@ TAIL_JS = r"""
         .then(function(r){
           el("enrich").hidden = false;
           gsSetSource(true);
-          watchRun(r.run_id);
+          ENRMERGED[r.run_id] = 1; watchRun(r.run_id);
           el("enrich").scrollIntoView({behavior: "smooth", block: "start"});
         })
         .catch(function(e){ alert(e.message || "could not start"); })
@@ -4485,6 +4529,13 @@ TAIL_JS = r"""
   // from the tab that was just left.
   function clearEnrichPanel(){
     var e = el("enrich"), o = el("enrichout");
+    // stop anything still polling, and make any answer to it stale
+    clearTimeout(ENRPOLL);
+    ENRGEN++;
+    ENRWATCHING = null;
+    ENRSRC = null;
+    ENRLIMIT = 20;
+    if (typeof gsIdle === "function") gsIdle();
     // the panel itself stays on a miRNA's own tab, where it works exactly
     // as it does for a single search; only the merged tab waits for a run
     if (e) e.hidden = !!(BATCH && BTAB === "merged");
@@ -4495,6 +4546,19 @@ TAIL_JS = r"""
 
   // Starting a run from inside the enrichment or agreement panels
   // means it belongs to whichever miRNA tab is open.
+  // a new search starts with no enrichment and nothing still polling
+  (function(){
+    function hook(){
+      var f = document.getElementById("qform");
+      if (f) f.addEventListener("submit", function(){
+        clearEnrichPanel(); ENRTAB = {};
+      }, true);
+    }
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", hook);
+    else hook();
+  })();
+
   function watchEnrichOwner(){
     document.addEventListener("click", function(ev){
       if (!BATCH || BTAB === "merged") return;
@@ -4518,6 +4582,11 @@ TAIL_JS = r"""
         // works there and stays available. The merged tab builds its gene
         // set differently, so it waits for a run of its own.
         c.hidden = merged && BENR !== "merged";
+        return;
+      }
+      var out = el("enrichout");
+      if (out && (c === out || c.contains(out))){
+        // left alone: enrRestore decides, once the tab's job is set
         return;
       }
       c.hidden = merged;
@@ -4567,6 +4636,7 @@ TAIL_JS = r"""
     showMergedPanels(false);
     if (JOBID === jobId && !el("results").hidden) return;
     JOBID = jobId;
+    enrRestore();
     api("/jobs/" + jobId).then(function(job){
       JOBST = job; el("runbox").hidden = false; renderRun(job);
       PAGE.offset = 0; loadPage();
@@ -4678,6 +4748,7 @@ NETWORK_JS = """
   }
 
   function drawNetwork(d){
+    if (BATCH && BTAB === "merged") return;
     NETDATA = d;
     var P = netPalette();
     el("k1").style.background = P.mirbg;
@@ -4848,6 +4919,8 @@ NETWORK_JS = """
   }
 
   function netReload(){
+    // the network describes one miRNA, so the merged tab has none
+    if (BATCH && BTAB === "merged"){ el("netbox").hidden = true; return; }
     if (!JOBID || typeof vis === "undefined") return;
     api("/jobs/" + JOBID + "/network?sort=" + PAGE.sort +
         "&top_n=" + el("netn").value +
@@ -4868,6 +4941,7 @@ NETWORK_JS = """
       })
       .catch(function(e){
         console.warn("network: request failed", e);
+        if (BATCH && BTAB === "merged") return;
         el("netbox").hidden = false;
         el("netstate").textContent = "unavailable";
         el("netinfo").textContent = (e && e.message) || "could not load";
