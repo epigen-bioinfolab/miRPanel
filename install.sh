@@ -157,6 +157,14 @@ fi
 # ------------------------------------------------------- virtualenv, pip
 hr; printf ' Python packages\n\n'
 
+# A venv carries absolute paths, so one copied or moved from elsewhere
+# looks present but does not run. Activating it silently does nothing and
+# pip then hits the system Python, which Debian refuses.
+if [ -d venv ] && ! venv/bin/python3 -c "import sys" >/dev/null 2>&1; then
+  printf '  the existing venv does not work here, rebuilding it\n'
+  rm -rf venv
+fi
+
 if [ ! -d venv ]; then
   printf '  creating venv\n'
   python3 -m venv venv || exit 1
