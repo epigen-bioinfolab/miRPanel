@@ -14,7 +14,7 @@ cd "$ROOT" || exit 1
 VERSION="v0.1.0"
 ARCHIVE="mirpanel-data-${VERSION}.tar.gz"
 DATA_URL="https://github.com/epigen-bioinfolab/miRPanel/releases/download/${VERSION}/${ARCHIVE}"
-DATA_SHA="3dbe163f614058cf4af670ea69542cf52c78b8a8eac96b5106c2eb440a7a2373"
+DATA_SHA="ddbfc270aa7a98f160725df47f33cc5e250917f25594df53ccb8b4f15072e983"
 
 DB="data/processed/mirna.db"
 MANE="data/raw/MANE.GRCh38.v1.5.refseq_rna.gbff.gz"
