@@ -51,9 +51,11 @@ Working with another species? Upload your own and miRPanel searches it the same 
 1. **Transcript sequences** — a FASTA file of transcript (cDNA) sequences
 2. **Annotation** — the matching GTF file, so miRPanel knows where the 5′UTR, CDS and 3′UTR lie in each transcript
 
-The transcript IDs must be the same in both files. Downloading both from the same Ensembl release is the easiest way to make sure they match.
+The transcript IDs must be the same in both files. Downloading both from the same Ensembl release is the easiest way to make sure they match. Annotation that reaches Ensembl from WormBase, FlyBase or the plant divisions works too, even though it carries no canonical tag — miRPanel then takes the longest coding transcript per gene.
 
-Your own organism is searched with the seed analyser, RNAhybrid and scanMiR. TargetScan and miRTarBase only cover the species they were built for.
+Your own organism is searched with the seed analyser, RNAhybrid and scanMiR.
+
+**Pathway analysis still works.** Give the scientific name when you upload, and miRPanel looks the species up in AnnotationHub, which carries GO annotation for roughly two thousand species. GO and KEGG enrichment then run on your organism exactly as they do on the built-in ones.
 
 ### From prediction to biology, in one place
 
