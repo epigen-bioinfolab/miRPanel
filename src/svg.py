@@ -225,6 +225,16 @@ def _tick_label(p, length):
     return str(p)
 
 
+def _txid(s):
+    """A transcript id without the internal upload prefix.
+
+    An uploaded organism stores up_<id>|<transcript> so two uploads
+    cannot collide. The prefix means nothing to the reader.
+    """
+    s = str(s or "")
+    return s.split("|", 1)[1] if s.startswith("up_") and "|" in s else s
+
+
 def binding_map(symbol, refseq, length, regions, seed_sites, rh_sites,
                 width=820):
     """One transcript drawn to scale, with its sites.
@@ -252,7 +262,7 @@ def binding_map(symbol, refseq, length, regions, seed_sites, rh_sites,
 
     o.append('<text class="mp-title" x="0" y="12">%s <tspan class="mp-tx">%s '
              '· %s nt</tspan></text>'
-             % (_esc(symbol), _esc(refseq), "{:,}".format(L)))
+             % (_esc(symbol), _esc(_txid(refseq)), "{:,}".format(L)))
 
     maj = _ticks(L)
     minor = maj / 4.0

@@ -82,14 +82,49 @@ def _attrs(field):
 
 # ---------------------------------------------------------------- GTF
 
+def _has_canonical(path):
+    """Whether this GTF marks canonical transcripts at all.
+
+    Ensembl tags one transcript per gene with Ensembl_canonical, but
+    only for the annotation it builds itself. WormBase, FlyBase and the
+    plant divisions reach Ensembl without it.
+    """
+    for line in _open(path):
+        if not line.startswith("#") and "Ensembl_canonical" in line:
+            return True
+    return False
+
+
+def one_per_gene(tx):
+    """Reduce to one transcript per gene: longest CDS, then longest.
+
+    A no-op on a GTF that already carries canonical tags, since there
+    is only one transcript per gene to choose from. The transcript id
+    breaks ties, so the same GTF always gives the same answer.
+    """
+    best = {}
+    for tid, rec in tx.items():
+        gene = rec.get("gene") or tid
+        cds = sum(b - a + 1 for a, b in rec.get("cds", []))
+        exons = sum(b - a + 1 for a, b in rec.get("exons", []))
+        score = (cds, exons, tid)
+        if gene not in best or score > best[gene][0]:
+            best[gene] = (score, tid)
+    return {tid: tx[tid] for _, tid in best.values()}
+
+
 def read_gtf(path):
-    """{transcript_id: record} for canonical transcripts only.
+    """{transcript_id: record}, one transcript per gene.
 
     Ensembl marks one transcript per gene with tag "Ensembl_canonical".
     That is the direct analogue of MANE Select: one transcript per
     gene, so a gene is counted once and never double-reported across
     isoforms.
+
+    A GTF without that tag is not rejected. Everything is kept here
+    and build() reduces it with one_per_gene().
     """
+    canonical = _has_canonical(path)
     tx = {}
     kept = set()
     for line in _open(path):
@@ -107,7 +142,7 @@ def read_gtf(path):
             continue
 
         if feat == "transcript":
-            if "Ensembl_canonical" not in a["tags"]:
+            if canonical and "Ensembl_canonical" not in a["tags"]:
                 continue
             kept.add(tid)
             tx[tid] = {
@@ -214,9 +249,16 @@ def regions_of(length, cds_start, cds_end):
 # -------------------------------------------------------------- FASTA
 
 def read_fasta(path, wanted):
-    """{transcript_id_without_version: sequence} for wanted ids only.
+    """{transcript_id: sequence} for wanted ids only, keyed as the GTF.
 
-    Streamed and filtered so only canonical transcripts are held in
+    An Ensembl cDNA header carries the version - ENST00000123456.7 -
+    where the GTF's transcript_id does not, so the version has to come
+    off for the two to meet. WormBase and FlyBase ids are built from
+    dots, F07C3.7.1, and already match the GTF exactly; stripping would
+    destroy them. So the whole id is tried first and a trailing version
+    removed only if that fails.
+
+    Streamed and filtered so only the chosen transcripts are held in
     memory - the full cDNA file is several hundred MB unpacked.
     """
     seqs, tid, buf = {}, None, []
@@ -225,8 +267,12 @@ def read_fasta(path, wanted):
             if tid:
                 seqs[tid] = "".join(buf)
             head = line[1:].split(None, 1)[0]
-            base = head.split(".")[0]
-            tid, buf = (base if base in wanted else None), []
+            if head in wanted:
+                key = head
+            else:
+                stem = head.rsplit(".", 1)[0]
+                key = stem if stem in wanted else None
+            tid, buf = key, []
         elif tid:
             buf.append(line.strip())
     if tid:
@@ -260,9 +306,11 @@ def build(key, fasta_path, gtf_path, keep_noncoding=False):
     """
     gtf = read_gtf(gtf_path)
     if not gtf:
-        sys.exit("no canonical transcripts found - is this an Ensembl GTF?")
+        sys.exit("no transcripts found in the annotation file.")
+    gtf = one_per_gene(gtf)
 
-    by_base = {t.split(".")[0]: t for t in gtf}
+    # keyed by the GTF's own transcript_id; read_fasta meets it there
+    by_base = {t: t for t in gtf}
     seqs = read_fasta(fasta_path, set(by_base))
 
     rows, problems = [], []

@@ -287,12 +287,12 @@ def execute(con, upload_id):
     try:
         rows, problems, counts = le.build(key, fasta_path, gtf_path)
     except SystemExit as exc:
-        # build() exits when the GTF has no canonical transcripts at all.
+        # build() exits when it can read no transcripts from the GTF.
         _fail(con, upload_id,
-              "Could not read the annotation file. %s Ensembl GTFs mark one "
-              "transcript per gene with the Ensembl_canonical tag; a GFF3, "
-              "a GTF from another source, or a partial download will not "
-              "have it." % (str(exc) or ""))
+              "Could not read the annotation file. %s A GTF is expected, "
+              "with transcript and exon lines. A GFF3, a file from another "
+              "source, or a partial download will not parse."
+              % (str(exc) or ""))
     except Exception as exc:
         _fail(con, upload_id, "Could not parse the files: %r" % (exc,))
 

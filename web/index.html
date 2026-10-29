@@ -4069,7 +4069,7 @@ table.results tbody tr.generow.sel:hover > td{
     }
     var RL = {"5UTR": "5\u2032UTR", "CDS": "CDS", "3UTR": "3\u2032UTR"};
     el("netinfo").innerHTML =
-      "<h4>" + nesc(n.label) + " <span class='txid'>" + nesc(n.refseq) +
+      "<h4>" + nesc(n.label) + " <span class='txid'>" + nesc(txid(n.refseq)) +
       "</span></h4><dl>" +
       netRow("tools reporting", n.tools.map(nesc).join(", ")) +
       netRow("regions", (n.regions || []).map(function(r){
@@ -4350,6 +4350,11 @@ table.results tbody tr.generow.sel:hover > td{
   /* the server chose the gene order; do not re-sort the page */
   function order(){ return GENES.slice(); }
 
+  // An uploaded organism keys its transcripts up_<id>|<transcript> so
+  // that two uploads cannot collide. The prefix is ours, not the
+  // reader's, so it is dropped wherever a transcript is named.
+  function txid(s){ return String(s == null ? "" : s).replace(/^up_[0-9a-f]+\|/, ""); }
+
   function revcomp(s){
     var m = {A: "T", T: "A", G: "C", C: "G", U: "A"};
     return String(s).toUpperCase().split("").reverse().map(function(c){
@@ -4435,9 +4440,17 @@ table.results tbody tr.generow.sel:hover > td{
       RUN.job + " · " + RUN.date + " · " + RUN.results.toLocaleString() +
       " records · " + PAGE.total.toLocaleString() + " genes with a result";
 
+    // MANE Select is human only. Everything else is one transcript per
+    // gene chosen another way, and the panel should say which.
+    var whole = "every canonical transcript (one per gene)";
+    if (String(JOBST.species || "").indexOf("upload:") === 0)
+      whole = "every transcript in your annotation (one per gene)";
+    else if (JOBST.species === "human")
+      whole = "every MANE Select transcript (one per gene)";
+
     var scanned = (JOBST.params.genes && JOBST.params.genes.length)
       ? JOBST.params.genes.length + " gene" + (JOBST.params.genes.length === 1 ? "" : "s")
-      : "every MANE Select transcript (one per gene)";
+      : whole;
 
     el("qpanel").innerHTML = facts([
       ["miRNA", MIR ? MIR.name : JOBST.params.mirna_name],
@@ -4465,7 +4478,8 @@ table.results tbody tr.generow.sel:hover > td{
     p.genes.forEach(function(g){
       var cds = null;
       g.regions.forEach(function(r){ if (r.region === "CDS") cds = [r.start, r.end]; });
-      TX[g.symbol] = {rs: g.refseq, len: g.length, cds: cds || [1, g.length]};
+      TX[g.symbol] = {rs: txid(g.refseq), len: g.length,
+                      cds: cds || [1, g.length]};
       GENES.push(g.symbol);
     });
     p.results.forEach(function(r){
