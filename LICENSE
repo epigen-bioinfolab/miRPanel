@@ -1,8 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Aungshuman Das and the Epigenetics and Bioinformatics
-Research Laboratory, Department of Genetic Engineering and Biotechnology,
-University of Dhaka
+Copyright (c) 2026 Epigenetics and Bioinformatics Research Laboratory
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,18 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This licence covers the miRPanel source code only.
-
-The reference database distributed with miRPanel releases, and included in
-the Docker image, contains data derived from resources published by others:
-MANE (NCBI and EMBL-EBI), Ensembl, miRBase, TargetScan and miRTarBase. Each
-remains under its own terms of use, which apply to you as they would to any
-other user of that resource. Please cite the original resources in any work
-that relies on their data.
-
-The Docker image also contains R, Bioconductor packages and RNAhybrid, each
-distributed under its own licence. The bundled JavaScript library
-vis-network is distributed under its own licence; see web/vendor/.
