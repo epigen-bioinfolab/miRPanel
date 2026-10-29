@@ -10,7 +10,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)
 ![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg)
 
-### Overview
+## Overview
 
 Finding the targets of a microRNA usually means running several prediction tools one after another, each with its own input format, its own output and its own idea of what a good score looks like. The answers rarely agree, and reconciling them is left to the researcher.
 
@@ -28,9 +28,9 @@ A site found by several tools is a far stronger candidate than one with a single
 
 *Figure 1. The miRPanel workflow. Five prediction methods are run on the same transcriptome, their results are compared for agreement, and the genes they support are taken forward to GO and KEGG enrichment and a target network. Values shown are illustrative.*
 
-### Features
+## Features
 
-#### Five tools, one run
+### Five tools, one run
 
 | Tool | Basis | What it reports |
 |---|---|---|
@@ -42,7 +42,7 @@ A site found by several tools is a far stronger candidate than one with a single
 
 Each tool looks at targeting from a different angle — sequence, thermodynamics, conservation, measured affinity and experiment. Together they give a fuller picture than any one of them alone.
 
-#### Five organisms, or your own
+### Any organism
 
 Built in: human, mouse, rat, rabbit and *Drosophila*, each with its full transcriptome ready to search.
 
@@ -55,7 +55,7 @@ The transcript IDs must be the same in both files. Downloading both from the sam
 
 Your own organism is searched with the seed analyser, RNAhybrid and scanMiR. TargetScan and miRTarBase only cover the species they were built for.
 
-#### From prediction to biology, in one place
+### From prediction to biology, in one place
 
 - **Whole-transcriptome or targeted search.** Scan every gene, or only the genes you name.
 - **Several miRNAs at once.** Search up to 20 miRNAs together and see which genes they share.
@@ -67,7 +67,7 @@ Your own organism is searched with the seed analyser, RNAhybrid and scanMiR. Tar
 - **Export everything** as TSV or Excel.
 - **A built-in guide** on the page, explaining what every score means and how to read it.
 
-### System Requirements
+## System Requirements
 
 | Requirement | Details |
 |---|---|
@@ -78,11 +78,11 @@ Your own organism is searched with the seed analyser, RNAhybrid and scanMiR. Tar
 
 Docker images are built for x86-64.
 
-### Installation
+## Installation
 
 miRPanel can be installed in two ways. Docker is the simplest and fastest one: R, the Bioconductor packages, RNAhybrid and the reference database all arrive ready to run in a single download. The other one is native install that sets each component up directly on your system.
 
-#### Option 1 — Docker (recommended)
+### Option 1 — Docker (recommended)
 
 **Step 1. Install Docker**
 
@@ -115,7 +115,7 @@ Everything miRPanel needs — R, the Bioconductor packages, RNAhybrid and the fu
 
 Your results are kept inside the container. Stop and start keep them, but remove deletes them. Export anything you want to keep.
 
-#### Option 2 — Native install
+### Option 2 — Native install
 
 **Step 1. System packages**
 
@@ -163,9 +163,9 @@ chmod +x install.sh launch.sh && ./install.sh
 
 Open http://localhost:8000.
 
-### Quick Start
+## Quick Start
 
-#### Searching several miRNAs
+### Searching several miRNAs
 
 Use this when you have a list of miRNAs — for example from a differential expression study — and want to know which genes they target together.
 
@@ -181,7 +181,7 @@ Use this when you have a list of miRNAs — for example from a differential expr
 
 You get a *Merged result* tab showing the genes your miRNAs share, plus one tab for each miRNA on its own.
 
-#### Searching a single miRNA
+### Searching a single miRNA
 
 Use this to study one miRNA in depth.
 
@@ -193,11 +193,11 @@ Use this to study one miRNA in depth.
 
 A whole-transcriptome search with all five tools takes a few minutes.
 
-### Reading the Results
+## Reading the Results
 
 The results page is laid out in the order you would naturally work through it: what was found, where, how much the tools agree, and what it means biologically.
 
-#### The Result Table
+### The Result Table
 
 ![The result table](docs/screens/result-table.png)
 
@@ -222,7 +222,7 @@ It helps you replace five separate outputs in five formats with a single view, a
 
 “Search genes” looks through the whole result, not only the page in view. “Sort” reorders by any tool's score, with genes that tool did not report placed last. “Region” removes sites outside the regions you tick.
 
-#### Tool Agreement
+### Tool Agreement
 
 ![Tool agreement](docs/screens/tool-agreement.png)
 
@@ -234,7 +234,7 @@ It helps you separate well-supported targets from noise. Every prediction method
 
 Click any region to list exactly those genes. *Run enrichment on these genes* then takes that set straight to GO and KEGG, so the genes you test are precisely the genes you selected.
 
-#### Pathway Analysis
+### Pathway Analysis
 
 ![Building a gene set](docs/screens/pathway-analysis.png)
 
@@ -248,7 +248,7 @@ It helps you move from a list of targets to a biological hypothesis — not just
 
 *Figure 5. Enriched GO and KEGG terms for the selected gene set, with the number of genes in each term and the adjusted p-value.*
 
-#### Target Network
+### Target Network
 
 ![Target network](docs/screens/target-network.png)
 
@@ -258,7 +258,7 @@ This section shows the miRNA and its top targets as an interactive network. Thic
 
 It helps you see the structure of a result at a glance: which targets carry the most support, and which of them work together in the same pathways. Groups of connected targets often point to the process a miRNA controls most strongly. Click any node or link to see the evidence behind it, and choose to show the top 25, 50 or 100 targets.
 
-#### Merged Result — several miRNAs
+### Merged Result — several miRNAs
 
 ![Merged result](docs/screens/merged-result.png)
 
@@ -274,7 +274,7 @@ It helps you find where a set of miRNAs acts together. miRNAs rarely work alone 
 
 Each miRNA also keeps its own tab, with the full result table, binding map, tool agreement, pathway analysis and network for that miRNA alone.
 
-### Troubleshooting
+## Troubleshooting
 
 | Problem | Solution |
 |---|---|
@@ -287,7 +287,7 @@ Each miRNA also keeps its own tab, with the full result table, binding map, tool
 
 Run `python3 scripts/check_env.py` at any time to check a native installation.
 
-### Contact
+## Contact
 
 For bugs, questions or feature requests, please [open an issue](https://github.com/epigen-bioinfolab/miRPanel/issues).
 
@@ -295,6 +295,6 @@ For bugs, questions or feature requests, please [open an issue](https://github.c
 - Email: [epigen.bioinfolab@gmail.com](mailto:epigen.bioinfolab@gmail.com)
 - Corresponding author: [khademul@du.ac.bd](mailto:khademul@du.ac.bd)
 
-### License
+## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
